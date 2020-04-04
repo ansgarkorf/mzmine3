@@ -20,7 +20,6 @@ package io.github.mzmine.modules.dataprocessing.id_lipididentification.lipidutil
 
 import java.util.Map;
 import javax.annotation.Nonnull;
-
 import io.github.mzmine.datamodel.impl.SimplePeakIdentity;
 import io.github.mzmine.modules.dataprocessing.id_lipididentification.lipids.LipidClasses;
 import io.github.mzmine.util.FormulaUtils;
@@ -32,23 +31,33 @@ import io.github.mzmine.util.FormulaUtils;
  */
 public class LipidIdentity extends SimplePeakIdentity {
 
+  private static final LipidFactory LIPID_FACTORY = new LipidFactory();
+
   private double exactMass;
   private String sumFormula;
   private LipidClasses lipidClass;
-  private static LipidChainBuilder chainBuilder = new LipidChainBuilder();
 
+  // public LipidIdentity(final LipidClasses lipidClass, final int chainLength,
+  // final int chainDoubleBonds, final int numberOfAcylChains, final int numberOfAlkylChains) {
+  // this(
+  // lipidClass.getName() + " " + lipidClass.getAbbr() + '(' + chainLength + ':'
+  // + chainDoubleBonds + ')',
+  // lipidClass.getBackBoneFormula() + chainBuilder.calculateChainFormula(chainLength,
+  // chainDoubleBonds, numberOfAcylChains, numberOfAlkylChains));
+  // this.lipidClass = lipidClass;
+  //
+  // }
   public LipidIdentity(final LipidClasses lipidClass, final int chainLength,
-      final int chainDoubleBonds, final int numberOfAcylChains, final int numberOfAlkylChains) {
-    this(
-        lipidClass.getName() + " " + lipidClass.getAbbr() + '(' + chainLength + ':'
-            + chainDoubleBonds + ')',
-        lipidClass.getBackBoneFormula() + chainBuilder.calculateChainFormula(chainLength,
-            chainDoubleBonds, numberOfAcylChains, numberOfAlkylChains));
+      final int chainDoubleBonds, LipidChainType[] chainTypes) {
+
+    this(LIPID_FACTORY.buildLipid(lipidClass, chainLength, chainDoubleBonds, chainTypes).getName(),
+        LIPID_FACTORY.buildLipid(lipidClass, chainLength, chainDoubleBonds, chainTypes)
+            .getFormula());
     this.lipidClass = lipidClass;
 
   }
 
-  private LipidIdentity(final String name, final String formula) {
+  public LipidIdentity(final String name, final String formula) {
     super(name);
     // Parse formula
     Map<String, Integer> parsedFormula = FormulaUtils.parseFormula(formula);

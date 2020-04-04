@@ -41,5 +41,11 @@ public class LipidFragmentationRule {
   public String getMolecularFormula() {
     return molecularFormula;
   }
-  
+
+  @Override
+  public String toString() {
+    return "LipidFragmentationRule [polarityType=" + polarityType + ", ionizationType="
+        + ionizationType + ", lipidFragmentationRuleType=" + lipidFragmentationRuleType
+        + ", molecularFormula=" + molecularFormula + "]";
+  }
 }

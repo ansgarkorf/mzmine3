@@ -18,6 +18,9 @@
 
 package io.github.mzmine.modules.dataprocessing.id_lipididentification.lipidutils;
 
+import org.openscience.cdk.interfaces.IMolecularFormula;
+import io.github.mzmine.util.FormulaUtils;
+
 /**
  * This class contains a method to build radyl chains for lipids.
  * 
@@ -25,29 +28,55 @@ package io.github.mzmine.modules.dataprocessing.id_lipididentification.lipidutil
  */
 public class LipidChainBuilder {
 
-  LipidChainBuilder() {
-
+  public IMolecularFormula buildLipidChainFormula(LipidChainType chainType, int chainLength,
+      int numberOfDB) {
+    switch (chainType) {
+      case ACYL_CHAIN:
+        return calculateMolecularFormulaAcylChain(chainLength, numberOfDB);
+      case ALKYL_CHAIN:
+        return calculateMolecularFormulaAlkylChain(chainLength, numberOfDB);
+      default:
+        return calculateMolecularFormulaAcylChain(chainLength, numberOfDB);
+    }
   }
+
+  private IMolecularFormula calculateMolecularFormulaAcylChain(int chainLength,
+      int numberOfDoubleBonds) {
+    int numberOfCAtoms = chainLength;
+    int numberOfHAtoms = numberOfCAtoms * 2 - numberOfDoubleBonds * 2;
+    int numberOfOAtoms = 2;
+    return FormulaUtils.createMajorIsotopeMolFormula(
+        "C" + numberOfCAtoms + "H" + numberOfHAtoms + "O" + numberOfOAtoms);
+  }
+
+  private IMolecularFormula calculateMolecularFormulaAlkylChain(int chainLength,
+      int numberOfDoubleBonds) {
+    int numberOfCAtoms = chainLength;
+    int numberOfHAtoms = numberOfCAtoms * 2 - numberOfDoubleBonds * 2 + 2;
+    return FormulaUtils.createMajorIsotopeMolFormula("C" + numberOfCAtoms + "H" + numberOfHAtoms);
+  }
+
+
 
   /**
    * This method builds radyl chains for lipids based on the user set parameters chain length, chain
    * double bonds, number of acyl chains and number of alky chains
    */
-  public String calculateChainFormula(final int chainLength, final int chainDoubleBonds,
-      final int numberOfAcylChains, final int numberOfAlkylChains) {
-    String chainFormula = null;
-    if (chainLength > 0) { // +1 H for CH3 last CH3 group
-      final int numberOfHydrogens = (1 * numberOfAcylChains + 1 * numberOfAlkylChains)// +1H for las
-                                                                                      // CH3 group
-          + (chainLength * 2 - chainDoubleBonds * 2) // double bond
-                                                     // correction
-          - 2 * numberOfAcylChains; // remove 2 H for C in acyl group
-      final int numberOfCarbons = chainLength - numberOfAcylChains;
-      // correctNumberOfCarbons(chainLength, numberOfAcylChains,
-      // numberOfAlkylChains);
-      chainFormula = "C" + numberOfCarbons + 'H' + numberOfHydrogens;
-    }
-    return chainFormula;
-  }
+  // public String calculateChainFormula(final int chainLength, final int chainDoubleBonds,
+  // final int numberOfAcylChains, final int numberOfAlkylChains) {
+  // String chainFormula = null;
+  // if (chainLength > 0) { // +1 H for CH3 last CH3 group
+  // final int numberOfHydrogens = (1 * numberOfAcylChains + 1 * numberOfAlkylChains)// +1H for las
+  // // CH3 group
+  // + (chainLength * 2 - chainDoubleBonds * 2) // double bond
+  // // correction
+  // - 2 * numberOfAcylChains; // remove 2 H for C in acyl group
+  // final int numberOfCarbons = chainLength - numberOfAcylChains;
+  // // correctNumberOfCarbons(chainLength, numberOfAcylChains,
+  // // numberOfAlkylChains);
+  // chainFormula = "C" + numberOfCarbons + 'H' + numberOfHydrogens;
+  // }
+  // return chainFormula;
+  // }
 
 }

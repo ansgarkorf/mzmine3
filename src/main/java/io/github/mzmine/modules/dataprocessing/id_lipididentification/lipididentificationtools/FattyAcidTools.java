@@ -19,8 +19,10 @@
 package io.github.mzmine.modules.dataprocessing.id_lipididentification.lipididentificationtools;
 
 import java.util.ArrayList;
-
+import java.util.List;
+import org.openscience.cdk.interfaces.IMolecularFormula;
 import io.github.mzmine.datamodel.PeakIdentity;
+import io.github.mzmine.util.FormulaUtils;
 
 /**
  * This class contains methods to build fatty acids for MS/MS identification of lipids
@@ -32,8 +34,8 @@ public class FattyAcidTools {
   /**
    * This method calculates all possible fatty acids formulas for a selected annotated lipid
    */
-  public ArrayList<String> calculateFattyAcidFormulas(PeakIdentity peakIdentity) {
-    ArrayList<String> fattyAcidFormulas = new ArrayList<String>();
+  public List<String> calculateFattyAcidFormulas(PeakIdentity peakIdentity) {
+    List<String> fattyAcidFormulas = new ArrayList<>();
     LipidTools lipidTools = new LipidTools();
     int minFattyAcidLength = 1;
     int maxFattyAcidLength = lipidTools.getNumberOfCAtoms(peakIdentity.getName());
@@ -45,7 +47,7 @@ public class FattyAcidTools {
       for (int fattyAcidDoubleBonds =
           minNumberOfDoubleBonds; fattyAcidDoubleBonds <= maxNumberOfDoubleBonds; fattyAcidDoubleBonds++) {
         if (((fattyAcidDoubleBonds >= 0)
-            && (fattyAcidDoubleBonds > fattyAcidLength - 1) == false)) {
+            && (fattyAcidDoubleBonds <= fattyAcidLength - 1))) {
           fattyAcidFormulas.add(calculateFattyAcidFormula(fattyAcidLength, fattyAcidDoubleBonds));
         }
       }
@@ -57,9 +59,9 @@ public class FattyAcidTools {
   /**
    * This method creates all possible fatty acid names for a selected annotated lipid
    */
-  public ArrayList<String> getFattyAcidNames(PeakIdentity peakIdentity) {
+  public List<String> getFattyAcidNames(PeakIdentity peakIdentity) {
 
-    ArrayList<String> fattyAcidNames = new ArrayList<String>();
+    List<String> fattyAcidNames = new ArrayList<>();
     LipidTools lipidTools = new LipidTools();
     int minFattyAcidLength = 1;
     int maxFattyAcidLength = lipidTools.getNumberOfCAtoms(peakIdentity.getName());
@@ -71,7 +73,7 @@ public class FattyAcidTools {
       for (int fattyAcidDoubleBonds =
           minNumberOfDoubleBonds; fattyAcidDoubleBonds <= maxNumberOfDoubleBonds; fattyAcidDoubleBonds++) {
         if (((fattyAcidDoubleBonds >= 0)
-            && (fattyAcidDoubleBonds > fattyAcidLength - 1) == false)) {
+            && (fattyAcidDoubleBonds <= fattyAcidLength - 1))) {
           fattyAcidNames.add(getFattyAcidName(fattyAcidLength, fattyAcidDoubleBonds));
         }
       }
@@ -81,20 +83,35 @@ public class FattyAcidTools {
   }
 
   /**
-   * This method creates a String sum formula for a fatty acid
+   * This method creates a String molecularFormula formula for a fatty acid
    */
   public String calculateFattyAcidFormula(int fattyAcidLength, int fattyAcidDoubleBonds) {
     int numberOfHydrogens = fattyAcidLength * 2 - fattyAcidDoubleBonds * 2;
-    String fattyAcidFormula = "C" + fattyAcidLength + 'H' + numberOfHydrogens + 'O' + 2;
-
-    return fattyAcidFormula;
+    return "C" + fattyAcidLength + 'H' + numberOfHydrogens + 'O' + 2;
   }
 
   /**
    * This method creates the systematic name of a fatty acid
    */
   public String getFattyAcidName(int fattyAcidLength, int fattyAcidDoubleBonds) {
-    return new String("(" + fattyAcidLength + ":" + fattyAcidDoubleBonds + ")");
+    return "(" + fattyAcidLength + ":" + fattyAcidDoubleBonds + ")";
+  }
+
+  public int getChainLengthFromFormula(String fattyAcidFormula) {
+    IMolecularFormula formula = FormulaUtils.createMajorIsotopeMolFormula(fattyAcidFormula);
+    return FormulaUtils.countElement(formula, "C");
+  }
+
+  public int getNumberOfDoubleBondsFromFormula(String fattyAcidFormula) {
+    IMolecularFormula formula = FormulaUtils.createMajorIsotopeMolFormula(fattyAcidFormula);
+    int chainLength = FormulaUtils.countElement(formula, "C");
+    int numberOfHydrogen = FormulaUtils.countElement(formula, "H");
+    int delta = (chainLength * 2 - numberOfHydrogen);
+    if (delta > 0) {
+      return delta / 2;
+    } else {
+      return 0;
+    }
   }
 
 }

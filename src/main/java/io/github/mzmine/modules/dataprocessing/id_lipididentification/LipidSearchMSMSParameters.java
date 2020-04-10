@@ -20,6 +20,7 @@ package io.github.mzmine.modules.dataprocessing.id_lipididentification;
 
 import io.github.mzmine.parameters.Parameter;
 import io.github.mzmine.parameters.impl.SimpleParameterSet;
+import io.github.mzmine.parameters.parametertypes.BooleanParameter;
 import io.github.mzmine.parameters.parametertypes.MassListParameter;
 import io.github.mzmine.parameters.parametertypes.ModuleComboParameter;
 import io.github.mzmine.parameters.parametertypes.tolerances.MZToleranceParameter;
@@ -38,8 +39,12 @@ public class LipidSearchMSMSParameters extends SimpleParameterSet {
           "Algorithm to calculate similarity and filter matches",
           SpectralSimilarityFunction.FUNCTIONS);
 
+  public static final BooleanParameter keepUnconfirmedAnnotations = new BooleanParameter(
+      "Keep unconfirmed annotations",
+      "WARNING!: If checked, annotations based on accurate mass without headgroup fragment annotations are kept.");
+
   public LipidSearchMSMSParameters() {
-    super(new Parameter[] {massList, mzToleranceMS2});
+    super(new Parameter[] {massList, mzToleranceMS2, keepUnconfirmedAnnotations});
   }
 
 }

@@ -18,6 +18,7 @@
 
 package io.github.mzmine.modules.dataprocessing.id_lipididentification.lipididentificationtools;
 
+import io.github.mzmine.modules.dataprocessing.id_lipididentification.lipidutils.LipidIdentity;
 import io.github.mzmine.util.FormulaUtils;
 
 /**
@@ -157,4 +158,14 @@ public class LipidTools {
     return sumFormula;
   }
 
+  public LipidIdentity generateChainCompositon(LipidIdentity molecularFormulaIdentity, String fattyAcidComposition) {
+    // remove FA from annotation
+    String composition = fattyAcidComposition.replace("FA", "");
+
+    String name = molecularFormulaIdentity.getLipidClass().getName() + " "
+        + molecularFormulaIdentity.getLipidClass().getAbbr() + composition;
+
+    return new LipidIdentity(name, molecularFormulaIdentity.getFormula());
+
+  }
 }

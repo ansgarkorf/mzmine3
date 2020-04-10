@@ -19,6 +19,8 @@
 package io.github.mzmine.modules.dataprocessing.id_lipididentification.lipids;
 
 import java.text.NumberFormat;
+import java.util.Arrays;
+import java.util.List;
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.JFreeChart;
 import org.jfree.chart.axis.NumberAxis;
@@ -32,7 +34,9 @@ import io.github.mzmine.gui.chartbasics.gui.javafx.EChartViewer;
 import io.github.mzmine.gui.preferences.MZminePreferences;
 import io.github.mzmine.main.MZmineCore;
 import io.github.mzmine.modules.dataprocessing.id_lipididentification.LipidSearchParameters;
+import io.github.mzmine.modules.dataprocessing.id_lipididentification.lipididentificationtools.LipidFragmentationRule;
 import io.github.mzmine.modules.dataprocessing.id_lipididentification.lipids.lipidmodifications.LipidModification;
+import io.github.mzmine.modules.dataprocessing.id_lipididentification.lipidutils.LipidChainType;
 import io.github.mzmine.modules.dataprocessing.id_lipididentification.lipidutils.LipidIdentity;
 import io.github.mzmine.parameters.ParameterSet;
 import io.github.mzmine.parameters.parametertypes.tolerances.MZTolerance;
@@ -152,8 +156,7 @@ public class LipidDatabaseTableController {
     int id = 1;
 
     for (int i = 0; i < selectedLipids.length; i++) {
-      int numberOfAcylChains = selectedLipids[i].getNumberOfAcylChains();
-      int numberOfAlkylChains = selectedLipids[i].getNumberofAlkyChains();
+      LipidChainType[] chainTypes = selectedLipids[i].getChainTypes();
       for (int chainLength = minChainLength; chainLength <= maxChainLength; chainLength++) {
         for (int chainDoubleBonds =
             minDoubleBonds; chainDoubleBonds <= maxDoubleBonds; chainDoubleBonds++) {
@@ -171,8 +174,12 @@ public class LipidDatabaseTableController {
           }
           // Prepare a lipid instance
           LipidIdentity lipidChain = new LipidIdentity(selectedLipids[i], chainLength,
-              chainDoubleBonds, numberOfAcylChains, numberOfAlkylChains);
-
+              chainDoubleBonds, chainTypes);
+          List<LipidFragmentationRule> fragmentationRules = Arrays.asList(selectedLipids[i].getFragmentationRules());
+          StringBuilder fragmentationRuleSB = new StringBuilder();
+          fragmentationRules.stream().forEach(rule -> {
+            fragmentationRuleSB.append(rule.toString());
+          });
           tableData.add(new LipidClassDescription(String.valueOf(id), // id
               selectedLipids[i].getCoreClass().getName(), // core class
               selectedLipids[i].getMainClass().getName(), // main class
@@ -184,10 +191,10 @@ public class LipidDatabaseTableController {
                                                                                          // mass
               "", // info
               "", // status
-              String.join(", ", selectedLipids[i].getMsmsFragmentsPositiveIonization()), // msms
-                                                                                         // fragments
-                                                                                         // postive
-              String.join(", ", selectedLipids[i].getMsmsFragmentsNegativeIonization()))); // msms
+              // TODO separate negative and positive
+              fragmentationRuleSB
+                  .toString(), // msms
+              String.join(", ", selectedLipids[i].getFragmentationRules().toString()))); // msms
                                                                                            // fragments
                                                                                            // negative
           id++;
@@ -253,13 +260,13 @@ public class LipidDatabaseTableController {
         // Always invoke super constructor.
         super.updateItem(item, empty);
         if (getIndex() >= 0) {
-          if (tableData.get(getIndex()).getInfo().toString().contains("Possible interference")) {
-            this.setStyle("-fx-background-color:#" + ColorsFX.toHexString(possibleInterFX));
-          } else if (tableData.get(getIndex()).getInfo().contains("Interference")) {
-            this.setStyle("-fx-background-color:#" + ColorsFX.toHexString(interFX));
-          } else {
-            this.setStyle("-fx-background-color:#" + ColorsFX.toHexString(noInterFX));
-          }
+          // if (tableData.get(getIndex()).getInfo().toString().contains("Possible interference")) {
+          // this.setStyle("-fx-background-color:#" + ColorsFX.toHexString(possibleInterFX));
+          // } else if (tableData.get(getIndex()).getInfo().contains("Interference")) {
+          // this.setStyle("-fx-background-color:#" + ColorsFX.toHexString(interFX));
+          // } else {
+          // this.setStyle("-fx-background-color:#" + ColorsFX.toHexString(noInterFX));
+          // }
         }
       }
     });

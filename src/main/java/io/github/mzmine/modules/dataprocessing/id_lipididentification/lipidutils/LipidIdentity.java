@@ -35,18 +35,9 @@ public class LipidIdentity extends SimplePeakIdentity {
 
   private double exactMass;
   private String sumFormula;
+  private String name;
   private LipidClasses lipidClass;
 
-  // public LipidIdentity(final LipidClasses lipidClass, final int chainLength,
-  // final int chainDoubleBonds, final int numberOfAcylChains, final int numberOfAlkylChains) {
-  // this(
-  // lipidClass.getName() + " " + lipidClass.getAbbr() + '(' + chainLength + ':'
-  // + chainDoubleBonds + ')',
-  // lipidClass.getBackBoneFormula() + chainBuilder.calculateChainFormula(chainLength,
-  // chainDoubleBonds, numberOfAcylChains, numberOfAlkylChains));
-  // this.lipidClass = lipidClass;
-  //
-  // }
   public LipidIdentity(final LipidClasses lipidClass, final int chainLength,
       final int chainDoubleBonds, LipidChainType[] chainTypes) {
 
@@ -59,6 +50,7 @@ public class LipidIdentity extends SimplePeakIdentity {
 
   public LipidIdentity(final String name, final String formula) {
     super(name);
+    this.name = name;
     // Parse formula
     Map<String, Integer> parsedFormula = FormulaUtils.parseFormula(formula);
     // Rearrange formula
@@ -85,4 +77,30 @@ public class LipidIdentity extends SimplePeakIdentity {
   public @Nonnull Object clone() {
     return new LipidIdentity(getName(), getPropertyValue(PROPERTY_FORMULA));
   }
+
+  @Override
+  public int hashCode() {
+    final int prime = 31;
+    int result = 1;
+    result = prime * result + ((name == null) ? 0 : name.hashCode());
+    return result;
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj)
+      return true;
+    if (obj == null)
+      return false;
+    if (getClass() != obj.getClass())
+      return false;
+    LipidIdentity other = (LipidIdentity) obj;
+    if (name == null) {
+      if (other.name != null)
+        return false;
+    } else if (!name.equals(other.name))
+      return false;
+    return true;
+  }
+
 }

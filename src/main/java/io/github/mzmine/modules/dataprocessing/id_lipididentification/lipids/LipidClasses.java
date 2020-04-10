@@ -384,7 +384,23 @@ public enum LipidClasses {
 //     LipidMainClasses.TRIRADYLGLYCEROLS, "C5H5O5", 2, 1, new String[] {""}, new String[] {""}), //
 // DIALKYLMONOACYLGLYCEROLS("Dialkylmonoacylglycerols", "TG", LipidCoreClasses.GLYCEROLIPIDS,
 //     LipidMainClasses.TRIRADYLGLYCEROLS, "C4H5O4", 1, 2, new String[] {""}, new String[] {""}), //
-// DIACYLGLYCEROLTRIMETHYLHOMOSERIN("Diacylglyceroltrimethylhomoserin", "DGTS",
+  DIACYLGLYCEROLTRIMETHYLHOMOSERIN("Diacylglyceroltrimethylhomoserin", "DGTS",
+      LipidCoreClasses.GLYCEROPHOSPHOLIPIDS, LipidMainClasses.OTHERGLYCEROLIPIDS,
+      "C10H21O5N",
+      new LipidChainType[] {LipidChainType.ACYL_CHAIN, LipidChainType.ACYL_CHAIN},
+      new LipidFragmentationRule[] {//
+          new LipidFragmentationRule(PolarityType.POSITIVE, IonizationType.POSITIVE_HYDROGEN,
+              LipidFragmentationRuleType.HEADGROUP_FRAGMENT,
+              LipidFragmentInformationLevelType.MOLECULAR_FORMULA, "C7H14NO2"), //
+          new LipidFragmentationRule(PolarityType.POSITIVE, IonizationType.POSITIVE_HYDROGEN,
+              LipidFragmentationRuleType.ACYLCHAIN_FRAGMENT_NL,
+              LipidFragmentInformationLevelType.CHAIN_COMPOSITION), //
+          new LipidFragmentationRule(PolarityType.POSITIVE, IonizationType.POSITIVE_HYDROGEN,
+              LipidFragmentationRuleType.ACYLCHAIN_MINUS_FORMULA_FRAGMENT, //
+              LipidFragmentInformationLevelType.CHAIN_COMPOSITION, //
+              "H2O")}), //
+
+  // DIACYLGLYCEROLTRIMETHYLHOMOSERIN("Diacylglyceroltrimethylhomoserin", "DGTS",
 //     LipidCoreClasses.GLYCEROLIPIDS, LipidMainClasses.OTHERGLYCEROLIPIDS, "C12H19O7N", 2, 0,
 //     new String[] {"fragment C7H14NO2 ", "fragment C10H22NO5", "M-FA", "M-FA-H2O"},
 //     new String[] {"FA"}), //
@@ -412,27 +428,19 @@ public enum LipidClasses {
           new LipidFragmentationRule(
               PolarityType.POSITIVE, IonizationType.POSITIVE_HYDROGEN,
               LipidFragmentationRuleType.HEADGROUP_FRAGMENT,
+              LipidFragmentInformationLevelType.MOLECULAR_FORMULA,
               "C5H15NO4P"), //
           new LipidFragmentationRule(PolarityType.POSITIVE,
               IonizationType.POSITIVE_HYDROGEN,
-              LipidFragmentationRuleType.ACYLCHAIN_FRAGMENT,
-              "C5H15NO4P"), //
+              LipidFragmentationRuleType.ACYLCHAIN_FRAGMENT_NL,
+              LipidFragmentInformationLevelType.CHAIN_COMPOSITION), //
           new LipidFragmentationRule(
               PolarityType.POSITIVE,
               IonizationType.POSITIVE_HYDROGEN,
-              LipidFragmentationRuleType.ACYLCHAIN_MINUS_FORMULA_FRAGMENT, "H2O")}),//
+              LipidFragmentationRuleType.ACYLCHAIN_MINUS_FORMULA_FRAGMENT_NL, //
+              LipidFragmentInformationLevelType.CHAIN_COMPOSITION, //
+              "H2O")}),//
      
-  DIACYLGLYCEROPHOSPHOCHOLINES2("Diacylglycerophosphocholines", "PC",
-      LipidCoreClasses.GLYCEROPHOSPHOLIPIDS, LipidMainClasses.PHOSPHATIDYLCHOLINE, "C8H20O6PN",
-      new LipidChainType[] {LipidChainType.ACYL_CHAIN, LipidChainType.ACYL_CHAIN},
-      new LipidFragmentationRule[] {//
-          new LipidFragmentationRule(PolarityType.POSITIVE, IonizationType.POSITIVE_HYDROGEN,
-              LipidFragmentationRuleType.HEADGROUP_FRAGMENT, "C5H15NO4P"), //
-          new LipidFragmentationRule(PolarityType.POSITIVE, IonizationType.POSITIVE_HYDROGEN,
-              LipidFragmentationRuleType.ACYLCHAIN_FRAGMENT, "C5H15NO4P"), //
-          new LipidFragmentationRule(PolarityType.POSITIVE, IonizationType.POSITIVE_HYDROGEN,
-              LipidFragmentationRuleType.ACYLCHAIN_MINUS_FORMULA_FRAGMENT, "H2O")}),//
- 
 // DIALKYLGLYCEROPHOSPHOCHOLINES("Dialkylglycerophosphocholines", "PC",
 //     LipidCoreClasses.GLYCEROPHOSPHOLIPIDS, LipidMainClasses.PHOSPHATIDYLCHOLINE, "C8H18O6PN", 0,
 //     2, new String[] {""}, new String[] {""}), //

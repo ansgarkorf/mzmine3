@@ -18,6 +18,8 @@
 
 package io.github.mzmine.modules.dataprocessing.id_lipididentification.lipidutils;
 
+import java.util.Comparator;
+import java.util.List;
 import org.openscience.cdk.interfaces.IMolecularFormula;
 import io.github.mzmine.util.FormulaUtils;
 
@@ -56,27 +58,44 @@ public class LipidChainBuilder {
     return FormulaUtils.createMajorIsotopeMolFormula("C" + numberOfCAtoms + "H" + numberOfHAtoms);
   }
 
+  public String builLipidChainAnnotation(LipidChainType chainType, int chainLength,
+      int numberOfDB) {
+    switch (chainType) {
+      case ACYL_CHAIN:
+        return chainLength + ":" + numberOfDB;
+      case ALKYL_CHAIN:
+        return "O-" + chainLength + ":" + numberOfDB;
+      default:
+        return chainLength + ":" + numberOfDB;
+    }
+  }
 
+  public String connectLipidChainAnnotations(List<String> chains) {
+    StringBuilder sb = new StringBuilder();
+    chains.sort(Comparator.comparing(String::toString));
+    boolean allChainsAreSame = allChainsAreSame(chains);
+    for (int i = 0; i < chains.size(); i++) {
+      if (i == 1) {
+          sb.append(chains.get(i));
+      } else {
+        if (allChainsAreSame) {
+          sb.append(chains.get(i) + "/");
+        } else {
+          sb.append(chains.get(i) + "_");
+        }
+      }
+    }
+    return sb.toString();
+  }
 
-  /**
-   * This method builds radyl chains for lipids based on the user set parameters chain length, chain
-   * double bonds, number of acyl chains and number of alky chains
-   */
-  // public String calculateChainFormula(final int chainLength, final int chainDoubleBonds,
-  // final int numberOfAcylChains, final int numberOfAlkylChains) {
-  // String chainFormula = null;
-  // if (chainLength > 0) { // +1 H for CH3 last CH3 group
-  // final int numberOfHydrogens = (1 * numberOfAcylChains + 1 * numberOfAlkylChains)// +1H for las
-  // // CH3 group
-  // + (chainLength * 2 - chainDoubleBonds * 2) // double bond
-  // // correction
-  // - 2 * numberOfAcylChains; // remove 2 H for C in acyl group
-  // final int numberOfCarbons = chainLength - numberOfAcylChains;
-  // // correctNumberOfCarbons(chainLength, numberOfAcylChains,
-  // // numberOfAlkylChains);
-  // chainFormula = "C" + numberOfCarbons + 'H' + numberOfHydrogens;
-  // }
-  // return chainFormula;
-  // }
+  private boolean allChainsAreSame(List<String> chains) {
+    String firstChain = chains.get(0);
+    for (int i = 1; i < chains.size(); i++)
+      if (!chains.get(i).equals(firstChain)) {
+        return false;
+      }
+    return true;
+  }
+
 
 }

@@ -21,21 +21,23 @@ package io.github.mzmine.modules.dataprocessing.id_lipididentification;
 import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.logging.Logger;
 import com.google.common.collect.Range;
 import io.github.mzmine.datamodel.DataPoint;
 import io.github.mzmine.datamodel.IonizationType;
 import io.github.mzmine.datamodel.PeakList;
 import io.github.mzmine.datamodel.PeakListRow;
-import io.github.mzmine.datamodel.PolarityType;
 import io.github.mzmine.datamodel.Scan;
 import io.github.mzmine.datamodel.impl.SimplePeakIdentity;
 import io.github.mzmine.datamodel.impl.SimplePeakList;
 import io.github.mzmine.datamodel.impl.SimplePeakListAppliedMethod;
-import io.github.mzmine.main.MZmineCore;
+import io.github.mzmine.modules.dataprocessing.id_lipididentification.lipididentificationtools.LipidFragmentationRule;
 import io.github.mzmine.modules.dataprocessing.id_lipididentification.lipididentificationtools.MSMSLipidTools;
 import io.github.mzmine.modules.dataprocessing.id_lipididentification.lipids.LipidClasses;
+import io.github.mzmine.modules.dataprocessing.id_lipididentification.lipids.LipidFragment;
 import io.github.mzmine.modules.dataprocessing.id_lipididentification.lipids.lipidmodifications.LipidModification;
+import io.github.mzmine.modules.dataprocessing.id_lipididentification.lipidutils.LipidChainType;
 import io.github.mzmine.modules.dataprocessing.id_lipididentification.lipidutils.LipidIdentity;
 import io.github.mzmine.parameters.ParameterSet;
 import io.github.mzmine.parameters.parametertypes.tolerances.MZTolerance;
@@ -58,12 +60,11 @@ public class LipidSearchTask extends AbstractTask {
   private MZTolerance mzTolerance, mzToleranceMS2;
   private IonizationType ionizationType;
   private Boolean searchForMSMSFragments;
+  private Boolean keepUnconfirmedAnnotations;
   private Boolean searchForModifications;
   private String massListName;
   private double[] lipidModificationMasses;
   private LipidModification[] lipidModification;
-
-
 
   private ParameterSet parameters;
 
@@ -101,6 +102,11 @@ public class LipidSearchTask extends AbstractTask {
           .getValue();
       massListName = parameters.getParameter(LipidSearchParameters.searchForMSMSFragments)
           .getEmbeddedParameters().getParameter(LipidSearchMSMSParameters.massList).getValue();
+      keepUnconfirmedAnnotations = parameters
+          .getParameter(LipidSearchParameters.searchForMSMSFragments).getEmbeddedParameters()
+          .getParameter(LipidSearchMSMSParameters.keepUnconfirmedAnnotations).getValue();
+    } else {
+      keepUnconfirmedAnnotations = true;
     }
 
     // Convert Objects to LipidClasses
@@ -147,8 +153,7 @@ public class LipidSearchTask extends AbstractTask {
 
     // Try all combinations of fatty acid lengths and double bonds
     for (int i = 0; i < selectedLipids.length; i++) {
-      int numberOfAcylChains = selectedLipids[i].getNumberOfAcylChains();
-      int numberOfAlkylChains = selectedLipids[i].getNumberofAlkyChains();
+      LipidChainType[] chainTypes = selectedLipids[i].getChainTypes();
       for (int chainLength = minChainLength; chainLength <= maxChainLength; chainLength++) {
         for (int chainDoubleBonds =
             minDoubleBonds; chainDoubleBonds <= maxDoubleBonds; chainDoubleBonds++) {
@@ -171,7 +176,8 @@ public class LipidSearchTask extends AbstractTask {
           }
           // Prepare a lipid instance
           LipidIdentity lipidChain = new LipidIdentity(selectedLipids[i], chainLength,
-              chainDoubleBonds, numberOfAcylChains, numberOfAlkylChains);
+              chainDoubleBonds, chainTypes);
+
           // Find all rows that match this lipid
           findPossibleLipid(lipidChain, rows);
           finishedSteps++;
@@ -194,9 +200,8 @@ public class LipidSearchTask extends AbstractTask {
    * @param possibleFragment
    */
   private void findPossibleLipid(LipidIdentity lipid, PeakListRow rows[]) {
-    double lipidIonMass = 0.0;
     double lipidMass = lipid.getMass();
-    lipidIonMass = lipidMass + ionizationType.getAddedMass();
+    double lipidIonMass = lipidMass + ionizationType.getAddedMass();
     logger.info("Searching for lipid " + lipid.getDescription() + ", " + lipidIonMass + " m/z");
     for (int rowIndex = 0; rowIndex < rows.length; rowIndex++) {
       if (isCanceled())
@@ -207,20 +212,25 @@ public class LipidSearchTask extends AbstractTask {
         // Calc rel mass deviation;
         double relMassDev =
             ((lipidIonMass - rows[rowIndex].getAverageMZ()) / lipidIonMass) * 1000000;
-        rows[rowIndex].addPeakIdentity(lipid, false);
+        // rows[rowIndex].addPeakIdentity(lipid, true);
+        rows[rowIndex].setPreferredPeakIdentity(lipid);
         rows[rowIndex].setComment("Ionization: " + ionizationType.getAdduct() + ", Δ "
             + NumberFormat.getInstance().format(relMassDev) + " ppm"); // Format relativ mass
-                                                                       // deviation
+        // deviation
         // If search for MSMS fragments is selected search for fragments
-        if (searchForMSMSFragments == true) {
-          searchMsmsFragments(rows[rowIndex], lipidIonMass, lipid);
+        if (searchForMSMSFragments) {
+          searchMsmsFragments(rows[rowIndex], ionizationType, lipid);
+        }
+        else {
+          rows[rowIndex].setComment(rows[rowIndex].getComment()
+              + " Warning: Lipid Annotation was not confirmed by MS/MS and needs to be checked manually!");
         }
         logger.info("Found lipid: " + lipid.getName() + ", Δ "
             + NumberFormat.getInstance().format(relMassDev) + " ppm");
       }
       // If search for modifications is selected search for modifications
       // in MS1
-      if (searchForModifications == true) {
+      if (searchForModifications) {
         searchModifications(rows[rowIndex], lipidIonMass, lipid, lipidModificationMasses,
             mzTolRange12C);
       }
@@ -232,135 +242,75 @@ public class LipidSearchTask extends AbstractTask {
    * no mass list is present for MS2 scans it will create one using centroid or exact mass detection
    * algorithm
    */
-  private void searchMsmsFragments(PeakListRow row, double lipidIonMass, LipidIdentity lipid) {
+  private void searchMsmsFragments(PeakListRow row, IonizationType ionizationType, LipidIdentity lipid) {
 
-    // Check if selected feature has MSMS spectra
-    if (row.getAllMS2Fragmentations() != null) {
-      Scan[] msmsScans = row.getAllMS2Fragmentations();
-      for (Scan msmsScan : msmsScans) {
-
+    // Check if selected feature has MSMS spectra and LipidIdentity
+    if (row
+        .getAllMS2Fragmentations().length > 0
+        && row.getPreferredPeakIdentity() instanceof LipidIdentity) {
+      List<Scan> msmsScans = Arrays.asList(row.getAllMS2Fragmentations());
+      
+      msmsScans.parallelStream().forEach(msmsScan -> {
+        if (msmsScan.getMassLists().length == 0) {
+          setErrorMessage("Mass List cannot be found.\nCheck if MS2 Scans have a Mass List");
+          setStatus(TaskStatus.ERROR);
+          return;
+        }
         DataPoint[] massList = null;
-        // check if MS/MS scan already has a mass list
         massList = msmsScan.getMassList(massListName).getDataPoints();
         MSMSLipidTools msmsLipidTools = new MSMSLipidTools();
 
-        // check for negative polarity
-        if (msmsScan.getPolarity() == PolarityType.NEGATIVE) {
-
-          // check if lipid class has set negative fragments
-          String[] fragments = lipid.getLipidClass().getMsmsFragmentsNegativeIonization();
-          if (fragments.length > 0) {
-            ArrayList<String> listOfAnnotatedNegativeFragments = new ArrayList<String>();
+        LipidFragmentationRule[] rules = lipid.getLipidClass().getFragmentationRules();
+        List<LipidFragment> listOfAnnotatedFragments = new ArrayList<>();
+        if (rules.length > 0) {
             for (int i = 0; i < massList.length; i++) {
               Range<Double> mzTolRangeMSMS = mzToleranceMS2.getToleranceRange(massList[i].getMZ());
-              String annotatedNegativeFragment =
-                  msmsLipidTools.checkForNegativeClassSpecificFragment(mzTolRangeMSMS,
-                      row.getPreferredPeakIdentity(), lipidIonMass, fragments);
-              if (annotatedNegativeFragment.equals("") == false
-                  && row.getComment().contains(annotatedNegativeFragment) == false) {
-                listOfAnnotatedNegativeFragments.add(annotatedNegativeFragment);
-              }
-            }
-
-            if (listOfAnnotatedNegativeFragments.isEmpty() == false) {
-
-              // predict lipid fatty acid composition if possible
-              ArrayList<String> listOfPossibleFattyAcidCompositions =
-                  msmsLipidTools.predictFattyAcidComposition(listOfAnnotatedNegativeFragments,
-                      row.getPreferredPeakIdentity(),
-                      lipid.getLipidClass().getNumberOfAcylChains());
-              for (int i = 0; i < listOfPossibleFattyAcidCompositions.size(); i++) {
-                // Add possible composition to comment
-                if (row.getComment().equals(null)) {
-                  row.setComment(" " + listOfPossibleFattyAcidCompositions.get(i) + " MS/MS scan "
-                      + msmsScan.getScanNumber() + ", RT " + MZmineCore.getConfiguration()
-                          .getRTFormat().format(msmsScan.getRetentionTime()));
-                } else {
-                  row.setComment(row.getComment() + ";" + " "
-                      + listOfPossibleFattyAcidCompositions.get(i) + " MS/MS scan "
-                      + msmsScan.getScanNumber() + ", RT " + MZmineCore.getConfiguration()
-                          .getRTFormat().format(msmsScan.getRetentionTime()));
-                }
-              }
-
-              // add class specific fragments
-              for (int i = 0; i < listOfAnnotatedNegativeFragments.size(); i++) {
-                if (listOfAnnotatedNegativeFragments.get(i).contains("C")
-                    || listOfAnnotatedNegativeFragments.get(i).contains("H")
-                    || listOfAnnotatedNegativeFragments.get(i).contains("O")) {
-                  // Add fragment to comment
-                  if (row.getComment().equals(null)) {
-                    row.setComment(" " + listOfAnnotatedNegativeFragments.get(i) + " MS/MS scan "
-                        + msmsScan.getScanNumber() + ", RT " + MZmineCore.getConfiguration()
-                            .getRTFormat().format(msmsScan.getRetentionTime()));
-                  } else {
-                    row.setComment(row.getComment() + ";" + " "
-                        + listOfAnnotatedNegativeFragments.get(i) + " MS/MS scan "
-                        + msmsScan.getScanNumber() + ", RT " + MZmineCore.getConfiguration()
-                            .getRTFormat().format(msmsScan.getRetentionTime()));
-                  }
-                }
+              LipidFragment annotatedFragment =
+                  msmsLipidTools.checkForClassSpecificFragment(
+                      mzTolRangeMSMS,
+                      (LipidIdentity) row.getPreferredPeakIdentity(), ionizationType, rules,
+                      massList[i].getMZ());
+              if (annotatedFragment != null) {
+                listOfAnnotatedFragments.add(annotatedFragment);
               }
             }
           }
-        }
+          if (!listOfAnnotatedFragments.isEmpty()) {
 
-        // check if lipid class has positive fragments
-        if (msmsScan.getPolarity() == PolarityType.POSITIVE) {
-
-          // check if lipid class has set postiev fragments
-          String[] fragments = lipid.getLipidClass().getMsmsFragmentsPositiveIonization();
-          if (fragments.length > 0) {
-            ArrayList<String> listOfAnnotatedPositiveFragments = new ArrayList<String>();
-            for (int i = 0; i < massList.length; i++) {
-              Range<Double> mzTolRangeMSMS = mzToleranceMS2.getToleranceRange(massList[i].getMZ());
-              String annotatedPositiveFragment =
-                  msmsLipidTools.checkForPositiveClassSpecificFragment(mzTolRangeMSMS,
-                      row.getPreferredPeakIdentity(), lipidIonMass, fragments);
-              if (annotatedPositiveFragment.equals("") == false
-                  && row.getComment().contains(annotatedPositiveFragment) == false) {
-                listOfAnnotatedPositiveFragments.add(annotatedPositiveFragment);
-              }
-            }
+            // check for headgroup fragment
+            boolean confirmFormulaByHeadgroupFragment =
+                msmsLipidTools.confirmHeadgroupFragmentPresent(
+                    listOfAnnotatedFragments);
 
             // predict lipid fatty acid composition if possible
-            ArrayList<String> listOfPossibleFattyAcidCompositions =
-                msmsLipidTools.predictFattyAcidComposition(listOfAnnotatedPositiveFragments,
-                    row.getPreferredPeakIdentity(), lipid.getLipidClass().getNumberOfAcylChains());
-            for (int i = 0; i < listOfPossibleFattyAcidCompositions.size(); i++) {
-              // Add possible composition to comment
-              if (row.getComment().equals(null)) {
-                row.setComment(" " + listOfPossibleFattyAcidCompositions.get(i) + " MS/MS scan "
-                    + msmsScan.getScanNumber() + ", RT " + MZmineCore.getConfiguration()
-                        .getRTFormat().format(msmsScan.getRetentionTime()));
-              } else {
-                row.setComment(
-                    row.getComment() + ";" + " " + listOfPossibleFattyAcidCompositions.get(i)
-                        + " MS/MS scan " + msmsScan.getScanNumber() + ", RT " + MZmineCore
-                            .getConfiguration().getRTFormat().format(msmsScan.getRetentionTime()));
-              }
+            List<LipidIdentity> listOfChainCompositions =
+                msmsLipidTools.predictChainComposition(listOfAnnotatedFragments,
+                    row.getPreferredPeakIdentity(), lipid.getLipidClass().getChainTypes());
+            if (listOfChainCompositions.isEmpty() && confirmFormulaByHeadgroupFragment == false
+                && keepUnconfirmedAnnotations == false) {
+              row.removePeakIdentity(row.getPreferredPeakIdentity());
             }
-
-            // add class specific fragments
-            for (int i = 0; i < listOfAnnotatedPositiveFragments.size(); i++) {
-              if (listOfAnnotatedPositiveFragments.get(i).contains("C")) {
-                // Add fragment to comment
-                if (row.getComment().equals(null)) {
-                  row.setComment(" " + listOfAnnotatedPositiveFragments.get(i) + " MS/MS scan "
-                      + msmsScan.getScanNumber() + ", RT " + MZmineCore.getConfiguration()
-                          .getRTFormat().format(msmsScan.getRetentionTime()));
-                } else {
-                  row.setComment(row.getComment() + ";" + " "
-                      + listOfAnnotatedPositiveFragments.get(i) + " MS/MS scan "
-                      + msmsScan.getScanNumber() + ", RT " + MZmineCore.getConfiguration()
-                          .getRTFormat().format(msmsScan.getRetentionTime()));
-                }
-              }
+            for (int i = 0; i < listOfChainCompositions.size(); i++) {
+              String name = lipid.getLipidClass().getName() + " " + lipid.getLipidClass().getAbbr()
+                  + "("
+                  + listOfChainCompositions.get(i).getName() + ")";
+              row.addPeakIdentity(
+                  new LipidIdentity(name, listOfChainCompositions.get(i).getFormula()), true);
+              row.setPreferredPeakIdentity(
+                  new LipidIdentity(name, listOfChainCompositions.get(i).getFormula()));
+            }
+          } else {
+            if (keepUnconfirmedAnnotations) {
+              row.setComment(
+                  row.getComment()
+                      + " Warning: Lipid Annotation was not confirmed by MS/MS and needs to be checked manually!");
+            } else {
+              row.removePeakIdentity(row.getPreferredPeakIdentity());
+              row.setComment("");
             }
           }
-        }
+        });
       }
-    }
   }
 
   private void searchModifications(PeakListRow rows, double lipidIonMass, LipidIdentity lipid,
@@ -372,9 +322,15 @@ public class LipidSearchTask extends AbstractTask {
             / (lipidIonMass + lipidModificationMasses[j])) * 1000000;
         // Add row identity
         rows.addPeakIdentity(new SimplePeakIdentity(lipid + " " + lipidModification[j]), false);
-        rows.setComment("Ionization: " + ionizationType.getAdduct() + " " + lipidModification[j]
-            + ", Δ " + NumberFormat.getInstance().format(relMassDev) + " ppm");
-        logger.info("Found modified lipid: " + lipid.getName() + " " + lipidModification[j] + ", Δ "
+        rows.setComment(rows.getComment()
+            + " Ionization: " + ionizationType.getAdduct()
+            + " Warning: Lipid Annotation was not confirmed by MS/MS and needs to be checked manually!"
+            + lipidModification[j]
+                    + ", Δ " + NumberFormat.getInstance().format(relMassDev) + " ppm");
+            logger.info(
+                " Warning: Lipid Annotation was not confirmed by MS/MS and needs to be checked manually! Found modified lipid: "
+                    + lipid.getName() + " " + lipidModification[j]
+                    + ", Δ "
             + NumberFormat.getInstance().format(relMassDev) + " ppm");
       }
     }

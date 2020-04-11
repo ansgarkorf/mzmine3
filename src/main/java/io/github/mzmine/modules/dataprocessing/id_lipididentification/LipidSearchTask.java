@@ -21,7 +21,9 @@ package io.github.mzmine.modules.dataprocessing.id_lipididentification;
 import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.logging.Logger;
 import com.google.common.collect.Range;
 import io.github.mzmine.datamodel.DataPoint;
@@ -60,6 +62,7 @@ public class LipidSearchTask extends AbstractTask {
   private MZTolerance mzTolerance, mzToleranceMS2;
   private IonizationType ionizationType;
   private Boolean searchForMSMSFragments;
+  private Boolean ionizationAutoSearch;
   private Boolean keepUnconfirmedAnnotations;
   private Boolean searchForModifications;
   private String massListName;
@@ -85,28 +88,37 @@ public class LipidSearchTask extends AbstractTask {
         parameters.getParameter(LipidSearchParameters.doubleBonds).getValue().lowerEndpoint();
     this.maxDoubleBonds =
         parameters.getParameter(LipidSearchParameters.doubleBonds).getValue().upperEndpoint();
-    mzTolerance = parameters.getParameter(LipidSearchParameters.mzTolerance).getValue();
-    selectedObjects = parameters.getParameter(LipidSearchParameters.lipidClasses).getValue();
-    ionizationType = parameters.getParameter(LipidSearchParameters.ionizationMethod).getValue();
-    searchForMSMSFragments =
+    this.mzTolerance = parameters.getParameter(LipidSearchParameters.mzTolerance).getValue();
+    this.selectedObjects = parameters.getParameter(LipidSearchParameters.lipidClasses).getValue();
+    this.ionizationType =
+        parameters.getParameter(LipidSearchParameters.ionizationMethod).getValue();
+    this.searchForMSMSFragments =
         parameters.getParameter(LipidSearchParameters.searchForMSMSFragments).getValue();
-    searchForModifications =
+    this.searchForModifications =
         parameters.getParameter(LipidSearchParameters.searchForModifications).getValue();
     if (searchForModifications) {
       this.lipidModification =
           LipidSearchParameters.searchForModifications.getEmbeddedParameter().getValue();
     }
     if (searchForMSMSFragments) {
-      mzToleranceMS2 = parameters.getParameter(LipidSearchParameters.searchForMSMSFragments)
+      this.mzToleranceMS2 = parameters.getParameter(
+          LipidSearchParameters.searchForMSMSFragments)
           .getEmbeddedParameters().getParameter(LipidSearchMSMSParameters.mzToleranceMS2)
           .getValue();
-      massListName = parameters.getParameter(LipidSearchParameters.searchForMSMSFragments)
+      this.massListName = parameters.getParameter(
+          LipidSearchParameters.searchForMSMSFragments)
           .getEmbeddedParameters().getParameter(LipidSearchMSMSParameters.massList).getValue();
-      keepUnconfirmedAnnotations = parameters
+      this.ionizationAutoSearch = parameters.getParameter(
+          LipidSearchParameters.searchForMSMSFragments)
+          .getEmbeddedParameters().getParameter(LipidSearchMSMSParameters.ionizationAutoSearch)
+          .getValue();
+      this.keepUnconfirmedAnnotations =
+          parameters
           .getParameter(LipidSearchParameters.searchForMSMSFragments).getEmbeddedParameters()
           .getParameter(LipidSearchMSMSParameters.keepUnconfirmedAnnotations).getValue();
     } else {
-      keepUnconfirmedAnnotations = true;
+      this.ionizationAutoSearch = false;
+      this.keepUnconfirmedAnnotations = true;
     }
 
     // Convert Objects to LipidClasses
@@ -200,43 +212,51 @@ public class LipidSearchTask extends AbstractTask {
    * @param possibleFragment
    */
   private void findPossibleLipid(LipidIdentity lipid, List<PeakListRow> rows) {
-    double lipidMass = lipid.getMass();
-    double lipidIonMass = lipidMass + ionizationType.getAddedMass();
-    logger.info("Searching for lipid " + lipid.getDescription() + ", " + lipidIonMass + " m/z");
+    if (isCanceled())
+      return;
+    Set<IonizationType> ionizationTypeList = new HashSet<>();
+    if (ionizationAutoSearch) {
+      LipidFragmentationRule[] fragmentationRules = lipid.getLipidClass().getFragmentationRules();
+      for (int i = 0; i < fragmentationRules.length; i++) {
+        ionizationTypeList.add(fragmentationRules[i].getIonizationType());
+      }
+    } else {
+      ionizationTypeList.add(ionizationType);
+    }
     rows.parallelStream().forEach(row -> {
-      if (isCanceled())
-        return;
-      Range<Double> mzTolRange12C = mzTolerance.getToleranceRange(row.getAverageMZ());
-      if (mzTolRange12C.contains(lipidIonMass)) {
+        for (IonizationType ionization : ionizationTypeList) {
+          if (!row.getBestPeak().getRepresentativeScan().getPolarity()
+              .equals(ionization.getPolarity())) {
+            return;
+          }
+          double lipidIonMass = lipid.getMass() + ionization.getAddedMass();
+          Range<Double> mzTolRange12C = mzTolerance.getToleranceRange(row.getAverageMZ());
+          if (mzTolRange12C.contains(lipidIonMass)) {
 
-        // Calc rel mass deviation;
-        double relMassDev =
-            ((lipidIonMass - row.getAverageMZ()) / lipidIonMass) * 1000000;
-        row.addPeakIdentity(lipid, true);
-        row.setPreferredPeakIdentity(lipid);
-        row.setComment("Ionization: " + ionizationType.getAdduct()
-            + ", Δ "
-            + NumberFormat.getInstance().format(relMassDev) + " ppm"); // Format relativ mass
-        // deviation
-        // If search for MSMS fragments is selected search for fragments
-        if (searchForMSMSFragments) {
-          searchMsmsFragments(row, ionizationType, lipid);
+            // Calc rel mass deviation;
+            double relMassDev = ((lipidIonMass - row.getAverageMZ()) / lipidIonMass) * 1000000;
+            row.addPeakIdentity(lipid, true);
+            row.setPreferredPeakIdentity(lipid);
+            row.setComment("Ionization: " + ionization.getAdduct()
+                + ", Δ "
+                + NumberFormat.getInstance().format(relMassDev) + " ppm"); // Format relativ mass
+            // deviation
+            // If search for MSMS fragments is selected search for fragments
+            if (searchForMSMSFragments) {
+              searchMsmsFragments(row, ionization, lipid);
+            } else {
+              row.setComment(row.getComment()
+                  + " Warning: Lipid Annotation was not confirmed by MS/MS and needs to be checked manually!");
+            }
+            logger.info("Found lipid: " + lipid.getName() + ", Δ "
+                + NumberFormat.getInstance().format(relMassDev) + " ppm");
+          }
+          // If search for modifications is selected search for modifications
+          // in MS1
+          if (searchForModifications) {
+            searchModifications(row, lipidIonMass, lipid, lipidModificationMasses, mzTolRange12C);
+          }
         }
-        else {
-          row.setComment(row
-              .getComment()
-              + " Warning: Lipid Annotation was not confirmed by MS/MS and needs to be checked manually!");
-        }
-        logger.info("Found lipid: " + lipid.getName() + ", Δ "
-            + NumberFormat.getInstance().format(relMassDev) + " ppm");
-      }
-      // If search for modifications is selected search for modifications
-      // in MS1
-      if (searchForModifications) {
-        searchModifications(row, lipidIonMass, lipid,
-            lipidModificationMasses,
-            mzTolRange12C);
-      }
     });
   }
 
@@ -245,7 +265,8 @@ public class LipidSearchTask extends AbstractTask {
    * no mass list is present for MS2 scans it will create one using centroid or exact mass detection
    * algorithm
    */
-  private void searchMsmsFragments(PeakListRow row, IonizationType ionizationType, LipidIdentity lipid) {
+  private void searchMsmsFragments(PeakListRow row, IonizationType ionization,
+      LipidIdentity lipid) {
 
     // Check if selected feature has MSMS spectra and LipidIdentity
     if (row
@@ -272,7 +293,8 @@ public class LipidSearchTask extends AbstractTask {
               LipidFragment annotatedFragment =
                   msmsLipidTools.checkForClassSpecificFragment(
                       mzTolRangeMSMS,
-                      (LipidIdentity) row.getPreferredPeakIdentity(), ionizationType, rules,
+                      (LipidIdentity) row.getPreferredPeakIdentity(), ionization,
+                      rules,
                       massList[j].getMZ());
               if (annotatedFragment != null) {
                 listOfAnnotatedFragments.add(annotatedFragment);

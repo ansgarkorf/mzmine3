@@ -39,12 +39,17 @@ public class LipidSearchMSMSParameters extends SimpleParameterSet {
           "Algorithm to calculate similarity and filter matches",
           SpectralSimilarityFunction.FUNCTIONS);
 
+  public static final BooleanParameter ionizationAutoSearch = new BooleanParameter(
+      "Auto select ionization method",
+      "If checked, the slected Ionization method parameter will be ignored if a lipid class has fragmentation rules. The ionization method specified in the fragmentation rule will be used.");
+
   public static final BooleanParameter keepUnconfirmedAnnotations = new BooleanParameter(
       "Keep unconfirmed annotations",
       "WARNING!: If checked, annotations based on accurate mass without headgroup fragment annotations are kept.");
 
   public LipidSearchMSMSParameters() {
-    super(new Parameter[] {massList, mzToleranceMS2, keepUnconfirmedAnnotations});
+    super(new Parameter[] {massList, mzToleranceMS2, ionizationAutoSearch,
+        keepUnconfirmedAnnotations});
   }
 
 }

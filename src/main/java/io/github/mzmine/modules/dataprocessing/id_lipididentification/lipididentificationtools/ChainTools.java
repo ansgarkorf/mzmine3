@@ -29,7 +29,7 @@ import io.github.mzmine.util.FormulaUtils;
  * 
  * @author Ansgar Korf (ansgar.korf@uni-muenster.de)
  */
-public class FattyAcidTools {
+public class ChainTools {
 
   /**
    * This method calculates all possible fatty acids formulas for a selected annotated lipid
@@ -52,7 +52,28 @@ public class FattyAcidTools {
         }
       }
     }
+    return fattyAcidFormulas;
+  }
 
+  /**
+   * This method calculates all possible hydro carbon formulas for a selected annotated lipid
+   */
+  public List<String> calculateHydroCarbonFormulas(PeakIdentity peakIdentity) {
+    List<String> fattyAcidFormulas = new ArrayList<>();
+    LipidTools lipidTools = new LipidTools();
+    int minChainLength = 1;
+    int maxChainLength = lipidTools.getNumberOfCAtoms(peakIdentity.getName());
+    int minNumberOfDoubleBonds = 0;
+    int maxNumberOfDoubleBonds = lipidTools.getNumberOfDB(peakIdentity.getName());
+
+    for (int chainLength = minChainLength; chainLength <= maxChainLength; chainLength++) {
+      for (int chainDoubleBonds =
+          minNumberOfDoubleBonds; chainDoubleBonds <= maxNumberOfDoubleBonds; chainDoubleBonds++) {
+        if (((chainDoubleBonds >= 0) && (chainDoubleBonds <= chainLength - 1))) {
+          fattyAcidFormulas.add(calculateFattyAcidFormula(chainLength, chainDoubleBonds));
+        }
+      }
+    }
     return fattyAcidFormulas;
   }
 
@@ -78,7 +99,6 @@ public class FattyAcidTools {
         }
       }
     }
-
     return fattyAcidNames;
   }
 
@@ -88,6 +108,14 @@ public class FattyAcidTools {
   public String calculateFattyAcidFormula(int fattyAcidLength, int fattyAcidDoubleBonds) {
     int numberOfHydrogens = fattyAcidLength * 2 - fattyAcidDoubleBonds * 2;
     return "C" + fattyAcidLength + 'H' + numberOfHydrogens + 'O' + 2;
+  }
+
+  /**
+   * This method creates a String molecularFormula formula for a fatty acid
+   */
+  public String calculateHydroCarbonFormula(int chainLength, int chainDoubleBonds) {
+    int numberOfHydrogens = chainLength * 2 - chainDoubleBonds * 2 + 2;
+    return "C" + chainLength + 'H' + numberOfHydrogens;
   }
 
   /**

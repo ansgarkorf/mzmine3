@@ -11,8 +11,29 @@ public class LipidFactory {
 
   public LipidIdentity buildLipid(LipidClasses lipidClass, int chainLength,
    int chainDoubleBonds,  LipidChainType[] chainTypes) {
-   String name = lipidClass.getName() + " " + lipidClass.getAbbr() + '(' + chainLength + ':'
-       + chainDoubleBonds + ')';
+    String name;
+    boolean hasAlkylChain = false;
+    boolean hasNoChain = false;
+
+    for (LipidChainType type : lipidClass.getChainTypes()) {
+      if (lipidClass.getChainTypes().length == 0) {
+        hasNoChain = true;
+        break;
+      }
+        if (type.equals(LipidChainType.ALKYL_CHAIN)) {
+            hasAlkylChain = true;
+        }
+    }
+    if (hasAlkylChain) {
+      name = lipidClass.getName() + " " + lipidClass.getAbbr() + "(O-" + chainLength
+          + ':'
+          + chainDoubleBonds + ')';
+    } else if (hasNoChain) {
+      name = lipidClass.getName() + " " + lipidClass.getAbbr();
+    } else {
+      name = lipidClass.getName() + " " + lipidClass.getAbbr() + '(' + chainLength + ':'
+          + chainDoubleBonds + ')';
+    }
    String molecularFormula = MolecularFormulaManipulator.getString(synthesisLipidMolecularFormula(
        lipidClass.getBackBoneFormula(), chainLength, chainDoubleBonds, chainTypes));
    return new LipidIdentity(name,molecularFormula);

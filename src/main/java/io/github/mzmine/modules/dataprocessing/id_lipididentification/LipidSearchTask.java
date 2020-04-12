@@ -160,18 +160,36 @@ public class LipidSearchTask extends AbstractTask {
       lipidModificationMasses = getLipidModificationMasses(lipidModification);
     }
     // Calculate how many possible lipids we will try
-    totalSteps = ((maxChainLength - minChainLength + 1) * (maxDoubleBonds - minDoubleBonds + 1))
-        * selectedLipids.length;
+    totalSteps = rows.size();
 
+    // build lipid species database
+    Set<LipidIdentity> lipidDatabase = buildLipidDatabase();
+
+    // start lipid search
+    rows.parallelStream().forEach(row -> {
+      for (LipidIdentity lipid : lipidDatabase) {
+            findPossibleLipid(lipid, row);
+      }
+      finishedSteps++;
+    });
+    // Add task description to peakList
+    ((SimplePeakList) peakList)
+        .addDescriptionOfAppliedTask(new SimplePeakListAppliedMethod("Lipid search", parameters));
+
+    setStatus(TaskStatus.FINISHED);
+
+    logger.info("Finished lipid search task in " + peakList);
+  }
+
+  private Set<LipidIdentity> buildLipidDatabase() {
+
+    Set<LipidIdentity> lipidDatabase = new HashSet<>();
     // Try all combinations of fatty acid lengths and double bonds
     for (int i = 0; i < selectedLipids.length; i++) {
       LipidChainType[] chainTypes = selectedLipids[i].getChainTypes();
       for (int chainLength = minChainLength; chainLength <= maxChainLength; chainLength++) {
         for (int chainDoubleBonds =
             minDoubleBonds; chainDoubleBonds <= maxDoubleBonds; chainDoubleBonds++) {
-          // Task canceled?
-          if (isCanceled())
-            return;
 
           // If we have non-zero fatty acid, which is shorter
           // than minimal length, skip this lipid
@@ -187,31 +205,20 @@ public class LipidSearchTask extends AbstractTask {
             continue;
           }
           // Prepare a lipid instance
-          LipidIdentity lipidChain = new LipidIdentity(selectedLipids[i], chainLength,
-              chainDoubleBonds, chainTypes);
-
-          // Find all rows that match this lipid
-          findPossibleLipid(lipidChain, rows);
-          finishedSteps++;
+          lipidDatabase
+              .add(new LipidIdentity(selectedLipids[i], chainLength, chainDoubleBonds, chainTypes));
         }
       }
     }
-    // Add task description to peakList
-    ((SimplePeakList) peakList)
-        .addDescriptionOfAppliedTask(new SimplePeakListAppliedMethod("Lipid search", parameters));
-
-    setStatus(TaskStatus.FINISHED);
-
-    logger.info("Finished lipid search task in " + peakList);
+    return lipidDatabase;
   }
-
   /**
    * Check if candidate peak may be a possible adduct of a given main peak
    *
    * @param mainPeak
    * @param possibleFragment
    */
-  private void findPossibleLipid(LipidIdentity lipid, List<PeakListRow> rows) {
+  private void findPossibleLipid(LipidIdentity lipid, PeakListRow row) {
     if (isCanceled())
       return;
     Set<IonizationType> ionizationTypeList = new HashSet<>();
@@ -223,11 +230,10 @@ public class LipidSearchTask extends AbstractTask {
     } else {
       ionizationTypeList.add(ionizationType);
     }
-    rows.parallelStream().forEach(row -> {
         for (IonizationType ionization : ionizationTypeList) {
           if (!row.getBestPeak().getRepresentativeScan().getPolarity()
               .equals(ionization.getPolarity())) {
-            return;
+            continue;
           }
           double lipidIonMass = lipid.getMass() + ionization.getAddedMass();
           Range<Double> mzTolRange12C = mzTolerance.getToleranceRange(row.getAverageMZ());
@@ -257,7 +263,6 @@ public class LipidSearchTask extends AbstractTask {
             searchModifications(row, lipidIonMass, lipid, lipidModificationMasses, mzTolRange12C);
           }
         }
-    });
   }
 
   /**

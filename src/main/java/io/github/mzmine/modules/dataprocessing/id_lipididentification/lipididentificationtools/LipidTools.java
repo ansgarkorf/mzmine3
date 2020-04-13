@@ -44,8 +44,13 @@ public class LipidTools {
     for (int i = 0; i < lipidAnnotation.length(); i++) {
       // get first Bracket
       if (lipidAnnotation.charAt(i) == '(' && counterFirstBracket < 1) {
-        indexFirstNumber = i + 1;
-        counterFirstBracket++;
+        if (lipidAnnotation.charAt(i + 1) == 'O') {
+          indexFirstNumber = i + 3;
+          counterFirstBracket++;
+        } else {
+          indexFirstNumber = i + 1;
+          counterFirstBracket++;
+        }
       }
       if (lipidAnnotation.charAt(i) == ':' && counterFirstBracket == 1) {
         indexLastNumber = i - 1;

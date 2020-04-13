@@ -25,7 +25,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.logging.Logger;
+
 import com.google.common.collect.Range;
+
 import io.github.mzmine.datamodel.DataPoint;
 import io.github.mzmine.datamodel.IonizationType;
 import io.github.mzmine.datamodel.PeakList;
@@ -297,10 +299,8 @@ public class LipidSearchTask extends AbstractTask {
             Range<Double> mzTolRangeMSMS = mzToleranceMS2.getToleranceRange(massList[j].getMZ());
               LipidFragment annotatedFragment =
                   msmsLipidTools.checkForClassSpecificFragment(
-                      mzTolRangeMSMS,
-                      (LipidIdentity) row.getPreferredPeakIdentity(), ionization,
-                      rules,
-                      massList[j].getMZ());
+                      mzTolRangeMSMS, (LipidIdentity) row.getPreferredPeakIdentity(),
+								ionization, rules, massList[j].getMZ());
               if (annotatedFragment != null) {
                 listOfAnnotatedFragments.add(annotatedFragment);
               }
@@ -308,7 +308,7 @@ public class LipidSearchTask extends AbstractTask {
           }
           if (!listOfAnnotatedFragments.isEmpty()) {
 
-            // check for headgroup fragment
+				// check for head group fragment
             confirmFormula =
                 msmsLipidTools.confirmHeadgroupFragmentPresent(listOfAnnotatedFragments);
 
@@ -352,6 +352,7 @@ public class LipidSearchTask extends AbstractTask {
         // Calc relativ mass deviation
         double relMassDev = ((lipidIonMass + (lipidModificationMasses[j]) - rows.getAverageMZ())
             / (lipidIonMass + lipidModificationMasses[j])) * 1000000;
+
         // Add row identity
         rows.addPeakIdentity(new SimplePeakIdentity(lipid + " " + lipidModification[j]), false);
         rows.setComment(rows.getComment()

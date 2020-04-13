@@ -20,7 +20,9 @@ package io.github.mzmine.modules.dataprocessing.id_lipididentification.lipidutil
 
 import java.util.Comparator;
 import java.util.List;
+
 import org.openscience.cdk.interfaces.IMolecularFormula;
+
 import io.github.mzmine.util.FormulaUtils;
 
 /**
@@ -75,13 +77,13 @@ public class LipidChainBuilder {
     chains.sort(Comparator.comparing(String::toString));
     boolean allChainsAreSame = allChainsAreSame(chains);
     for (int i = 0; i < chains.size(); i++) {
-      if (i == 1) {
+		if (i == 0) {
           sb.append(chains.get(i));
       } else {
         if (allChainsAreSame) {
-          sb.append(chains.get(i) + "/");
+			sb.append("/" + chains.get(i));
         } else {
-          sb.append(chains.get(i) + "_");
+			sb.append("_" + chains.get(i));
         }
       }
     }

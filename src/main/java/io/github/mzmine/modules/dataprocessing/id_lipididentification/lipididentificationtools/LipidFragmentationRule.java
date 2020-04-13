@@ -6,66 +6,54 @@ import io.github.mzmine.modules.dataprocessing.id_lipididentification.lipids.Lip
 
 public class LipidFragmentationRule {
 
-  private PolarityType polarityType;
-  private IonizationType ionizationType;
-  private LipidFragmentationRuleType lipidFragmentationRuleType;
-  private LipidFragmentInformationLevelType lipidFragmentInformationLevelType;
-  private String molecularFormula;
+	private PolarityType polarityType;
+	private IonizationType ionizationType;
+	private LipidFragmentationRuleType lipidFragmentationRuleType;
+	private LipidFragmentInformationLevelType lipidFragmentInformationLevelType;
+	private String molecularFormula;
 
-  public LipidFragmentationRule(PolarityType polarityType, IonizationType ionizationType,
-      LipidFragmentationRuleType lipidFragmentationRuleType,
-      LipidFragmentInformationLevelType lipidFragmentInformationLevelType) {
-    this.polarityType = polarityType;
-    this.ionizationType = ionizationType;
-    this.lipidFragmentationRuleType = lipidFragmentationRuleType;
-    this.lipidFragmentInformationLevelType = lipidFragmentInformationLevelType;
-    this.molecularFormula = "";
-  }
-  
-  public LipidFragmentationRule(PolarityType polarityType, IonizationType ionizationType,
-      LipidFragmentationRuleType lipidFragmentationRuleType,
-      LipidFragmentInformationLevelType lipidFragmentInformationLevelType,
-      String molecularFormula) {
-    this.polarityType = polarityType;
-    this.ionizationType = ionizationType;
-    this.lipidFragmentationRuleType = lipidFragmentationRuleType;
-    this.lipidFragmentInformationLevelType = lipidFragmentInformationLevelType;
-    this.molecularFormula = molecularFormula;
-  }
+	public LipidFragmentationRule(PolarityType polarityType, IonizationType ionizationType,
+			LipidFragmentationRuleType lipidFragmentationRuleType,
+			LipidFragmentInformationLevelType lipidFragmentInformationLevelType) {
+		this.polarityType = polarityType;
+		this.ionizationType = ionizationType;
+		this.lipidFragmentationRuleType = lipidFragmentationRuleType;
+		this.lipidFragmentInformationLevelType = lipidFragmentInformationLevelType;
+		this.molecularFormula = "";
+	}
 
+	public LipidFragmentationRule(PolarityType polarityType, IonizationType ionizationType,
+			LipidFragmentationRuleType lipidFragmentationRuleType,
+			LipidFragmentInformationLevelType lipidFragmentInformationLevelType, String molecularFormula) {
+		this.polarityType = polarityType;
+		this.ionizationType = ionizationType;
+		this.lipidFragmentationRuleType = lipidFragmentationRuleType;
+		this.lipidFragmentInformationLevelType = lipidFragmentInformationLevelType;
+		this.molecularFormula = molecularFormula;
+	}
 
-  public PolarityType getPolarityType() {
-    return polarityType;
-  }
+	public PolarityType getPolarityType() {
+		return polarityType;
+	}
 
+	public IonizationType getIonizationType() {
+		return ionizationType;
+	}
 
+	public LipidFragmentationRuleType getLipidFragmentationRuleType() {
+		return lipidFragmentationRuleType;
+	}
 
-  public IonizationType getIonizationType() {
-    return ionizationType;
-  }
+	public LipidFragmentInformationLevelType getLipidFragmentInformationLevelType() {
+		return lipidFragmentInformationLevelType;
+	}
 
+	public String getMolecularFormula() {
+		return molecularFormula;
+	}
 
-
-  public LipidFragmentationRuleType getLipidFragmentationRuleType() {
-    return lipidFragmentationRuleType;
-  }
-
-
-
-  public LipidFragmentInformationLevelType getLipidFragmentInformationLevelType() {
-    return lipidFragmentInformationLevelType;
-  }
-
-
-
-  public String getMolecularFormula() {
-    return molecularFormula;
-  }
-
-  @Override
-  public String toString() {
-    return ionizationType + ", "
-        + lipidFragmentationRuleType
-        + " " + molecularFormula;
-  }
+	@Override
+	public String toString() {
+		return ionizationType + ", " + lipidFragmentationRuleType + " " + molecularFormula;
+	}
 }

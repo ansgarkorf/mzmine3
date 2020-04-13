@@ -20,7 +20,9 @@ package io.github.mzmine.modules.dataprocessing.id_lipididentification.lipididen
 
 import java.util.ArrayList;
 import java.util.List;
+
 import org.openscience.cdk.interfaces.IMolecularFormula;
+
 import io.github.mzmine.datamodel.PeakIdentity;
 import io.github.mzmine.util.FormulaUtils;
 
@@ -34,14 +36,16 @@ public class ChainTools {
   /**
    * This method calculates all possible fatty acids formulas for a selected annotated lipid
    */
-  public List<String> calculateFattyAcidFormulas(PeakIdentity peakIdentity) {
-    List<String> fattyAcidFormulas = new ArrayList<>();
+	public List<String> calculateFattyAcidFormulas(PeakIdentity peakIdentity) {
+		List<String> fattyAcidFormulas = new ArrayList<>();
     LipidTools lipidTools = new LipidTools();
     int minFattyAcidLength = 1;
     int maxFattyAcidLength = lipidTools.getNumberOfCAtoms(peakIdentity.getName());
     int minNumberOfDoubleBonds = 0;
     int maxNumberOfDoubleBonds = lipidTools.getNumberOfDB(peakIdentity.getName());
-
+	if (maxFattyAcidLength >= 26) {
+		maxFattyAcidLength = 26;
+	}
     for (int fattyAcidLength =
         minFattyAcidLength; fattyAcidLength <= maxFattyAcidLength; fattyAcidLength++) {
       for (int fattyAcidDoubleBonds =
@@ -65,7 +69,9 @@ public class ChainTools {
     int maxChainLength = lipidTools.getNumberOfCAtoms(peakIdentity.getName());
     int minNumberOfDoubleBonds = 0;
     int maxNumberOfDoubleBonds = lipidTools.getNumberOfDB(peakIdentity.getName());
-
+	if (maxChainLength >= 26) {
+		maxChainLength = 26;
+	}
     for (int chainLength = minChainLength; chainLength <= maxChainLength; chainLength++) {
       for (int chainDoubleBonds =
           minNumberOfDoubleBonds; chainDoubleBonds <= maxNumberOfDoubleBonds; chainDoubleBonds++) {

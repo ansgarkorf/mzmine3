@@ -38,8 +38,10 @@ import io.github.mzmine.datamodel.impl.SimplePeakList;
 import io.github.mzmine.datamodel.impl.SimplePeakListAppliedMethod;
 import io.github.mzmine.modules.dataprocessing.id_lipididentification.lipididentificationtools.LipidFragmentationRule;
 import io.github.mzmine.modules.dataprocessing.id_lipididentification.lipididentificationtools.MSMSLipidTools;
+import io.github.mzmine.modules.dataprocessing.id_lipididentification.lipids.LipidClassType;
 import io.github.mzmine.modules.dataprocessing.id_lipididentification.lipids.LipidClasses;
 import io.github.mzmine.modules.dataprocessing.id_lipididentification.lipids.LipidFragment;
+import io.github.mzmine.modules.dataprocessing.id_lipididentification.lipids.customlipidclass.CustomLipidClass;
 import io.github.mzmine.modules.dataprocessing.id_lipididentification.lipids.lipidmodifications.LipidModification;
 import io.github.mzmine.modules.dataprocessing.id_lipididentification.lipidutils.LipidChainType;
 import io.github.mzmine.modules.dataprocessing.id_lipididentification.lipidutils.LipidIdentity;
@@ -60,6 +62,8 @@ public class LipidSearchTask extends AbstractTask {
   private PeakList peakList;
   private Object[] selectedObjects;
   private LipidClasses[] selectedLipids;
+	private Boolean searchForCustomLipidClasses;
+	private CustomLipidClass[] customLipidClasses;
   private int minChainLength, maxChainLength, maxDoubleBonds, minDoubleBonds;
   private MZTolerance mzTolerance, mzToleranceMS2;
   private IonizationType ionizationType;
@@ -122,9 +126,13 @@ public class LipidSearchTask extends AbstractTask {
       this.ionizationAutoSearch = false;
       this.keepUnconfirmedAnnotations = true;
     }
-
+	this.searchForCustomLipidClasses = parameters.getParameter(LipidSearchParameters.customLipidClasses).getValue();
+	if (searchForCustomLipidClasses) {
+		this.customLipidClasses = LipidSearchParameters.customLipidClasses.getEmbeddedParameter().getChoices();
+	}
     // Convert Objects to LipidClasses
-    selectedLipids = Arrays.stream(selectedObjects).filter(o -> o instanceof LipidClasses)
+	this.selectedLipids = Arrays.stream(selectedObjects).filter(
+			o -> o instanceof LipidClasses)
         .map(o -> (LipidClasses) o).toArray(LipidClasses[]::new);
   }
 
@@ -208,12 +216,40 @@ public class LipidSearchTask extends AbstractTask {
           }
           // Prepare a lipid instance
           lipidDatabase
-              .add(new LipidIdentity(selectedLipids[i], chainLength, chainDoubleBonds, chainTypes));
+					.add(new LipidIdentity(selectedLipids[i], chainLength, chainDoubleBonds, chainTypes,
+							LipidClassType.LIPID_CLASS));
         }
       }
     }
+
+	// add custom lipid classes
+	for (int i = 0; i < customLipidClasses.length; i++) {
+		LipidChainType[] chainTypes = customLipidClasses[i].getChainTypes();
+		for (int chainLength = minChainLength; chainLength <= maxChainLength; chainLength++) {
+			for (int chainDoubleBonds = minDoubleBonds; chainDoubleBonds <= maxDoubleBonds; chainDoubleBonds++) {
+
+				// If we have non-zero fatty acid, which is shorter
+				// than minimal length, skip this lipid
+				if (((chainLength > 0) && (chainLength < minChainLength))) {
+					finishedSteps++;
+					continue;
+				}
+
+				// If we have more double bonds than carbons, it
+				// doesn't make sense, so let's skip such lipids
+				if (((chainDoubleBonds > 0) && (chainDoubleBonds > chainLength - 1))) {
+					finishedSteps++;
+					continue;
+				}
+				// Prepare a lipid instance
+				lipidDatabase.add(new LipidIdentity(customLipidClasses[i], chainLength, chainDoubleBonds, chainTypes,
+						LipidClassType.CUSTOM_LIPID_CLASS));
+			}
+		}
+	}
     return lipidDatabase;
   }
+
   /**
    * Check if candidate peak may be a possible adduct of a given main peak
    *
@@ -225,10 +261,18 @@ public class LipidSearchTask extends AbstractTask {
       return;
     Set<IonizationType> ionizationTypeList = new HashSet<>();
     if (ionizationAutoSearch) {
-      LipidFragmentationRule[] fragmentationRules = lipid.getLipidClass().getFragmentationRules();
-      for (int i = 0; i < fragmentationRules.length; i++) {
-        ionizationTypeList.add(fragmentationRules[i].getIonizationType());
-      }
+		if (lipid.getLipidClassType().equals(LipidClassType.LIPID_CLASS)) {
+			LipidFragmentationRule[] fragmentationRules = lipid.getLipidClass().getFragmentationRules();
+			for (int i = 0; i < fragmentationRules.length; i++) {
+				ionizationTypeList.add(fragmentationRules[i].getIonizationType());
+			}
+		}
+		else if (lipid.getLipidClassType().equals(LipidClassType.CUSTOM_LIPID_CLASS)) {
+			LipidFragmentationRule[] fragmentationRules = lipid.getCustomLipidClass().getFragmentationRules();
+			for (int i = 0; i < fragmentationRules.length; i++) {
+				ionizationTypeList.add(fragmentationRules[i].getIonizationType());
+			}
+		}
     } else {
       ionizationTypeList.add(ionizationType);
     }
@@ -292,7 +336,13 @@ public class LipidSearchTask extends AbstractTask {
         massList = msmsScans[i].getMassList(massListName).getDataPoints();
         MSMSLipidTools msmsLipidTools = new MSMSLipidTools();
 
-        LipidFragmentationRule[] rules = lipid.getLipidClass().getFragmentationRules();
+		LipidFragmentationRule[] rules = new LipidFragmentationRule[] {};
+		if (lipid.getLipidClassType().equals(LipidClassType.LIPID_CLASS)) {
+			rules = lipid.getLipidClass().getFragmentationRules();
+		}
+		else if (lipid.getLipidClassType().equals(LipidClassType.CUSTOM_LIPID_CLASS)) {
+			rules = lipid.getCustomLipidClass().getFragmentationRules();
+		}
         List<LipidFragment> listOfAnnotatedFragments = new ArrayList<>();
         if (rules.length > 0) {
           for (int j = 0; j < massList.length; j++) {
@@ -313,9 +363,13 @@ public class LipidSearchTask extends AbstractTask {
                 msmsLipidTools.confirmHeadgroupFragmentPresent(listOfAnnotatedFragments);
 
             // predict lipid fatty acid composition if possible
-            listOfChainCompositions =
-                msmsLipidTools.predictChainComposition(listOfAnnotatedFragments,
-                    row.getPreferredPeakIdentity(), lipid.getLipidClass().getChainTypes());
+			if (lipid.getLipidClassType().equals(LipidClassType.LIPID_CLASS)) {
+				listOfChainCompositions = msmsLipidTools.predictChainComposition(listOfAnnotatedFragments,
+						row.getPreferredPeakIdentity(), lipid.getLipidClass().getChainTypes());
+			} else if (lipid.getLipidClassType().equals(LipidClassType.CUSTOM_LIPID_CLASS)) {
+				listOfChainCompositions = msmsLipidTools.predictChainComposition(listOfAnnotatedFragments,
+						row.getPreferredPeakIdentity(), lipid.getCustomLipidClass().getChainTypes());
+			}
 
           } else {
             if (keepUnconfirmedAnnotations) {
@@ -335,8 +389,16 @@ public class LipidSearchTask extends AbstractTask {
           row.removePeakIdentity(row.getPreferredPeakIdentity());
         }
         for (int j = 0; j < listOfChainCompositions.size(); j++) {
-          String name = lipid.getLipidClass().getName() + " " + lipid.getLipidClass().getAbbr()
+			String name = "";
+			if (lipid.getLipidClassType().equals(LipidClassType.LIPID_CLASS)) {
+				name = lipid.getLipidClass().getName() + " " + lipid.getLipidClass()
+						.getAbbr()
               + "(" + listOfChainCompositions.get(j).getName() + ")";
+			}
+			else if (lipid.getLipidClassType().equals(LipidClassType.CUSTOM_LIPID_CLASS)) {
+				name = lipid.getCustomLipidClass().getName() + " " + lipid.getCustomLipidClass().getAbbr() + "("
+						+ listOfChainCompositions.get(j).getName() + ")";
+			}
           row.addPeakIdentity(new LipidIdentity(name, listOfChainCompositions.get(j).getFormula()),
               true);
           row.setPreferredPeakIdentity(

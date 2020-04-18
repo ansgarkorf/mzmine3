@@ -19,9 +19,13 @@
 package io.github.mzmine.modules.dataprocessing.id_lipididentification.lipidutils;
 
 import java.util.Map;
+
 import javax.annotation.Nonnull;
+
 import io.github.mzmine.datamodel.impl.SimplePeakIdentity;
+import io.github.mzmine.modules.dataprocessing.id_lipididentification.lipids.LipidClassType;
 import io.github.mzmine.modules.dataprocessing.id_lipididentification.lipids.LipidClasses;
+import io.github.mzmine.modules.dataprocessing.id_lipididentification.lipids.customlipidclass.CustomLipidClass;
 import io.github.mzmine.util.FormulaUtils;
 
 /**
@@ -31,76 +35,96 @@ import io.github.mzmine.util.FormulaUtils;
  */
 public class LipidIdentity extends SimplePeakIdentity {
 
-  private static final LipidFactory LIPID_FACTORY = new LipidFactory();
+	private static final LipidFactory LIPID_FACTORY = new LipidFactory();
 
-  private double exactMass;
-  private String sumFormula;
-  private String name;
-  private LipidClasses lipidClass;
+	private double exactMass;
+	private String sumFormula;
+	private String name;
+	private LipidClasses lipidClass;
+	private CustomLipidClass customLipidClass;
+	private LipidClassType lipidClassType;
 
-  public LipidIdentity(final LipidClasses lipidClass, final int chainLength,
-      final int chainDoubleBonds, LipidChainType[] chainTypes) {
+	public LipidIdentity(final LipidClasses lipidClass, final int chainLength, final int chainDoubleBonds,
+			LipidChainType[] chainTypes, LipidClassType lipidClassType) {
 
-    this(LIPID_FACTORY.buildLipid(lipidClass, chainLength, chainDoubleBonds, chainTypes).getName(),
-        LIPID_FACTORY.buildLipid(lipidClass, chainLength, chainDoubleBonds, chainTypes)
-            .getFormula());
-    this.lipidClass = lipidClass;
+		this(LIPID_FACTORY.buildLipid(lipidClass, chainLength, chainDoubleBonds, chainTypes).getName(),
+				LIPID_FACTORY.buildLipid(lipidClass, chainLength, chainDoubleBonds, chainTypes).getFormula());
+		this.lipidClass = lipidClass;
+		this.lipidClassType = lipidClassType;
+	}
 
-  }
+	public LipidIdentity(final CustomLipidClass lipidClass, final int chainLength, final int chainDoubleBonds,
+			LipidChainType[] chainTypes, LipidClassType lipidClassType) {
 
-  public LipidIdentity(final String name, final String formula) {
-    super(name);
-    this.name = name;
-    // Parse formula
-    Map<String, Integer> parsedFormula = FormulaUtils.parseFormula(formula);
-    // Rearrange formula
-    sumFormula = FormulaUtils.formatFormula(parsedFormula);
-    exactMass = FormulaUtils.calculateExactMass(sumFormula);
-    setPropertyValue(PROPERTY_NAME, name);
-    setPropertyValue(PROPERTY_FORMULA, sumFormula);
-    setPropertyValue(PROPERTY_METHOD, "Lipid identification");
-  }
+		this(LIPID_FACTORY.buildLipid(lipidClass, chainLength, chainDoubleBonds, chainTypes).getName(),
+				LIPID_FACTORY.buildLipid(lipidClass, chainLength, chainDoubleBonds, chainTypes).getFormula());
+		this.customLipidClass = lipidClass;
+		this.lipidClassType = lipidClassType;
+	}
 
-  public double getMass() {
-    return exactMass;
-  }
+	public LipidIdentity(final String name, final String formula) {
+		super(name);
+		this.name = name;
 
-  public String getFormula() {
-    return sumFormula;
-  }
+		// Parse formula
+		Map<String, Integer> parsedFormula = FormulaUtils.parseFormula(formula);
 
-  public LipidClasses getLipidClass() {
-    return lipidClass;
-  }
+		// Rearrange formula
+		sumFormula = FormulaUtils.formatFormula(parsedFormula);
+		exactMass = FormulaUtils.calculateExactMass(sumFormula);
+		setPropertyValue(PROPERTY_NAME, name);
+		setPropertyValue(PROPERTY_FORMULA, sumFormula);
+		setPropertyValue(PROPERTY_METHOD, "Lipid identification");
+	}
 
-  @Override
-  public @Nonnull Object clone() {
-    return new LipidIdentity(getName(), getPropertyValue(PROPERTY_FORMULA));
-  }
+	public double getMass() {
+		return exactMass;
+	}
 
-  @Override
-  public int hashCode() {
-    final int prime = 31;
-    int result = 1;
-    result = prime * result + ((name == null) ? 0 : name.hashCode());
-    return result;
-  }
+	public String getFormula() {
+		return sumFormula;
+	}
 
-  @Override
-  public boolean equals(Object obj) {
-    if (this == obj)
-      return true;
-    if (obj == null)
-      return false;
-    if (getClass() != obj.getClass())
-      return false;
-    LipidIdentity other = (LipidIdentity) obj;
-    if (name == null) {
-      if (other.name != null)
-        return false;
-    } else if (!name.equals(other.name))
-      return false;
-    return true;
-  }
+	public LipidClasses getLipidClass() {
+		return lipidClass;
+	}
 
-}
+	public CustomLipidClass getCustomLipidClass() {
+		return customLipidClass;
+	}
+
+	public LipidClassType getLipidClassType() {
+		return lipidClassType;
+	}
+
+	@Override
+	public @Nonnull Object clone() {
+		return new LipidIdentity(getName(), getPropertyValue(PROPERTY_FORMULA));
+	}
+
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + ((name == null) ? 0 : name.hashCode());
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		LipidIdentity other = (LipidIdentity) obj;
+		if (name == null) {
+			if (other.name != null)
+				return false;
+		} else if (!name.equals(other.name))
+			return false;
+		return true;
+	}
+
+	}

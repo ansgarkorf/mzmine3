@@ -18,8 +18,6 @@
 
 package io.github.mzmine.modules.dataprocessing.id_lipididentification.lipids;
 
-import io.github.mzmine.util.color.SimpleColorPalette;
-import io.github.mzmine.util.javafx.FxColorUtil;
 import java.text.NumberFormat;
 import java.util.Arrays;
 import java.util.List;
@@ -35,7 +33,6 @@ import org.jfree.data.xy.XYSeriesCollection;
 
 import io.github.mzmine.datamodel.IonizationType;
 import io.github.mzmine.gui.chartbasics.gui.javafx.EChartViewer;
-import io.github.mzmine.gui.preferences.MZminePreferences;
 import io.github.mzmine.main.MZmineCore;
 import io.github.mzmine.modules.dataprocessing.id_lipididentification.LipidSearchParameters;
 import io.github.mzmine.modules.dataprocessing.id_lipididentification.lipididentificationtools.LipidFragmentationRule;
@@ -46,8 +43,8 @@ import io.github.mzmine.modules.dataprocessing.id_lipididentification.lipidutils
 import io.github.mzmine.parameters.ParameterSet;
 import io.github.mzmine.parameters.parametertypes.tolerances.MZTolerance;
 import io.github.mzmine.util.FormulaUtils;
-import io.github.mzmine.util.color.Colors;
 import io.github.mzmine.util.color.ColorsFX;
+import io.github.mzmine.util.color.SimpleColorPalette;
 import io.github.mzmine.util.color.Vision;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -202,17 +199,8 @@ public class LipidDatabaseTableController {
               // mass
               "", // info
               "", // status
-<<<<<<< HEAD
               fragmentationRuleSB
 							.toString())); // msms fragments
-=======
-              String.join(", ", selectedLipids[i].getMsmsFragmentsPositiveIonization()), // msms
-              // fragments
-              // postive
-              String.join(", ", selectedLipids[i].getMsmsFragmentsNegativeIonization()))); // msms
-          // fragments
-          // negative
->>>>>>> refs/heads/master
           id++;
           if (useModification) {
             for (int j = 0; j < lipidModification.length; j++) {
@@ -224,7 +212,6 @@ public class LipidDatabaseTableController {
                   lipidChain.getFormula() + lipidModification[j].getLipidModificatio(), // sum
                   // formula
                   selectedLipids[i].getAbbr() + " (" + chainLength + ":" + chainDoubleBonds + ")"
-// abbr
                       + lipidModification[j].getLipidModificatio(),
                   ionizationType.toString(), // ionization type
                   numberFormat.format(lipidChain.getMass() + ionizationType.getAddedMass() // exact

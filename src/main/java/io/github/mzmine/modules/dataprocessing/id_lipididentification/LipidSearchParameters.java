@@ -47,11 +47,6 @@ public class LipidSearchParameters extends SimpleParameterSet {
 	public static final LipidClassParameter<Object> lipidClasses = new LipidClassParameter<Object>("Lipid classes",
 			"Selection of lipid backbones", AllLipidClasses.getList().toArray());
 
-	public static final OptionalParameter<CustomLipidClassChoiceParameter> customLipidClasses = new OptionalParameter<CustomLipidClassChoiceParameter>(
-			new CustomLipidClassChoiceParameter("Search for custom lipid class",
-					"If checked the algorithm searches for custom, by the user defined lipid classes",
-					new CustomLipidClass[0]));
-
 	public static final IntRangeParameter chainLength = new IntRangeParameter("Number of carbon atoms in chains",
 			"Number of carbon atoms in chains");
 
@@ -68,13 +63,18 @@ public class LipidSearchParameters extends SimpleParameterSet {
 			"Search for lipid class specific fragments in MS/MS spectra",
 			"Search for lipid class specific fragments in MS/MS spectra", new LipidSearchMSMSParameters());
 
+	public static final OptionalParameter<CustomLipidClassChoiceParameter> customLipidClasses = new OptionalParameter<CustomLipidClassChoiceParameter>(
+			new CustomLipidClassChoiceParameter("Search for custom lipid class",
+					"If checked the algorithm searches for custom, by the user defined lipid classes",
+					new CustomLipidClass[0]));
+
 	public static final OptionalParameter<LipidModificationChoiceParameter> searchForModifications = new OptionalParameter<LipidModificationChoiceParameter>(
 			new LipidModificationChoiceParameter("Search for lipid modification",
 					"If checked the algorithm searches for lipid modifications", new LipidModification[0]));
 
 	public LipidSearchParameters() {
-		super(new Parameter[] { peakLists, lipidClasses, customLipidClasses, chainLength, doubleBonds, ionizationMethod,
-				mzTolerance, searchForMSMSFragments, searchForModifications });
+		super(new Parameter[] { peakLists, lipidClasses, chainLength, doubleBonds, ionizationMethod, mzTolerance,
+				searchForMSMSFragments, customLipidClasses, searchForModifications });
 	}
 
 	@Override
@@ -84,4 +84,4 @@ public class LipidSearchParameters extends SimpleParameterSet {
 		return dialog.getExitCode();
 	}
 
-	}
+}

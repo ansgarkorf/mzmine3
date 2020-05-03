@@ -617,7 +617,7 @@ public enum LipidClasses {
 							LipidFragmentationRuleType.ACYLCHAIN_FRAGMENT_NL,
 							LipidFragmentInformationLevelType.CHAIN_COMPOSITION), //
 					new LipidFragmentationRule(PolarityType.POSITIVE, IonizationType.POSITIVE_HYDROGEN,
-							LipidFragmentationRuleType.ACYLCHAIN_MINUS_FORMULA_FRAGMENT, //
+							LipidFragmentationRuleType.ACYLCHAIN_MINUS_FORMULA_FRAGMENT_NL, //
 							LipidFragmentInformationLevelType.CHAIN_COMPOSITION, //
 							"H2O") }), //
 	MONOACYLGLYCEROLTRIMETHYLHOMOSERIN("Monoacylglyceroltrimethylhomoserin", "LysoDGTS", LipidCoreClasses.GLYCEROLIPIDS,

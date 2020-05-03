@@ -19,7 +19,8 @@
 package io.github.mzmine.modules.dataprocessing.id_lipididentification.lipids.customlipidclass;
 
 import java.io.File;
-import java.io.FileReader;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Arrays;
@@ -27,10 +28,15 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.controlsfx.control.CheckListView;
+import javax.json.Json;
+import javax.json.JsonArray;
+import javax.json.JsonReader;
 
-import com.Ostermiller.util.CSVParser;
-import com.Ostermiller.util.CSVPrinter;
+import org.controlsfx.control.CheckListView;
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import com.google.gson.Gson;
 
 import io.github.mzmine.main.MZmineCore;
 import io.github.mzmine.modules.dataprocessing.id_lipididentification.lipididentificationtools.LipidFragmentationRule;
@@ -64,7 +70,7 @@ public class CustomLipidClassChoiceComponent extends BorderPane {
 	private final Button removeButton = new Button("Remove");
 
 	// Filename extension.
-	private static final String FILENAME_EXTENSION = "*.csv";
+	private static final String FILENAME_EXTENSION = "*.json";
 
 	public CustomLipidClassChoiceComponent(CustomLipidClass[] choices) {
 
@@ -94,85 +100,82 @@ public class CustomLipidClassChoiceComponent extends BorderPane {
 			}
 		});
 
-		importButton.setTooltip(new Tooltip("Import custom lipid class from a CSV file"));
+		importButton.setTooltip(new Tooltip("Import custom lipid class from a JSON file"));
 		importButton.setOnAction(e -> {
 
 			// Create the chooser if necessary.
 			FileChooser chooser = new FileChooser();
 			chooser.setTitle("Select custom lipid class file");
-			chooser.getExtensionFilters().add(new ExtensionFilter("Comma-separated values files", FILENAME_EXTENSION));
+			chooser.getExtensionFilters().add(new ExtensionFilter("JSON", FILENAME_EXTENSION));
 
 			// Select a file.
 			final File file = chooser.showOpenDialog(this.getScene().getWindow());
 			if (file == null)
 				return;
 
-			// Read the CSV file into a string array.
-			String[][] csvLines = null;
 			try {
-
-				csvLines = CSVParser.parse(new FileReader(file));
-			} catch (IOException ex) {
-				final String msg = "There was a problem reading the custom lipid class file.";
-				MZmineCore.getDesktop().displayErrorMessage(msg + "\n(" + ex.getMessage() + ')');
-				logger.log(Level.SEVERE, msg, ex);
-				return;
+			FileInputStream fileInputStream = new FileInputStream(file);
+	            JsonReader reader = Json.createReader(fileInputStream);
+				JsonArray jsonArray = reader.readArray();
+	            reader.close();
+	            Gson gson = new Gson();
+				for (int i = 0; i < jsonArray.size(); i++) {
+	            CustomLipidClass customLipidClass = new CustomLipidClass(//
+						jsonArray.get(i).asJsonObject().get("Custom lipid class").asJsonObject().getString(
+								"Name"), //
+						jsonArray.get(i).asJsonObject().get("Custom lipid class").asJsonObject().getString("Abbr"), //
+						jsonArray.get(i).asJsonObject().get("Custom lipid class").asJsonObject().getString(
+								"Backbone"), //
+						gson.fromJson(jsonArray.get(i).asJsonObject().get("Custom lipid class").asJsonObject()
+								.getJsonArray("Chain types").toString(),
+								LipidChainType[].class), //
+						gson.fromJson(jsonArray.get(i).asJsonObject().get("Custom lipid class").asJsonObject()
+								.getJsonArray("Fragmentation rules").toString(),
+								LipidFragmentationRule[].class) //
+				);
+				checkList.getItems().add(customLipidClass);
 			}
-
-			// Load adducts from CSV data into parent choices.
-			for (final String line[] : csvLines) {
-				try {
-
-//					// Create new custom lipid cöass and add it to the choices if it's
-//					// new.
-//					final CustomLipidClass customLipidClass = new CustomLipidClass(line[0], line[1], line[2], line[3],
-//							line[4]);
-//					if (!checkList.getItems().contains(customLipidClass)) {
-//						checkList.getItems();
-//					}
-				} catch (final NumberFormatException ignored) {
-					logger.warning("Couldn't find custom lipid class information in line " + line[0]);
-				}
+			} catch (FileNotFoundException ex) {
+				logger.log(Level.WARNING, "Could not open Custom Lipid Class .json file");
+				ex.printStackTrace();
 			}
-
 		});
 
-		exportButton.setTooltip(new Tooltip("Export custom modifications to a CSV file"));
+		exportButton.setTooltip(new Tooltip("Export custom lipid class as JSON file"));
 		exportButton.setOnAction(e -> {
-			// Create the chooser if necessary.
-
 			FileChooser chooser = new FileChooser();
 			chooser.setTitle("Select lipid modification file");
-			chooser.getExtensionFilters().add(new ExtensionFilter("Comma-separated values files", FILENAME_EXTENSION));
+			chooser.getExtensionFilters().add(new ExtensionFilter("JSON", FILENAME_EXTENSION));
 
-			// Choose the file.
 			final File file = chooser.showSaveDialog(this.getScene().getWindow());
 			if (file == null)
 				return;
 
-			// Export the modifications.
 			try {
-
-				final CSVPrinter writer = new CSVPrinter(new FileWriter(file));
-				for (final CustomLipidClass customLipidClass : checkList.getItems()) {
-
-					writer.writeln(new String[] { //
-							customLipidClass.getName(), //
-							customLipidClass.getAbbr(), //
-							customLipidClass.getBackBoneFormula(), //
-							customLipidClass.getChainTypes().toString(), //
-							customLipidClass.getFragmentationRules().toString() });
+				FileWriter fileWriter = new FileWriter(file);
+				JSONArray customLipidClassesList = new JSONArray();
+				for (final CustomLipidClass lipidClass : checkList.getItems()) {
+					JSONObject customLipidClassDetails = new JSONObject();
+					customLipidClassDetails.put("Name", lipidClass.getName());
+					customLipidClassDetails.put("Abbr", lipidClass.getAbbr());
+					customLipidClassDetails.put("Backbone", lipidClass.getBackBoneFormula());
+					customLipidClassDetails.put("Chain types", lipidClass.getChainTypes());
+					customLipidClassDetails.put("Fragmentation rules", lipidClass.getFragmentationRules());
+					JSONObject customLipidClass = new JSONObject();
+					customLipidClass.put("Custom lipid class", customLipidClassDetails);
+					customLipidClassesList.put(customLipidClass);
 				}
-
+				fileWriter.write(customLipidClassesList.toString());
+				fileWriter.close();
 			} catch (IOException ex) {
-				final String msg = "There was a problem writing the lipid modifications file.";
+				final String msg = "There was a problem writing the Custom Lipid Class file.";
 				MZmineCore.getDesktop().displayErrorMessage(msg + "\n(" + ex.getMessage() + ')');
 				logger.log(Level.SEVERE, msg, ex);
 			}
 
 		});
 
-		removeButton.setTooltip(new Tooltip("Remove all lipid modification"));
+		removeButton.setTooltip(new Tooltip("Remove all Custom Lipid Classes"));
 		removeButton.setOnAction(e -> {
 			checkList.getItems().clear();
 		});

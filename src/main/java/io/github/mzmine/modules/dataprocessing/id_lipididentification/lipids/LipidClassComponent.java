@@ -57,7 +57,8 @@ public class LipidClassComponent extends BorderPane {
 
 		// Don't show the root item
 		lipidChoices.setShowRoot(false);
-
+		lipidChoices.setMinWidth(500);
+		lipidChoices.setMinHeight(200);
 		// Load all lipid classes
 		LipidCoreClasses coreClass = null;
 		LipidMainClasses mainClass = null;

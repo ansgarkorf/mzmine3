@@ -1,22 +1,20 @@
 package io.github.mzmine.modules.visualization.mobilogram;
 
-import io.github.mzmine.datamodel.Frame;
-import io.github.mzmine.datamodel.IMSRawDataFile;
-import io.github.mzmine.datamodel.MobilityType;
-import io.github.mzmine.datamodel.RawDataFile;
-import io.github.mzmine.gui.chartbasics.gui.javafx.template.ColoredXYDataset;
-import io.github.mzmine.gui.chartbasics.gui.javafx.template.SimpleXYLineChart;
-import io.github.mzmine.gui.chartbasics.gui.javafx.template.providers.DomainValueProvider;
-import io.github.mzmine.gui.preferences.UnitFormat;
-import io.github.mzmine.main.MZmineCore;
-import io.github.mzmine.modules.dataprocessing.featdet_mobilogrambuilder.MobilityDataPoint;
-import io.github.mzmine.modules.dataprocessing.featdet_mobilogrambuilder.Mobilogram;
-import io.github.mzmine.modules.visualization.spectra.simplespectra.SpectraVisualizerModule;
-import io.github.mzmine.project.impl.StorableFrame;
 import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.logging.Logger;
+import io.github.mzmine.datamodel.Frame;
+import io.github.mzmine.datamodel.IMSRawDataFile;
+import io.github.mzmine.datamodel.MobilityType;
+import io.github.mzmine.datamodel.RawDataFile;
+import io.github.mzmine.gui.chartbasics.gui.javafx.template.SimpleXYLineChart;
+import io.github.mzmine.gui.preferences.UnitFormat;
+import io.github.mzmine.main.MZmineCore;
+import io.github.mzmine.modules.dataprocessing.featdet_mobilogrambuilder.IMobilogram;
+import io.github.mzmine.modules.dataprocessing.featdet_mobilogrambuilder.MobilityDataPoint;
+import io.github.mzmine.modules.visualization.spectra.simplespectra.SpectraVisualizerModule;
+import io.github.mzmine.project.impl.StorableFrame;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
@@ -34,7 +32,7 @@ public class MobilogramVisualizerController {
       Logger.getLogger(MobilogramVisualizerController.class.getName());
 
   @FXML
-  public SimpleXYLineChart<Mobilogram> mobilogramChart;
+  public SimpleXYLineChart<IMobilogram> mobilogramChart;
 
   @FXML
   public ComboBox<RawDataFile> rawDataFileSelector;
@@ -43,11 +41,11 @@ public class MobilogramVisualizerController {
   public ComboBox<Frame> frameSelector;
 
   @FXML
-  public ComboBox<Mobilogram> mobilogramSelector;
+  public ComboBox<IMobilogram> mobilogramSelector;
 
   private ObservableList<RawDataFile> rawDataFiles;
   private ObservableList<Frame> frames;
-  private ObservableList<Mobilogram> mobilograms;
+  private ObservableList<IMobilogram> mobilograms;
 
   private NumberFormat rtFormat;
 
@@ -71,8 +69,8 @@ public class MobilogramVisualizerController {
     showSpectrum.setOnAction(e -> {
       int valueIndex = mobilogramChart.getCursorPosition().getValueIndex();
       if (valueIndex != -1) {
-        MobilityDataPoint selectedDp =
-            mobilogramSelector.getValue().getDataPoints().get(valueIndex);
+        MobilityDataPoint selectedDp = mobilogramSelector.getValue().getDataPoints().stream()
+            .filter(dp -> dp.getScanNum() == valueIndex).findFirst().get();
         SpectraVisualizerModule.addNewSpectrumTab(frameSelector.getValue().getDataFile(),
             selectedDp.getScanNum());
       }
@@ -105,7 +103,7 @@ public class MobilogramVisualizerController {
   }
 
   public void onMobilogramSelectionChanged(ActionEvent actionEvent) {
-    Mobilogram selectedMobilogram = mobilogramSelector.getValue();
+    IMobilogram selectedMobilogram = mobilogramSelector.getValue();
     mobilogramChart.removeAllDatasets();
     if (selectedMobilogram != null) {
       mobilogramChart.addDataset(selectedMobilogram);
@@ -126,13 +124,13 @@ public class MobilogramVisualizerController {
   }
 
   private void initMobilgramBox() {
-    Callback<ListView<Mobilogram>, ListCell<Mobilogram>> listViewListCellCallback =
+    Callback<ListView<IMobilogram>, ListCell<IMobilogram>> listViewListCellCallback =
         new Callback<>() {
           @Override
-          public ListCell<Mobilogram> call(ListView<Mobilogram> param) {
-            return new ListCell<Mobilogram>() {
+          public ListCell<IMobilogram> call(ListView<IMobilogram> param) {
+            return new ListCell<IMobilogram>() {
               @Override
-              protected void updateItem(Mobilogram item, boolean empty) {
+              protected void updateItem(IMobilogram item, boolean empty) {
                 super.updateItem(item, empty);
                 if (item == null || empty) {
                   setGraphic(null);
@@ -143,9 +141,9 @@ public class MobilogramVisualizerController {
             };
           }
         };
-    mobilogramSelector.setConverter(new StringConverter<Mobilogram>() {
+    mobilogramSelector.setConverter(new StringConverter<IMobilogram>() {
       @Override
-      public String toString(Mobilogram object) {
+      public String toString(IMobilogram object) {
         if (object != null) {
           return object.representativeString();
         }
@@ -153,7 +151,7 @@ public class MobilogramVisualizerController {
       }
 
       @Override
-      public Mobilogram fromString(String string) {
+      public IMobilogram fromString(String string) {
         return null;
       }
     });
@@ -161,25 +159,24 @@ public class MobilogramVisualizerController {
   }
 
   private void initFrameBox() {
-    Callback<ListView<Frame>, ListCell<Frame>> listViewListCellCallback =
-        new Callback<>() {
+    Callback<ListView<Frame>, ListCell<Frame>> listViewListCellCallback = new Callback<>() {
+      @Override
+      public ListCell<Frame> call(ListView<Frame> param) {
+        return new ListCell<Frame>() {
           @Override
-          public ListCell<Frame> call(ListView<Frame> param) {
-            return new ListCell<Frame>() {
-              @Override
-              protected void updateItem(Frame item, boolean empty) {
-                super.updateItem(item, empty);
-                if (item == null || empty) {
-                  setGraphic(null);
-                } else {
-                  setText(item.getFrameId() + " MS" + item.getMSLevel() + " @" +
-                      rtFormat.format(item.getRetentionTime()) +
-                      " min (" + item.getMobilograms().size() + ")");
-                }
-              }
-            };
+          protected void updateItem(Frame item, boolean empty) {
+            super.updateItem(item, empty);
+            if (item == null || empty) {
+              setGraphic(null);
+            } else {
+              setText(item.getFrameId() + " MS" + item.getMSLevel() + " @"
+                  + rtFormat.format(item.getRetentionTime()) + " min ("
+                  + item.getMobilograms().size() + ")");
+            }
           }
         };
+      }
+    };
 
     frameSelector.setConverter(new StringConverter<Frame>() {
       @Override
@@ -187,9 +184,9 @@ public class MobilogramVisualizerController {
         if (item == null) {
           return "";
         }
-        return item.getFrameId() + " MS" + item.getMSLevel() + " @" + rtFormat
-            .format(item.getRetentionTime()) +
-            " min (" + item.getMobilograms().size() + ")";
+        return item.getFrameId() + " MS" + item.getMSLevel() + " @"
+            + rtFormat.format(item.getRetentionTime()) + " min (" + item.getMobilograms().size()
+            + ")";
       }
 
       @Override

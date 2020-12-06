@@ -1,5 +1,17 @@
 package io.github.mzmine.modules.dataprocessing.featdet_mobilogrambuilder;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.Date;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.SortedSet;
+import java.util.TreeSet;
+import java.util.logging.Logger;
+import java.util.stream.Collectors;
 import io.github.mzmine.datamodel.Frame;
 import io.github.mzmine.datamodel.MobilityType;
 import io.github.mzmine.datamodel.Scan;
@@ -9,14 +21,6 @@ import io.github.mzmine.parameters.parametertypes.tolerances.MZTolerance;
 import io.github.mzmine.project.impl.StorableFrame;
 import io.github.mzmine.taskcontrol.AbstractTask;
 import io.github.mzmine.taskcontrol.TaskStatus;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.Date;
-import java.util.List;
-import java.util.logging.Logger;
-import java.util.stream.Collectors;
 
 /**
  * Worker task of the mobilogram builder
@@ -25,7 +29,7 @@ public class MobilogramBuilderTask extends AbstractTask {
 
   private static Logger logger = Logger.getLogger(MobilogramBuilderTask.class.getName());
 
-  private final List<Frame> frames;
+  private final Set<Frame> frames;
   private final MZTolerance mzTolerance;
   private final String massList;
   private final int totalFrames;
@@ -34,15 +38,15 @@ public class MobilogramBuilderTask extends AbstractTask {
   private final ScanSelection scanSelection;
   private int processedFrames;
 
-  public MobilogramBuilderTask(List<Frame> frames, ParameterSet parameters) {
+  public MobilogramBuilderTask(Set<Frame> frames, ParameterSet parameters) {
     this.mzTolerance = parameters.getParameter(MobilogramBuilderParameters.mzTolerance).getValue();
     this.massList = parameters.getParameter(MobilogramBuilderParameters.massList).getValue();
     this.minPeaks = parameters.getParameter(MobilogramBuilderParameters.minPeaks).getValue();
     this.addDpFromRaw = parameters.getParameter(MobilogramBuilderParameters.addRawDp).getValue();
     this.scanSelection =
         parameters.getParameter(MobilogramBuilderParameters.scanSelection).getValue();
-//    this.frames = frames;
-    this.frames = (List<Frame>) scanSelection.getMachtingScans((frames));
+    // this.frames = frames;
+    this.frames = (Set<Frame>) scanSelection.getMachtingScans((frames));
 
     totalFrames = (this.frames.size() != 0) ? this.frames.size() : 1;
     setStatus(TaskStatus.WAITING);
@@ -72,17 +76,16 @@ public class MobilogramBuilderTask extends AbstractTask {
         continue;
       }
 
-      List<Scan> eligibleScans = frame.getMobilityScans().stream().filter(
-          scanSelection::matches).collect(Collectors.toList());
-      List<Mobilogram> mobilograms =
-          calculateMobilogramsForScans(eligibleScans);
+      Set<Scan> eligibleScans = frame.getMobilityScans().stream().filter(scanSelection::matches)
+          .collect(Collectors.toSet());
+      Set<IMobilogram> mobilograms = calculateMobilogramsForScans(eligibleScans);
 
       if (addDpFromRaw) {
         addDataPointsFromRaw(mobilograms, frame.getMobilityScans());
       }
       printDuplicateStatistics(mobilograms);
-//      mobilograms.forEach(mob -> ((SimpleMobilogram) mob).fillMissingScanNumsWithZero());
-      mobilograms.forEach(mob -> ((SimpleMobilogram)mob).fillEdgesWithZeros(3));
+      // mobilograms.forEach(mob -> ((SimpleMobilogram) mob).fillMissingScanNumsWithZero());
+      mobilograms.forEach(mob -> ((SimpleMobilogram) mob).fillEdgesWithZeros(3));
 
       processedFrames++;
       frame.getMobilograms().clear(); // remove previous mobilograms
@@ -92,36 +95,44 @@ public class MobilogramBuilderTask extends AbstractTask {
     setStatus(TaskStatus.FINISHED);
   }
 
-  protected List<Mobilogram> calculateMobilogramsForScans(List<Scan> scans) {
-    if (scans.size() == 0 || scans.get(0).getMassList(massList) == null) {
-      return Collections.emptyList();
+  protected Set<IMobilogram> calculateMobilogramsForScans(Set<Scan> scans) {
+    MobilityType mobilityType = null;
+    if (scans.isEmpty()) {
+      return Collections.emptySet();
+    } else {
+      for (Scan scan : scans) {
+        if (scan.getMassList(massList) == null) {
+          return Collections.emptySet();
+        } else {
+          mobilityType = scan.getMobilityType();
+          break;
+        }
+      }
     }
 
-    final MobilityType mobilityType = scans.get(0).getMobilityType();
-    int numDp = 0;
+    // int numDp = 0;
+    //
+    // for (Scan scan : scans) {
+    // numDp += scan.getMassList(massList).getDataPoints().length;
+    // }
+    final SortedSet<MobilityDataPoint> allDps =
+        new TreeSet<>(Comparator.comparing(MobilityDataPoint::getIntensity));
 
     for (Scan scan : scans) {
-      numDp += scan.getMassList(massList).getDataPoints().length;
-    }
-    final List<MobilityDataPoint> allDps = new ArrayList<>(numDp);
-
-    for (Scan scan : scans) {
-      Arrays.stream(scan.getMassList(massList).getDataPoints()).forEach(
-          dp -> allDps.add(new MobilityDataPoint(dp.getMZ(), dp.getIntensity(), scan.getMobility(),
-              scan.getScanNumber())));
+      Arrays.stream(scan.getMassList(massList).getDataPoints())
+          .forEach(dp -> allDps.add(new MobilityDataPoint(dp.getMZ(), dp.getIntensity(),
+              scan.getMobility(), scan.getScanNumber())));
     }
 
     // sort by highest dp, we assume that that measurement was the most accurate
-    allDps.sort(Comparator.comparingDouble(MobilityDataPoint::getIntensity));
+    // allDps.sort(Comparator.comparingDouble(MobilityDataPoint::getIntensity));
 
-    List<Mobilogram> mobilograms = new ArrayList<>();
-    List<MobilityDataPoint> itemsToRemove = new ArrayList<>();
+    Set<IMobilogram> mobilograms = new HashSet<>();
 
-    for (int i = 0; i < allDps.size(); i++) {
-      final MobilityDataPoint baseDp = allDps.get(i);
+    for (MobilityDataPoint allDp : allDps) {
+      final MobilityDataPoint baseDp = allDp;
       final double baseMz = baseDp.getMZ();
-      allDps.remove(baseDp);
-      i--; // item removed
+      // allDps.remove(allDp);
 
       final SimpleMobilogram mobilogram = new SimpleMobilogram(mobilityType);
       mobilogram.addDataPoint(baseDp);
@@ -131,12 +142,12 @@ public class MobilogramBuilderTask extends AbstractTask {
         if (mzTolerance.checkWithinTolerance(baseMz, dp.getMZ())
             && !mobilogram.containsDpForScan(dp.getScanNum())) {
           mobilogram.addDataPoint(dp);
-          itemsToRemove.add(dp);
+          // itemsToRemove.add(dp);
         }
       }
 
-      allDps.removeAll(itemsToRemove);
-      itemsToRemove.clear();
+      // allDps.removeAll(itemsToRemove);
+      // itemsToRemove.clear();
 
       if (mobilogram.getDataPoints().size() > minPeaks) {
         mobilogram.calc();
@@ -144,11 +155,13 @@ public class MobilogramBuilderTask extends AbstractTask {
       }
     }
 
-    mobilograms.sort(Comparator.comparingDouble(Mobilogram::getMZ));
-    return mobilograms;
+    SortedSet<IMobilogram> sortedMobilograms =
+        new TreeSet<>(Comparator.comparingDouble(IMobilogram::getMZ));
+    sortedMobilograms.addAll(mobilograms);
+    return sortedMobilograms;
   }
 
-  private void addDataPointsFromRaw(List<Mobilogram> mobilograms, List<Scan> rawScans) {
+  private void addDataPointsFromRaw(Set<IMobilogram> mobilograms, Set<Scan> rawScans) {
     // rawScans are actually StorableScans so data points are stored on the hard disc. We preload
     // everything here at once
     int numDp = 0;
@@ -157,14 +170,13 @@ public class MobilogramBuilderTask extends AbstractTask {
     }
     final List<MobilityDataPoint> allDps = new ArrayList<>(numDp);
     for (Scan scan : rawScans) {
-      Arrays.stream(scan.getDataPoints()).forEach(
-          dp -> allDps.add(new MobilityDataPoint(dp.getMZ(), dp.getIntensity(), scan.getMobility(),
-              scan.getScanNumber())));
+      Arrays.stream(scan.getDataPoints()).forEach(dp -> allDps.add(new MobilityDataPoint(dp.getMZ(),
+          dp.getIntensity(), scan.getMobility(), scan.getScanNumber())));
     }
     // if we sort here, we can use break conditions later
     allDps.sort(Comparator.comparingDouble(MobilityDataPoint::getMZ));
 
-    for (Mobilogram mobilogram : mobilograms) {
+    for (IMobilogram mobilogram : mobilograms) {
       Date start = new Date();
       // todo maybe mobilogram.getMZRange()?
       double lowerMzLimit = mzTolerance.getToleranceRange(mobilogram.getMZ()).lowerEndpoint();
@@ -190,18 +202,17 @@ public class MobilogramBuilderTask extends AbstractTask {
 
       // all dps within mztolerance and not already in the mobilogram
       Date preSearch = new Date();
-      List<MobilityDataPoint> eligibleDps =
-          allDps.subList(lowerStartIndex, upperStopIndex + 1).stream()
-              .filter(dp -> !mobilogram.getScanNumbers().contains(dp.getScanNum())).collect(
-              Collectors.toList());
+      List<MobilityDataPoint> eligibleDps = allDps.subList(lowerStartIndex, upperStopIndex + 1)
+          .stream().filter(dp -> !mobilogram.getScanNumbers().contains(dp.getScanNum()))
+          .collect(Collectors.toList());
       Date done = new Date();
 
       final long full = done.getTime() - start.getTime();
       final long search = done.getTime() - preSearch.getTime();
 
-//      logger.info(
-//          () -> "adding " + eligibleDps.size() + " dp to " + mobilogram.representativeString()
-//              + " - full: " + full + " ms - search " + search + " ms");
+      logger
+          .info(() -> "adding " + eligibleDps.size() + " dp to " + mobilogram.representativeString()
+              + " - full: " + full + " ms - search " + search + " ms");
 
       for (MobilityDataPoint dp : eligibleDps) {
         ((SimpleMobilogram) mobilogram).addDataPoint(dp);
@@ -211,13 +222,13 @@ public class MobilogramBuilderTask extends AbstractTask {
     // todo compare if other entries from that scan would have been better
   }
 
-  private void printDuplicateStatistics(List<Mobilogram> mobilograms) {
+  private void printDuplicateStatistics(Set<IMobilogram> mobilograms) {
 
-    List<Mobilogram> copyMobilograms = new ArrayList<>(mobilograms);
+    List<IMobilogram> copyMobilograms = new ArrayList<>(mobilograms);
 
-    for (Mobilogram baseMob : mobilograms) {
+    for (IMobilogram baseMob : mobilograms) {
       copyMobilograms.remove(baseMob);
-      for (Mobilogram copyMob : copyMobilograms) {
+      for (IMobilogram copyMob : copyMobilograms) {
         if (baseMob.getMZRange().isConnected(copyMob.getMobilityRange())) {
           int overlapCounter = 0;
           for (MobilityDataPoint dp : baseMob.getDataPoints()) {

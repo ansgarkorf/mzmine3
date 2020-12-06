@@ -18,6 +18,14 @@
 
 package io.github.mzmine.datamodel.impl;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.SortedMap;
+import java.util.TreeMap;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import com.google.common.collect.Range;
 import io.github.mzmine.datamodel.DataPoint;
 import io.github.mzmine.datamodel.Frame;
@@ -26,14 +34,7 @@ import io.github.mzmine.datamodel.MobilityType;
 import io.github.mzmine.datamodel.PolarityType;
 import io.github.mzmine.datamodel.RawDataFile;
 import io.github.mzmine.datamodel.Scan;
-import io.github.mzmine.modules.dataprocessing.featdet_mobilogrambuilder.Mobilogram;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.SortedMap;
-import java.util.TreeMap;
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import io.github.mzmine.modules.dataprocessing.featdet_mobilogrambuilder.IMobilogram;
 
 public class SimpleFrame extends SimpleScan implements Frame {
 
@@ -45,11 +46,9 @@ public class SimpleFrame extends SimpleScan implements Frame {
    */
   private Range<Double> mobilityRange;
 
-  public SimpleFrame(RawDataFile dataFile, int scanNumber, int msLevel,
-      float retentionTime, double precursorMZ, int precursorCharge, int[] fragmentScans,
-      DataPoint[] dataPoints,
-      MassSpectrumType spectrumType,
-      PolarityType polarity, String scanDefinition,
+  public SimpleFrame(RawDataFile dataFile, int scanNumber, int msLevel, float retentionTime,
+      double precursorMZ, int precursorCharge, int[] fragmentScans, DataPoint[] dataPoints,
+      MassSpectrumType spectrumType, PolarityType polarity, String scanDefinition,
       Range<Double> scanMZRange, int frameId, MobilityType mobilityType,
       @Nonnull List<Integer> mobilityScanNumbers) {
     super(dataFile, scanNumber, msLevel, retentionTime, precursorMZ, precursorCharge, fragmentScans,
@@ -127,7 +126,7 @@ public class SimpleFrame extends SimpleScan implements Frame {
    */
   @Override
   @Nonnull
-  public List<Scan> getMobilityScans() {
+  public Set<Scan> getMobilityScans() {
     throw new UnsupportedOperationException(
         "Mobility scans are not associated with SimpleFrames, only StorableFrames");
   }
@@ -138,7 +137,9 @@ public class SimpleFrame extends SimpleScan implements Frame {
   }
 
   @Override
-  public List<Mobilogram> getMobilograms() {
+  public Set<IMobilogram> getMobilograms() {
     throw new UnsupportedOperationException("getMobilograms is not supported by SimpleFrame");
   }
+
+
 }

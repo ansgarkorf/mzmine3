@@ -18,12 +18,12 @@
 
 package io.github.mzmine.datamodel;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Range;
-import io.github.mzmine.modules.dataprocessing.featdet_mobilogrambuilder.Mobilogram;
 import java.util.List;
+import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import com.google.common.collect.Range;
+import io.github.mzmine.modules.dataprocessing.featdet_mobilogrambuilder.IMobilogram;
 
 /**
  * A frame is a collection of mobility resolved spectra at one point in time.
@@ -46,8 +46,8 @@ public interface Frame extends Scan {
   public Scan getMobilityScan(int scanNum);
 
   @Nonnull
-  public List<Scan> getMobilityScans();
+  public Set<Scan> getMobilityScans();
 
-  public List<Mobilogram> getMobilograms();
+  public Set<IMobilogram> getMobilograms();
 
 }

@@ -18,14 +18,10 @@
 
 package io.github.mzmine.project.impl;
 
-import com.google.common.collect.Range;
-import io.github.msdk.MSDKRuntimeException;
-import io.github.mzmine.datamodel.Frame;
-import io.github.mzmine.datamodel.IMSRawDataFile;
-import io.github.mzmine.datamodel.MobilityType;
-import io.github.mzmine.datamodel.Scan;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.Map.Entry;
@@ -34,15 +30,21 @@ import java.util.TreeMap;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import com.google.common.collect.Range;
+import io.github.msdk.MSDKRuntimeException;
+import io.github.mzmine.datamodel.Frame;
+import io.github.mzmine.datamodel.IMSRawDataFile;
+import io.github.mzmine.datamodel.MobilityType;
+import io.github.mzmine.datamodel.Scan;
 
 public class IMSRawDataFileImpl extends RawDataFileImpl implements IMSRawDataFile {
 
   public static final String SAVE_IDENTIFIER = "Ion mobility Raw data file";
 
   private final TreeMap<Integer, StorableFrame> frames;
-  private final Hashtable<Integer, List<Integer>> frameNumbersCache;
+  private final Hashtable<Integer, Set<Integer>> frameNumbersCache;
   private final Hashtable<Integer, Range<Double>> dataMobilityRangeCache;
-  private final Hashtable<Integer, List<Frame>> frameMsLevelCache;
+  private final Hashtable<Integer, Set<Frame>> frameMsLevelCache;
 
   protected Range<Double> mobilityRange;
   protected MobilityType mobilityType;
@@ -50,8 +52,9 @@ public class IMSRawDataFileImpl extends RawDataFileImpl implements IMSRawDataFil
   public IMSRawDataFileImpl(String dataFileName) throws IOException {
     super(dataFileName);
 
-    frames = /*(TreeMap<Integer, StorableFrame>) Collections
-        .synchronizedMap(*/new TreeMap<Integer, StorableFrame>()/*)*/;
+    frames = /*
+              * (TreeMap<Integer, StorableFrame>) Collections .synchronizedMap(
+              */new TreeMap<Integer, StorableFrame>()/* ) */;
     frameNumbersCache = new Hashtable<>();
     dataMobilityRangeCache = new Hashtable<>();
     frameMsLevelCache = new Hashtable<>();
@@ -78,14 +81,14 @@ public class IMSRawDataFileImpl extends RawDataFileImpl implements IMSRawDataFil
         return;
       }
       final int storageId = storeDataPoints(newFrame.getDataPoints());
-      StorableFrame storedFrame = new StorableFrame(newFrame, this,
-          newFrame.getNumberOfDataPoints(), storageId);
+      StorableFrame storedFrame =
+          new StorableFrame(newFrame, this, newFrame.getNumberOfDataPoints(), storageId);
       frames.put(storedFrame.getFrameId(), storedFrame);
       return;
     } else {
-      if(mobilityRange == null) {
+      if (mobilityRange == null) {
         mobilityRange = Range.singleton(newScan.getMobility());
-      } else if(!mobilityRange.contains(newScan.getMobility())){
+      } else if (!mobilityRange.contains(newScan.getMobility())) {
         mobilityRange = mobilityRange.span(Range.singleton(newScan.getMobility()));
       }
       super.addScan(newScan);
@@ -94,15 +97,15 @@ public class IMSRawDataFileImpl extends RawDataFileImpl implements IMSRawDataFil
 
   @Nonnull
   @Override
-  public List<Frame> getFrames() {
-    return new ArrayList<>(frames.values());
+  public Set<Frame> getFrames() {
+    return new HashSet<>(frames.values());
   }
 
   @Nonnull
   @Override
-  public List<Frame> getFrames(int msLevel) {
+  public Set<Frame> getFrames(int msLevel) {
     return frameMsLevelCache.computeIfAbsent(msLevel, level -> frames.values().stream()
-          .filter(frame -> frame.getMSLevel() == msLevel).collect(Collectors.toList()));
+        .filter(frame -> frame.getMSLevel() == msLevel).collect(Collectors.toSet()));
   }
 
   @Nullable
@@ -113,9 +116,9 @@ public class IMSRawDataFileImpl extends RawDataFileImpl implements IMSRawDataFil
 
   @Override
   @Nonnull
-  public List<Frame> getFrames(int msLevel, Range<Float> rtRange) {
+  public Set<Frame> getFrames(int msLevel, Range<Float> rtRange) {
     return frameMsLevelCache.get(msLevel).stream()
-        .filter(frame -> rtRange.contains(frame.getRetentionTime())).collect(Collectors.toList());
+        .filter(frame -> rtRange.contains(frame.getRetentionTime())).collect(Collectors.toSet());
   }
 
   @Nonnull
@@ -126,9 +129,9 @@ public class IMSRawDataFileImpl extends RawDataFileImpl implements IMSRawDataFil
 
   @Nonnull
   @Override
-  public List<Integer> getFrameNumbers(int msLevel) {
+  public Set<Integer> getFrameNumbers(int msLevel) {
     return frameNumbersCache.computeIfAbsent(msLevel, (key) -> {
-      List<Integer> frameNums = new ArrayList<>();
+      Set<Integer> frameNums = new HashSet<>();
       synchronized (frames) {
         for (Entry<Integer, StorableFrame> e : frames.entrySet()) {
           if (e.getValue().getMSLevel() == msLevel) {
@@ -147,11 +150,11 @@ public class IMSRawDataFileImpl extends RawDataFileImpl implements IMSRawDataFil
 
   @Nonnull
   @Override
-  public List<Integer> getFrameNumbers(int msLevel, @Nonnull Range<Float> rtRange) {
-//     since {@link getFrameNumbers(int)} is prefiltered, this shouldn't lead to NPE
+  public Set<Integer> getFrameNumbers(int msLevel, @Nonnull Range<Float> rtRange) {
+    // since {@link getFrameNumbers(int)} is prefiltered, this shouldn't lead to NPE
     return getFrameNumbers(msLevel).stream()
         .filter(frameNum -> rtRange.contains(getFrame(frameNum).getRetentionTime()))
-        .collect(Collectors.toList());
+        .collect(Collectors.toSet());
   }
 
   @Nonnull
@@ -167,7 +170,8 @@ public class IMSRawDataFileImpl extends RawDataFileImpl implements IMSRawDataFil
       return null;
     }
 
-    List<Frame> frameList = getFrames();
+    List<Frame> frameList = new ArrayList<>(getFrames());
+    frameList.sort(Comparator.comparing(Frame::getRetentionTime));
     double minDiff = 10E10;
 
     for (int i = 0; i < frameList.size(); i++) {
@@ -188,7 +192,8 @@ public class IMSRawDataFileImpl extends RawDataFileImpl implements IMSRawDataFil
       return null;
     }
     Range<Float> range = Range.closed((float) rt - 2, (float) rt + 2);
-    List<Frame> eligibleFrames = getFrames(msLevel, range);
+    List<Frame> eligibleFrames = new ArrayList<>(getFrames(msLevel, range));
+    eligibleFrames.sort(Comparator.comparing(Frame::getRetentionTime));
     double minDiff = 10E6;
 
     for (int i = 0; i < eligibleFrames.size(); i++) {
@@ -216,12 +221,12 @@ public class IMSRawDataFileImpl extends RawDataFileImpl implements IMSRawDataFil
       double upper = -1E10;
       synchronized (frames) {
         for (Entry<Integer, StorableFrame> e : frames.entrySet()) {
-          if (e.getValue().getMSLevel() == msLevel &&
-              e.getValue().getMobilityRange().lowerEndpoint() < lower) {
+          if (e.getValue().getMSLevel() == msLevel
+              && e.getValue().getMobilityRange().lowerEndpoint() < lower) {
             lower = e.getValue().getMobilityRange().lowerEndpoint();
           }
-          if (e.getValue().getMSLevel() == msLevel &&
-              e.getValue().getMobilityRange().upperEndpoint() > upper) {
+          if (e.getValue().getMSLevel() == msLevel
+              && e.getValue().getMobilityRange().upperEndpoint() > upper) {
             upper = e.getValue().getMobilityRange().upperEndpoint();
           }
         }

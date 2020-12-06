@@ -1,5 +1,11 @@
 package io.github.mzmine.modules.dataprocessing.featdet_mobilogrambuilder;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.List;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import com.google.common.collect.Lists;
 import io.github.mzmine.datamodel.Frame;
 import io.github.mzmine.datamodel.IMSRawDataFile;
@@ -12,10 +18,6 @@ import io.github.mzmine.modules.MZmineRunnableModule;
 import io.github.mzmine.parameters.ParameterSet;
 import io.github.mzmine.taskcontrol.Task;
 import io.github.mzmine.util.ExitCode;
-import java.util.Collection;
-import java.util.List;
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
 public class MobilogramBuilderModule implements MZmineRunnableModule {
 
@@ -30,8 +32,8 @@ public class MobilogramBuilderModule implements MZmineRunnableModule {
   public ExitCode runModule(@Nonnull MZmineProject project, @Nonnull ParameterSet parameters,
       @Nonnull Collection<Task> tasks) {
 
-    int numberOfThreads = MZmineCore.getConfiguration().getPreferences().getParameter(
-        MZminePreferences.numOfThreads).getValue();
+    int numberOfThreads = MZmineCore.getConfiguration().getPreferences()
+        .getParameter(MZminePreferences.numOfThreads).getValue();
 
     RawDataFile[] files = parameters.getParameter(MobilogramBuilderParameters.rawDataFiles)
         .getValue().getMatchingRawDataFiles();
@@ -41,13 +43,29 @@ public class MobilogramBuilderModule implements MZmineRunnableModule {
         continue;
       }
 
-      List<List<Frame>> frameLists  = Lists.partition(((IMSRawDataFile) file).getFrames(),
-          ((IMSRawDataFile) file).getFrames().size() / numberOfThreads);
+      List<Frame> framesList = new ArrayList<>(((IMSRawDataFile) file).getFrames());
+      List<List<Frame>> frameLists =
+          Lists.partition(framesList, ((IMSRawDataFile) file).getFrames().size() / numberOfThreads);
 
-      for(List<Frame> frames : frameLists) {
-        MobilogramBuilderTask task = new MobilogramBuilderTask(frames, parameters);
+      for (List<Frame> frames : frameLists) {
+        MobilogramBuilderTask task = new MobilogramBuilderTask(new HashSet<>(frames), parameters);
         MZmineCore.getTaskController().addTask(task);
       }
+
+      // Set<Frame> frames = ((IMSRawDataFile) file).getFrames();
+      // int numberOfFramesPerTask = ((IMSRawDataFile) file).getFrames().size() / numberOfThreads;
+      // int frameCtr = 1;
+      // for (Frame frame : frames) {
+      // Set<Frame> subSetFrames = new HashSet<>();
+      // if (frameCtr <= numberOfFramesPerTask) {
+      // subSetFrames.add(frame);
+      // frameCtr++;
+      // } else {
+      // MobilogramBuilderTask task = new MobilogramBuilderTask(frames, parameters);
+      // MZmineCore.getTaskController().addTask(task);
+      // frameCtr = 1;
+      // }
+      // }
     }
 
     return ExitCode.OK;

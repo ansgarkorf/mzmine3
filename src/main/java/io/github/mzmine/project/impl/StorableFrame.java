@@ -18,20 +18,22 @@
 
 package io.github.mzmine.project.impl;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+import java.util.SortedMap;
+import java.util.TreeMap;
+import javax.annotation.Nonnull;
 import com.google.common.collect.Range;
 import io.github.mzmine.datamodel.Frame;
 import io.github.mzmine.datamodel.MassSpectrumType;
 import io.github.mzmine.datamodel.MobilityType;
 import io.github.mzmine.datamodel.PolarityType;
 import io.github.mzmine.datamodel.Scan;
-import io.github.mzmine.modules.dataprocessing.featdet_mobilogrambuilder.Mobilogram;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-import java.util.SortedMap;
-import java.util.TreeMap;
-import javax.annotation.Nonnull;
+import io.github.mzmine.modules.dataprocessing.featdet_mobilogrambuilder.IMobilogram;
 
 public class StorableFrame extends StorableScan implements Frame {
 
@@ -46,7 +48,7 @@ public class StorableFrame extends StorableScan implements Frame {
    */
   private Range<Double> mobilityRange;
 
-  private final List<Mobilogram> mobilograms;
+  private final Set<IMobilogram> mobilograms;
 
   /**
    * Creates a storable frame and also stores the mobility resolved scans.
@@ -56,12 +58,12 @@ public class StorableFrame extends StorableScan implements Frame {
    * @param numberOfDataPoints
    * @param storageID
    */
-  public StorableFrame(Frame originalFrame,
-      RawDataFileImpl rawDataFile, int numberOfDataPoints, int storageID) throws IOException {
+  public StorableFrame(Frame originalFrame, RawDataFileImpl rawDataFile, int numberOfDataPoints,
+      int storageID) throws IOException {
     super(originalFrame, rawDataFile, numberOfDataPoints, storageID);
 
     frameId = originalFrame.getFrameId();
-    mobilograms = new ArrayList<>();
+    mobilograms = new HashSet<>();
     mobilityScans = new TreeMap<>();
     mobilityRange = null;
 
@@ -74,12 +76,11 @@ public class StorableFrame extends StorableScan implements Frame {
   }
 
   public StorableFrame(RawDataFileImpl rawDataFile, int storageID, int numberOfDataPoints,
-      int scanNumber, int msLevel, float retentionTime, double precursorMZ,
-      int precursorCharge, int[] fragmentScans,
-      MassSpectrumType spectrumType,
-      PolarityType polarity, String scanDefinition,
-      Range<Double> scanMZRange, int frameId, @Nonnull MobilityType mobilityType,
-      @Nonnull Range<Double> mobilityRange, @Nonnull List<Integer> mobilityScanNumbers) {
+      int scanNumber, int msLevel, float retentionTime, double precursorMZ, int precursorCharge,
+      int[] fragmentScans, MassSpectrumType spectrumType, PolarityType polarity,
+      String scanDefinition, Range<Double> scanMZRange, int frameId,
+      @Nonnull MobilityType mobilityType, @Nonnull Range<Double> mobilityRange,
+      @Nonnull List<Integer> mobilityScanNumbers) {
 
     super(rawDataFile, storageID, numberOfDataPoints, scanNumber, msLevel, retentionTime,
         precursorMZ, precursorCharge, fragmentScans, spectrumType, polarity, scanDefinition,
@@ -89,7 +90,7 @@ public class StorableFrame extends StorableScan implements Frame {
     this.mobilityRange = mobilityRange;
     this.mobilityType = mobilityType;
 
-    mobilograms = new ArrayList<>();
+    mobilograms = new HashSet<>();
 
     mobilityScans = new TreeMap<>();
     for (int scannum : mobilityScanNumbers) {
@@ -127,14 +128,14 @@ public class StorableFrame extends StorableScan implements Frame {
   @Nonnull
   @Override
   public Scan getMobilityScan(int scanNum) {
-    return Objects.requireNonNull(
-        mobilityScans.computeIfAbsent(scanNum, i -> rawDataFile.getScan(scanNum)));
+    return Objects
+        .requireNonNull(mobilityScans.computeIfAbsent(scanNum, i -> rawDataFile.getScan(scanNum)));
   }
 
   @Nonnull
   @Override
-  public List<Scan> getMobilityScans() {
-    return new ArrayList<>(mobilityScans.values());
+  public Set<Scan> getMobilityScans() {
+    return new HashSet<>(mobilityScans.values());
   }
 
   protected final void addMobilityScan(Scan mobilityScan) {
@@ -148,7 +149,7 @@ public class StorableFrame extends StorableScan implements Frame {
   }
 
   @Override
-  public List<Mobilogram> getMobilograms() {
+  public Set<IMobilogram> getMobilograms() {
     return mobilograms;
   }
 

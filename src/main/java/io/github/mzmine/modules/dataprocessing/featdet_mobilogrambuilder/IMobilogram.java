@@ -18,14 +18,14 @@
 
 package io.github.mzmine.modules.dataprocessing.featdet_mobilogrambuilder;
 
+import java.util.Set;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import com.google.common.collect.Range;
 import io.github.mzmine.datamodel.MobilityType;
 import io.github.mzmine.gui.chartbasics.gui.javafx.template.providers.PlotDatasetProvider;
-import java.util.List;
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
-public interface Mobilogram extends PlotDatasetProvider {
+public interface IMobilogram extends PlotDatasetProvider {
 
   public double getMZ();
 
@@ -40,13 +40,13 @@ public interface Mobilogram extends PlotDatasetProvider {
   public Range<Double> getMZRange();
 
   @Nonnull
-  List<MobilityDataPoint> getDataPoints();
+  Set<MobilityDataPoint> getDataPoints();
 
   @Nonnull
   public MobilityDataPoint getHighestDataPoint();
 
   @Nonnull
-  List<Integer> getScanNumbers();
+  Set<Integer> getScanNumbers();
 
   public MobilityType getMobilityType();
 

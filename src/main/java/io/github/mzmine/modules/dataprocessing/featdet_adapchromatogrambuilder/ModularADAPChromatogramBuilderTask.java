@@ -21,7 +21,6 @@
 package io.github.mzmine.modules.dataprocessing.featdet_adapchromatogrambuilder;
 
 
-import io.github.mzmine.util.FeatureConvertors;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -40,15 +39,19 @@ import io.github.mzmine.datamodel.Scan;
 import io.github.mzmine.datamodel.features.ModularFeature;
 import io.github.mzmine.datamodel.features.ModularFeatureList;
 import io.github.mzmine.datamodel.features.ModularFeatureListRow;
+import io.github.mzmine.datamodel.features.types.AreaBarType;
+import io.github.mzmine.datamodel.features.types.AreaShareType;
+import io.github.mzmine.datamodel.features.types.FeatureShapeType;
 import io.github.mzmine.main.MZmineCore;
 import io.github.mzmine.parameters.ParameterSet;
 import io.github.mzmine.parameters.parametertypes.selectors.ScanSelection;
 import io.github.mzmine.parameters.parametertypes.tolerances.MZTolerance;
 import io.github.mzmine.taskcontrol.AbstractTask;
 import io.github.mzmine.taskcontrol.TaskStatus;
+import io.github.mzmine.util.ADAPChromatogramSorter;
 import io.github.mzmine.util.DataPointSorter;
 import io.github.mzmine.util.DataTypeUtils;
-import io.github.mzmine.util.ADAPChromatogramSorter;
+import io.github.mzmine.util.FeatureConvertors;
 import io.github.mzmine.util.SortingDirection;
 import io.github.mzmine.util.SortingProperty;
 
@@ -259,7 +262,8 @@ public class ModularADAPChromatogramBuilderTask extends AbstractTask {
         return;
       }
 
-      if (mzFeature == null || Double.isNaN(mzFeature.getMZ()) || Double.isNaN(mzFeature.getIntensity())) {
+      if (mzFeature == null || Double.isNaN(mzFeature.getMZ())
+          || Double.isNaN(mzFeature.getIntensity())) {
         continue;
       }
 
@@ -381,12 +385,16 @@ public class ModularADAPChromatogramBuilderTask extends AbstractTask {
     ADAPChromatogram[] chromatograms = buildingChromatograms.toArray(new ADAPChromatogram[0]);
 
     // Sort the final chromatograms by m/z
-    Arrays.sort(chromatograms, new ADAPChromatogramSorter(SortingProperty.MZ, SortingDirection.Ascending));
+    Arrays.sort(chromatograms,
+        new ADAPChromatogramSorter(SortingProperty.MZ, SortingDirection.Ascending));
 
     // Create new feature list
     newFeatureList = new ModularFeatureList(dataFile + " " + suffix, dataFile);
     // ensure that the default columns are available
     DataTypeUtils.addDefaultChromatographicTypeColumns(newFeatureList);
+    newFeatureList.addRowType(new FeatureShapeType());
+    newFeatureList.addRowType(new AreaBarType());
+    newFeatureList.addRowType(new AreaShareType());
 
     // Add the chromatograms to the new feature list
     for (ADAPChromatogram finishedFeature : chromatograms) {

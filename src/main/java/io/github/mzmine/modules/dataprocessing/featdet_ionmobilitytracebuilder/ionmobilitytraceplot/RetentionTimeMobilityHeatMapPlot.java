@@ -16,7 +16,7 @@
  * USA
  */
 
-package io.github.mzmine.modules.visualization.ims.imsvisualizer;
+package io.github.mzmine.modules.dataprocessing.featdet_ionmobilitytracebuilder.ionmobilitytraceplot;
 
 import java.awt.Color;
 import java.awt.Font;
@@ -45,13 +45,19 @@ public class RetentionTimeMobilityHeatMapPlot extends EChartViewer {
   private final XYPlot plot;
   static final Font legendFont = new Font("SansSerif", Font.PLAIN, 12);
   private PaintScaleLegend legend;
-  public XYBlockPixelSizeRenderer pixelRenderer;
-  public XYBlockRenderer blockRenderer;
+  private XYBlockPixelSizeRenderer pixelRenderer;
+  private XYBlockRenderer blockRenderer;
+  private double dataPointHeight;
+  private double dataPointWidth;
 
-  public RetentionTimeMobilityHeatMapPlot(XYZDataset dataset, String paintScaleStyle) {
+  public RetentionTimeMobilityHeatMapPlot(XYZDataset dataset, String paintScaleStyle,
+      double dataPointWidth, double dataPointHeight) {
 
     super(ChartFactory.createScatterPlot("", "retention time", "mobility", dataset,
         PlotOrientation.VERTICAL, true, true, true));
+
+    this.dataPointWidth = dataPointWidth;
+    this.dataPointHeight = dataPointHeight;
 
     JFreeChart chart = getChart();
     // copy and sort z-Values for min and max of the paint scale
@@ -82,7 +88,7 @@ public class RetentionTimeMobilityHeatMapPlot extends EChartViewer {
     double max = copyZValues[maxIndexScale];
     Color[] contourColors =
         XYBlockPixelSizePaintScales.getPaintColors("", Range.closed(min, max), paintScaleStyle);
-    contourColors = XYBlockPixelSizePaintScales.scaleAlphaForPaintScale(contourColors);
+    // contourColors = XYBlockPixelSizePaintScales.scaleAlphaForPaintScale(contourColors);
     LookupPaintScale scale = new LookupPaintScale(min, max, Color.BLACK);
 
     double[] scaleValues = new double[contourColors.length];
@@ -99,9 +105,9 @@ public class RetentionTimeMobilityHeatMapPlot extends EChartViewer {
     theme.apply(chart);
 
     // set the pixel renderer
-    setPixelRenderer(copyXValues, copyYValues, scale);
+    setPixelRenderer(scale);
     // set the legend
-    prepareLegend(min, max, scale);
+    // prepareLegend(min, max, scale);
 
     blockRenderer.setPaintScale(scale);
     plot.setRenderer(blockRenderer);
@@ -109,21 +115,17 @@ public class RetentionTimeMobilityHeatMapPlot extends EChartViewer {
     plot.setRangeGridlinePaint(Color.black);
     plot.setAxisOffset(new RectangleInsets(5, 5, 5, 5));
     plot.setOutlinePaint(Color.black);
-    chart.addSubtitle(legend);
-    plot.getRangeAxis().setStandardTickUnits(NumberAxis.createIntegerTickUnits());
+    // chart.addSubtitle(legend);
 
   }
 
-  void setPixelRenderer(double[] copyXValues, double[] copyYValues, LookupPaintScale scale) {
+  void setPixelRenderer(LookupPaintScale scale) {
     pixelRenderer = new XYBlockPixelSizeRenderer();
     pixelRenderer.setPaintScale(scale);
     // set the block renderer
     blockRenderer = new XYBlockRenderer();
-    double retentionWidth = copyYValues.length / (double) copyXValues.length;
-    double mobilityWidth = copyXValues.length / (double) copyYValues.length;
-
-    blockRenderer.setBlockHeight(mobilityWidth);
-    blockRenderer.setBlockWidth(retentionWidth);
+    blockRenderer.setBlockHeight(dataPointHeight);
+    blockRenderer.setBlockWidth(dataPointWidth);
   }
 
   void prepareLegend(double min, double max, LookupPaintScale scale) {

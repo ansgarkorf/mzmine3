@@ -33,7 +33,7 @@ import io.github.mzmine.datamodel.MassSpectrumType;
 import io.github.mzmine.datamodel.MobilityType;
 import io.github.mzmine.datamodel.PolarityType;
 import io.github.mzmine.datamodel.Scan;
-import io.github.mzmine.modules.dataprocessing.featdet_mobilogrambuilder.IMobilogram;
+import io.github.mzmine.modules.dataprocessing.featdet_mobilogramsmoothing.IMobilogram;
 
 public class StorableFrame extends StorableScan implements Frame {
 
@@ -151,6 +151,28 @@ public class StorableFrame extends StorableScan implements Frame {
   @Override
   public Set<IMobilogram> getMobilograms() {
     return mobilograms;
+  }
+
+  @Override
+  public int hashCode() {
+    final int prime = 31;
+    int result = 1;
+    result = prime * result + frameId;
+    return result;
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj)
+      return true;
+    if (obj == null)
+      return false;
+    if (getClass() != obj.getClass())
+      return false;
+    StorableFrame other = (StorableFrame) obj;
+    if (frameId != other.frameId)
+      return false;
+    return true;
   }
 
 }

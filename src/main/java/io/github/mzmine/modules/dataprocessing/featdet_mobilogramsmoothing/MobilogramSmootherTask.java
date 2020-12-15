@@ -5,9 +5,6 @@ import java.util.Collections;
 import java.util.List;
 import org.apache.commons.math3.analysis.interpolation.LoessInterpolator;
 import io.github.mzmine.datamodel.Frame;
-import io.github.mzmine.modules.dataprocessing.featdet_mobilogrambuilder.MobilityDataPoint;
-import io.github.mzmine.modules.dataprocessing.featdet_mobilogrambuilder.IMobilogram;
-import io.github.mzmine.modules.dataprocessing.featdet_mobilogrambuilder.SimpleMobilogram;
 import io.github.mzmine.parameters.ParameterSet;
 import io.github.mzmine.taskcontrol.AbstractTask;
 import io.github.mzmine.taskcontrol.TaskStatus;
@@ -38,7 +35,7 @@ public class MobilogramSmootherTask extends AbstractTask {
   }
 
   @Override
-  public double getFinishedPercentage() {
+  public double getFinishedPercentage() { 
     return (double) processsedMobilograms / totalMobilograms;
   }
 

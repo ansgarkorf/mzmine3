@@ -9,6 +9,7 @@ import io.github.mzmine.datamodel.DataPoint;
 import io.github.mzmine.datamodel.RawDataFile;
 import io.github.mzmine.datamodel.features.Feature;
 import io.github.mzmine.datamodel.features.ModularFeatureListRow;
+import io.github.mzmine.modules.dataprocessing.featdet_ionmobilitytracebuilder.RetentionTimeMobilityDataPoint;
 import io.github.mzmine.util.color.ColorsFX;
 import javafx.event.EventHandler;
 import javafx.scene.Node;
@@ -19,10 +20,11 @@ import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
 
-public class FeatureShapeChart extends StackPane {
+public class FeatureShapeIonMobilityRetentionTimeChart extends StackPane {
   private Logger logger = Logger.getLogger(this.getClass().getName());
 
-  public FeatureShapeChart(@Nonnull ModularFeatureListRow row, AtomicDouble progress) {
+  public FeatureShapeIonMobilityRetentionTimeChart(@Nonnull ModularFeatureListRow row,
+      AtomicDouble progress) {
     try {
       final NumberAxis xAxis = new NumberAxis();
       final NumberAxis yAxis = new NumberAxis();
@@ -34,27 +36,35 @@ public class FeatureShapeChart extends StackPane {
       int fi = 0;
       for (Feature f : row.getFeatures()) {
         XYChart.Series<Number, Number> data = new XYChart.Series<>();
-        List<Integer> scans = f.getScanNumbers();
-        List<DataPoint> dps = f.getDataPoints();
+        List<DataPoint> dataPoints = f.getDataPoints();
         RawDataFile raw = f.getRawDataFile();
         // add data points retention time -> intensity
-        for (int i = 0; i < scans.size(); i++) {
-          DataPoint dp = dps.get(i);
-          double retentionTime = raw.getScan(scans.get(i)).getRetentionTime();
-          double intensity = dp == null ? 0 : dp.getIntensity();
-          data.getData().add(new XYChart.Data<>(retentionTime, intensity));
-          /*
-           * if (dp != null && (max == null || max.getIntensity() < dp.getIntensity())) { max = dp;
-           * }
-           */
-          if (retentionTime > maxRT) {
-            maxRT = retentionTime;
+        for (DataPoint dataPoint : dataPoints) {
+          if (dataPoint instanceof RetentionTimeMobilityDataPoint) {
+            RetentionTimeMobilityDataPoint dp = (RetentionTimeMobilityDataPoint) dataPoint;
+            double retentionTime = dp.getRetentionTime();
+            double intensity = dp == null ? 0 : dp.getIntensity();
+            for (DataPoint dataPointCompare : dataPoints) {
+              RetentionTimeMobilityDataPoint dpComapre =
+                  (RetentionTimeMobilityDataPoint) dataPointCompare;
+              if (dp != dpComapre && dpComapre.getRetentionTime() == retentionTime) {
+                intensity = intensity + (dpComapre == null ? 0 : dpComapre.getIntensity());
+              }
+            }
+            data.getData().add(new XYChart.Data<>(retentionTime, intensity));
+            /*
+             * if (dp != null && (max == null || max.getIntensity() < dp.getIntensity())) { max =
+             * dp; }
+             */
+            if (retentionTime > maxRT) {
+              maxRT = retentionTime;
+            }
+            if (retentionTime < minRT) {
+              minRT = retentionTime;
+            }
+            if (progress != null)
+              progress.addAndGet(1.0 / size / dataPoints.size());
           }
-          if (retentionTime < minRT) {
-            minRT = retentionTime;
-          }
-          if (progress != null)
-            progress.addAndGet(1.0 / size / scans.size());
         }
         fi++;
         bc.getData().add(data);
@@ -80,8 +90,8 @@ public class FeatureShapeChart extends StackPane {
 
       // do not add data to chart
       xAxis.setAutoRanging(false);
-      xAxis.setUpperBound(maxRT);
-      xAxis.setLowerBound(minRT == Double.MAX_VALUE ? 0 : minRT);
+      xAxis.setUpperBound(maxRT + 2);
+      xAxis.setLowerBound(minRT == Double.MAX_VALUE ? 0 : minRT - 2);
 
       bc.setOnScroll(new EventHandler<>() {
         @Override

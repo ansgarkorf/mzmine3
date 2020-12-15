@@ -1,4 +1,4 @@
-package io.github.mzmine.modules.dataprocessing.featdet_mobilogrambuilder;
+package io.github.mzmine.modules.dataprocessing.featdet_ionmobilitytracebuilder;
 
 import java.util.Set;
 import javax.annotation.Nonnull;
@@ -16,7 +16,7 @@ import io.github.mzmine.datamodel.features.FeatureList;
  *
  * @author Ansgar Korf
  */
-public interface IIonMobilityIonTrace {
+public interface IIonMobilityTrace {
 
   double getMz();
 

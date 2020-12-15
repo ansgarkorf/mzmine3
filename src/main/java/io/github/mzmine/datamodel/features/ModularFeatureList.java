@@ -1,16 +1,5 @@
 package io.github.mzmine.datamodel.features;
 
-import io.github.mzmine.datamodel.features.types.AreaBarType;
-import io.github.mzmine.datamodel.features.types.AreaShareType;
-import io.github.mzmine.datamodel.features.types.FeatureShapeType;
-import io.github.mzmine.datamodel.features.types.numbers.AsymmetryFactorType;
-import io.github.mzmine.datamodel.features.types.numbers.FwhmType;
-import io.github.mzmine.datamodel.features.types.numbers.MZRangeType;
-import io.github.mzmine.datamodel.features.types.numbers.MZType;
-import io.github.mzmine.datamodel.features.types.numbers.RTRangeType;
-import io.github.mzmine.datamodel.features.types.numbers.RTType;
-import io.github.mzmine.datamodel.features.types.numbers.TailingFactorType;
-import io.github.mzmine.util.DataTypeUtils;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -21,7 +10,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import javafx.collections.ObservableList;
 import javax.annotation.Nonnull;
 import com.google.common.collect.Range;
 import io.github.mzmine.datamodel.RawDataFile;
@@ -29,8 +17,17 @@ import io.github.mzmine.datamodel.features.types.CommentType;
 import io.github.mzmine.datamodel.features.types.DataType;
 import io.github.mzmine.datamodel.features.types.FeaturesType;
 import io.github.mzmine.datamodel.features.types.RawFileType;
+import io.github.mzmine.datamodel.features.types.numbers.AsymmetryFactorType;
+import io.github.mzmine.datamodel.features.types.numbers.FwhmType;
 import io.github.mzmine.datamodel.features.types.numbers.IDType;
+import io.github.mzmine.datamodel.features.types.numbers.MZRangeType;
+import io.github.mzmine.datamodel.features.types.numbers.MZType;
+import io.github.mzmine.datamodel.features.types.numbers.RTRangeType;
+import io.github.mzmine.datamodel.features.types.numbers.RTType;
+import io.github.mzmine.datamodel.features.types.numbers.TailingFactorType;
+import io.github.mzmine.util.DataTypeUtils;
 import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.collections.ObservableMap;
 
 
@@ -83,9 +80,10 @@ public class ModularFeatureList implements FeatureList {
     addRowType(new RTRangeType());
     DataTypeUtils.addDefaultChromatographicTypeColumns(this);
 
-    addRowType(new FeatureShapeType());
-    addRowType(new AreaBarType());
-    addRowType(new AreaShareType());
+    // TODO set this in utilized/applied module
+    // addRowType(new FeatureShapeType());
+    // addRowType(new AreaBarType());
+    // addRowType(new AreaShareType());
     // has raw files - add column to row and feature
     if (!dataFiles.isEmpty()) {
       addRowType(new FeaturesType());
@@ -195,6 +193,7 @@ public class ModularFeatureList implements FeatureList {
 
   /**
    * Returns all raw data files participating in the alignment
+   * 
    * @return
    */
   @Override
@@ -272,15 +271,16 @@ public class ModularFeatureList implements FeatureList {
   public ObservableList<FeatureListRow> getRowsInsideScanAndMZRange(Range<Float> rtRange,
       Range<Double> mzRange) {
     // TODO handle if mz or rt is not present
-    return modularStream().filter(
-        row -> rtRange.contains(row.getRT()) && mzRange.contains(row.getMZ()))
+    return modularStream()
+        .filter(row -> rtRange.contains(row.getRT()) && mzRange.contains(row.getMZ()))
         .collect(Collectors.toCollection(FXCollections::observableArrayList));
   }
 
   @Override
   public void addRow(FeatureListRow row) {
-    if(!(row instanceof ModularFeatureListRow)) {
-      throw new IllegalArgumentException("Can not add non-modular feature list row to modular feature list");
+    if (!(row instanceof ModularFeatureListRow)) {
+      throw new IllegalArgumentException(
+          "Can not add non-modular feature list row to modular feature list");
     }
     ModularFeatureListRow modularRow = (ModularFeatureListRow) row;
 
@@ -326,13 +326,12 @@ public class ModularFeatureList implements FeatureList {
    * @see io.github.mzmine.datamodel.features.FeatureList#getFeaturesInsideScanAndMZRange
    */
   @Override
-  public ObservableList<Feature> getFeaturesInsideScanAndMZRange(RawDataFile raw, Range<Float> rtRange,
-      Range<Double> mzRange) {
+  public ObservableList<Feature> getFeaturesInsideScanAndMZRange(RawDataFile raw,
+      Range<Float> rtRange, Range<Double> mzRange) {
     // TODO solve with bindings and check for rt or mz presence in row
     return modularStream().map(ModularFeatureListRow::getFilesFeatures).map(map -> map.get(raw))
         .filter(Objects::nonNull)
-        .filter(
-            f -> rtRange.contains(f.getRT()) && mzRange.contains(f.getMZ()))
+        .filter(f -> rtRange.contains(f.getRT()) && mzRange.contains(f.getMZ()))
         .collect(Collectors.toCollection(FXCollections::observableArrayList));
   }
 
@@ -387,8 +386,7 @@ public class ModularFeatureList implements FeatureList {
 
   @Override
   public Stream<Feature> parallelStreamFeatures() {
-    return parallelStream().flatMap(row -> row.getFeatures().stream())
-        .filter(Objects::nonNull);
+    return parallelStream().flatMap(row -> row.getFeatures().stream()).filter(Objects::nonNull);
   }
 
   public Stream<ModularFeature> modularParallelStreamFeatures() {

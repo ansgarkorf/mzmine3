@@ -1,7 +1,6 @@
-package io.github.mzmine.modules.dataprocessing.featdet_mobilogrambuilder;
+package io.github.mzmine.modules.dataprocessing.featdet_ionmobilitytracebuilder;
 
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -15,12 +14,14 @@ import com.google.common.collect.RangeSet;
 import com.google.common.collect.TreeRangeSet;
 import io.github.mzmine.datamodel.Frame;
 import io.github.mzmine.datamodel.MZmineProject;
-import io.github.mzmine.datamodel.MobilityType;
 import io.github.mzmine.datamodel.RawDataFile;
 import io.github.mzmine.datamodel.Scan;
 import io.github.mzmine.datamodel.features.ModularFeature;
 import io.github.mzmine.datamodel.features.ModularFeatureList;
 import io.github.mzmine.datamodel.features.ModularFeatureListRow;
+import io.github.mzmine.datamodel.features.types.FeatureShapeIonMobilityRetentionTimeHeatMapType;
+import io.github.mzmine.datamodel.features.types.FeatureShapeIonMobilityRetentionTimeType;
+import io.github.mzmine.datamodel.features.types.FeatureShapeMobilogramType;
 import io.github.mzmine.parameters.ParameterSet;
 import io.github.mzmine.parameters.parametertypes.selectors.ScanSelection;
 import io.github.mzmine.parameters.parametertypes.tolerances.MZTolerance;
@@ -33,12 +34,12 @@ import io.github.mzmine.util.FeatureConvertors;
 /**
  * Worker task to build ion mobility traces
  */
-public class MobilogramBuilderTask extends AbstractTask {
+public class IonMobilityTraceBuilderTask extends AbstractTask {
 
-  private static Logger logger = Logger.getLogger(MobilogramBuilderTask.class.getName());
+  private static Logger logger = Logger.getLogger(IonMobilityTraceBuilderTask.class.getName());
 
   private RangeSet<Double> rangeSet = TreeRangeSet.create();
-  private HashMap<Range<Double>, IIonMobilityIonTrace> rangeToIonTraceMap = new HashMap<>();
+  private HashMap<Range<Double>, IIonMobilityTrace> rangeToIonTraceMap = new HashMap<>();
 
   private final MZmineProject project;
   private final RawDataFile rawDataFile;
@@ -46,22 +47,29 @@ public class MobilogramBuilderTask extends AbstractTask {
   private final Set<Frame> frames;
   private final MZTolerance mzTolerance;
   private final String massList;
-  private final int minSignals;
+  private final int minDataPointsRt;
+  private final int minTotalSignals;
   private final ScanSelection scanSelection;
+  private double dataPointHeight;
+  private double dataPointWidth;
   private double progress = 0.0;
 
   @SuppressWarnings("unchecked")
-  public MobilogramBuilderTask(MZmineProject project, RawDataFile rawDataFile, Set<Frame> frames,
-      ParameterSet parameters) {
+  public IonMobilityTraceBuilderTask(MZmineProject project, RawDataFile rawDataFile,
+      Set<Frame> frames, ParameterSet parameters) {
     this.project = project;
     this.rawDataFile = rawDataFile;
-    this.mzTolerance = parameters.getParameter(MobilogramBuilderParameters.mzTolerance).getValue();
-    this.massList = parameters.getParameter(MobilogramBuilderParameters.massList).getValue();
-    this.minSignals = parameters.getParameter(MobilogramBuilderParameters.minSignals).getValue();
+    this.mzTolerance =
+        parameters.getParameter(IonMobilityTraceBuilderParameters.mzTolerance).getValue();
+    this.massList = parameters.getParameter(IonMobilityTraceBuilderParameters.massList).getValue();
+    this.minDataPointsRt =
+        parameters.getParameter(IonMobilityTraceBuilderParameters.minDataPointsRt).getValue();
+    this.minTotalSignals =
+        parameters.getParameter(IonMobilityTraceBuilderParameters.minTotalSignals).getValue();
     this.scanSelection =
-        parameters.getParameter(MobilogramBuilderParameters.scanSelection).getValue();
+        parameters.getParameter(IonMobilityTraceBuilderParameters.scanSelection).getValue();
     this.frames = (Set<Frame>) scanSelection.getMachtingScans((frames));
-    this.suffix = parameters.getParameter(MobilogramBuilderParameters.suffix).getValue();
+    this.suffix = parameters.getParameter(IonMobilityTraceBuilderParameters.suffix).getValue();
     setStatus(TaskStatus.WAITING);
   }
 
@@ -81,25 +89,52 @@ public class MobilogramBuilderTask extends AbstractTask {
     if (isCanceled()) {
       return;
     }
+    calculateDataPointSizeForPlots(frames);
     Set<RetentionTimeMobilityDataPoint> rtMobilityDataPoints = extractAllDataPointsFromFrames();
     progress = 0.0;
     double progressStep =
         (!rtMobilityDataPoints.isEmpty()) ? 0.5 / rtMobilityDataPoints.size() : 0.0;
+    createIonMobilityTraceTargetSet(rtMobilityDataPoints, progressStep);
+    SortedSet<IIonMobilityTrace> ionMobilityTraces = finishIonMobilityTraces();
+    buildModularFeatureList(ionMobilityTraces);
+    progress = 1.0;
+    setStatus(TaskStatus.FINISHED);
+  }
+
+  // Extract all retention time and mobility resolved data point sorted by intensity
+  private Set<RetentionTimeMobilityDataPoint> extractAllDataPointsFromFrames() {
+    logger.info("Start data point extraction");
+    SortedSet<RetentionTimeMobilityDataPoint> allDataPoints =
+        new TreeSet<>(Comparator.comparing(RetentionTimeMobilityDataPoint::getIntensity));
+    for (Frame frame : frames) {
+      if (!(frame instanceof StorableFrame) || !scanSelection.matches(frame)) {
+        continue;
+      }
+      for (Scan scan : frame.getMobilityScans()) {
+        if (scan.getMassList(massList) == null) {
+          setStatus(TaskStatus.ERROR);
+          setErrorMessage(
+              "Scan #" + scan.getScanNumber() + " does not have a mass list " + massList);
+        } else {
+          Arrays.stream(scan.getMassList(massList).getDataPoints()).forEach(
+              dp -> allDataPoints.add(new RetentionTimeMobilityDataPoint(scan.getMobility(),
+                  dp.getMZ(), scan.getRetentionTime(), dp.getIntensity(), frame.getFrameId(),
+                  scan.getScanNumber(), dataPointWidth, dataPointHeight)));
+        }
+      }
+    }
+    logger.info("Extracted " + allDataPoints.size() + " ims data points");
+    return allDataPoints;
+  }
+
+  private void createIonMobilityTraceTargetSet(
+      Set<RetentionTimeMobilityDataPoint> rtMobilityDataPoints, double progressStep) {
+    logger.info("Start m/z ranges calculation");
     for (RetentionTimeMobilityDataPoint rtMobilityDataPoint : rtMobilityDataPoints) {
-
-      progress += progressStep;
-
       if (isCanceled()) {
         return;
       }
-
-      // if (mzFeature == null || Double.isNaN(mzFeature.getMZ()) ||
-      // Double.isNaN(mzFeature.getIntensity())) {
-      // continue;
-      // }
-
       Range<Double> containsDataPointRange = rangeSet.rangeContaining(rtMobilityDataPoint.getMZ());
-
       Range<Double> toleranceRange = mzTolerance.getToleranceRange(rtMobilityDataPoint.getMZ());
       if (containsDataPointRange == null) {
         // look +- mz tolerance to see if ther is a range near by.
@@ -136,7 +171,7 @@ public class MobilogramBuilderTask extends AbstractTask {
 
         if (toBeLowerBound < toBeUpperBound) {
           Range<Double> newRange = Range.open(toBeLowerBound, toBeUpperBound);
-          IIonMobilityIonTrace newIonMobilityIonTrace = new IonMobilityIonTrace(
+          IIonMobilityTrace newIonMobilityIonTrace = new IonMobilityTrace(
               rtMobilityDataPoint.getMZ(), rtMobilityDataPoint.getRetentionTime(),
               rtMobilityDataPoint.getMobility(), rtMobilityDataPoint.getIntensity(), newRange);
           Set<RetentionTimeMobilityDataPoint> dataPointsSetForTrace = new HashSet<>();
@@ -145,7 +180,7 @@ public class MobilogramBuilderTask extends AbstractTask {
           rangeToIonTraceMap.put(newRange, newIonMobilityIonTrace);
           rangeSet.add(newRange);
         } else if (toBeLowerBound.equals(toBeUpperBound) && plusRange != null) {
-          IIonMobilityIonTrace currentIonMobilityIonTrace = rangeToIonTraceMap.get(plusRange);
+          IIonMobilityTrace currentIonMobilityIonTrace = rangeToIonTraceMap.get(plusRange);
           currentIonMobilityIonTrace.getDataPoints().add(rtMobilityDataPoint);
         } else
           throw new IllegalStateException(String.format("Incorrect range [%f, %f] for m/z %f",
@@ -154,87 +189,41 @@ public class MobilogramBuilderTask extends AbstractTask {
       } else {
         // In this case we do not need to update the rangeSet
 
-        IIonMobilityIonTrace currentIonMobilityIonTrace =
+        IIonMobilityTrace currentIonMobilityIonTrace =
             rangeToIonTraceMap.get(containsDataPointRange);
         currentIonMobilityIonTrace.getDataPoints().add(rtMobilityDataPoint);
 
         // update the entry in the map
         rangeToIonTraceMap.put(containsDataPointRange, currentIonMobilityIonTrace);
       }
+      progress += progressStep;
     }
+  }
 
-
-    // finish chromatograms
+  private SortedSet<IIonMobilityTrace> finishIonMobilityTraces() {
     Set<Range<Double>> ranges = rangeSet.asRanges();
     Iterator<Range<Double>> rangeIterator = ranges.iterator();
-    SortedSet<IIonMobilityIonTrace> ionMobilityIonTraces =
-        new TreeSet<>(Comparator.comparing(IIonMobilityIonTrace::getMz));
-    progressStep = (!ranges.isEmpty()) ? 0.5 / ranges.size() : 0.0;
+    SortedSet<IIonMobilityTrace> ionMobilityTraces =
+        new TreeSet<>(Comparator.comparing(IIonMobilityTrace::getMz));
+    double progressStep = (!ranges.isEmpty()) ? 0.5 / ranges.size() : 0.0;
     while (rangeIterator.hasNext()) {
       if (isCanceled()) {
-        return;
+        break;
       }
       progress += progressStep;
       Range<Double> currentRangeKey = rangeIterator.next();
-      IIonMobilityIonTrace ionTrace = rangeToIonTraceMap.get(currentRangeKey);
-      if (ionTrace.getDataPoints().size() >= minSignals) {
-        ionTrace = finishIonTrace(ionTrace);
-        ionMobilityIonTraces.add(ionTrace);
+      IIonMobilityTrace ionTrace = rangeToIonTraceMap.get(currentRangeKey);
+      if (ionTrace.getDataPoints().size() >= minTotalSignals
+          && checkNumberOfRetentionTimeDataPoints(ionTrace.getDataPoints())) {
+        logger.info("Build ion trace for m/z range " + ionTrace.getMzRange());
+        finishIonTrace(ionTrace);
+        ionMobilityTraces.add(ionTrace);
       }
     }
-
-
-    // Create new feature list
-    ModularFeatureList featureList =
-        new ModularFeatureList(rawDataFile + " " + suffix, rawDataFile);
-    // ensure that the default columns are available
-    DataTypeUtils.addDefaultChromatographicTypeColumns(featureList);
-
-    // Add the chromatograms to the new feature list
-    int featureId = 1;
-    for (IIonMobilityIonTrace ionTrace : ionMobilityIonTraces) {
-      ionTrace.setFeatureList(featureList);
-      ModularFeature modular =
-          FeatureConvertors.IonMobilityIonTraceToModularFeature(ionTrace, rawDataFile);
-      ModularFeatureListRow newRow =
-          new ModularFeatureListRow(featureList, featureId, rawDataFile, modular);
-      featureList.addRow(newRow);
-      featureId++;
-    }
-
-    // Add new feature list to the project
-    project.addFeatureList(featureList);
-
-    progress = 1.0;
-
-    setStatus(TaskStatus.FINISHED);
+    return ionMobilityTraces;
   }
 
-  // Extract all retention time and mobility resolved data point sorted by intensity
-  private Set<RetentionTimeMobilityDataPoint> extractAllDataPointsFromFrames() {
-    final SortedSet<RetentionTimeMobilityDataPoint> allDataPoints =
-        new TreeSet<>(Comparator.comparing(RetentionTimeMobilityDataPoint::getIntensity));
-    for (Frame frame : frames) {
-      if (!(frame instanceof StorableFrame) || !scanSelection.matches(frame)) {
-        continue;
-      }
-      for (Scan scan : frame.getMobilityScans()) {
-        if (scan.getMassList(massList) == null) {
-          setStatus(TaskStatus.ERROR);
-          setErrorMessage(
-              "Scan #" + scan.getScanNumber() + " does not have a mass list " + massList);
-        } else {
-          Arrays.stream(scan.getMassList(massList).getDataPoints()).forEach(
-              dp -> allDataPoints.add(new RetentionTimeMobilityDataPoint(scan.getMobility(),
-                  dp.getMZ(), scan.getRetentionTime(), dp.getIntensity(), frame.getFrameId(),
-                  scan.getScanNumber())));
-        }
-      }
-    }
-    return allDataPoints;
-  }
-
-  private IIonMobilityIonTrace finishIonTrace(IIonMobilityIonTrace ionTrace) {
+  private IIonMobilityTrace finishIonTrace(IIonMobilityTrace ionTrace) {
     Range<Double> rawDataPointsIntensityRange = null;
     Range<Double> rawDataPointsMZRange = null;
     Range<Double> rawDataPointsMobilityRange = null;
@@ -283,7 +272,15 @@ public class MobilogramBuilderTask extends AbstractTask {
     ionTrace.setMaximumIntensity(maximumIntensity);
     ionTrace.setRetentionTime(rt);
     ionTrace.setMobility(mobility);
-
+    // logger.info("Ion Trace results:\n" + "Scan numbers: " + ionTrace.getScanNumbers() + "\n" + //
+    // "Mobility range: " + ionTrace.getMobilityRange() + "\n" + //
+    // "m/z range: " + ionTrace.getMzRange() + "\n" + //
+    // "rt range: " + ionTrace.getRetentionTimeRange() + "\n" + //
+    // "intensity range: " + ionTrace.getIntensityRange() + "\n" + //
+    // "Max intensity : " + ionTrace.getMaximumIntensity() + "\n" + //
+    // "Retention time : " + ionTrace.getRetentionTime() + "\n" + //
+    // "Mobility : " + ionTrace.getMobility()//
+    // );
     // TODO calc area
     // Update area
     // double area = 0;
@@ -314,59 +311,52 @@ public class MobilogramBuilderTask extends AbstractTask {
     return ionTrace;
   }
 
+  private boolean checkNumberOfRetentionTimeDataPoints(
+      Set<RetentionTimeMobilityDataPoint> dataPoints) {
+    Set<Float> retentionTimes = new HashSet<>();
+    for (RetentionTimeMobilityDataPoint dataPoint : dataPoints) {
+      retentionTimes.add(dataPoint.getRetentionTime());
+    }
+    return (retentionTimes.size() >= minDataPointsRt);
+  }
 
-  protected Set<IMobilogram> calculateMobilogramsForScans(Set<Scan> scans) {
-    MobilityType mobilityType = null;
-    if (scans.isEmpty()) {
-      return Collections.emptySet();
-    } else {
-      for (Scan scan : scans) {
-        if (scan.getMassList(massList) == null) {
-          return Collections.emptySet();
-        } else {
-          mobilityType = scan.getMobilityType();
-          break;
-        }
+  private void buildModularFeatureList(SortedSet<IIonMobilityTrace> ionMobilityTraces) {
+    ModularFeatureList featureList =
+        new ModularFeatureList(rawDataFile + " " + suffix, rawDataFile);
+    // ensure that the default columns are available
+    DataTypeUtils.addDefaultChromatographicTypeColumns(featureList);
+    featureList.addRowType(new FeatureShapeIonMobilityRetentionTimeType());
+    featureList.addRowType(new FeatureShapeIonMobilityRetentionTimeHeatMapType());
+    featureList.addRowType(new FeatureShapeMobilogramType());
+    int featureId = 1;
+    for (IIonMobilityTrace ionTrace : ionMobilityTraces) {
+      ionTrace.setFeatureList(featureList);
+      ModularFeature modular =
+          FeatureConvertors.IonMobilityIonTraceToModularFeature(ionTrace, rawDataFile);
+      ModularFeatureListRow newRow =
+          new ModularFeatureListRow(featureList, featureId, rawDataFile, modular);
+      featureList.addRow(newRow);
+      featureId++;
+    }
+    project.addFeatureList(featureList);
+  }
+
+
+  private void calculateDataPointSizeForPlots(Set<Frame> frames) {
+    Frame frameA = null;
+    SortedSet<Frame> sortedFrames = new TreeSet<>(Comparator.comparing(Frame::getFrameId));
+    sortedFrames.addAll(frames);
+    for (Frame frame : frames) {
+      System.out.println(frame.getRetentionTime());
+      System.out.println(frame.getFrameId());
+      if (frameA == null) {
+        frameA = frame;
+      } else if (frameA.getMSLevel() == 1 && frame.getMSLevel() == 1) {
+        dataPointWidth = Math.abs(frameA.getRetentionTime() - frame.getRetentionTime());
+        dataPointHeight = 1 / (double) frame.getNumberOfMobilityScans();
+        break;
       }
     }
-
-    final SortedSet<MobilityDataPoint> allDps =
-        new TreeSet<>(Comparator.comparing(MobilityDataPoint::getIntensity));
-
-    for (Scan scan : scans) {
-      Arrays.stream(scan.getMassList(massList).getDataPoints())
-          .forEach(dp -> allDps.add(new MobilityDataPoint(dp.getMZ(), dp.getIntensity(),
-              scan.getMobility(), scan.getScanNumber())));
-    }
-
-    SortedSet<IMobilogram> mobilograms =
-        new TreeSet<>(Comparator.comparing(IMobilogram::getMobility));
-
-    for (MobilityDataPoint allDp : allDps) {
-      final MobilityDataPoint baseDp = allDp;
-      final double baseMz = baseDp.getMZ();
-
-      final SimpleMobilogram mobilogram = new SimpleMobilogram(mobilityType);
-      mobilogram.addDataPoint(baseDp);
-
-      // go through all dps and add mzs within tolerance
-      for (MobilityDataPoint dp : allDps) {
-        if (mzTolerance.checkWithinTolerance(baseMz, dp.getMZ())
-            && !mobilogram.containsDpForScan(dp.getScanNum())) {
-          mobilogram.addDataPoint(dp);
-        }
-      }
-
-      if (mobilogram.getDataPoints().size() > minSignals) {
-        mobilogram.calc();
-        mobilograms.add(mobilogram);
-      }
-    }
-
-    SortedSet<IMobilogram> sortedMobilograms =
-        new TreeSet<>(Comparator.comparingDouble(IMobilogram::getMZ));
-    sortedMobilograms.addAll(mobilograms);
-    return sortedMobilograms;
   }
 
 }

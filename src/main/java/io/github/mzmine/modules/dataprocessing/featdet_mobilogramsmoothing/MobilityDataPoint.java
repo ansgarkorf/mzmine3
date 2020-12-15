@@ -1,4 +1,4 @@
-package io.github.mzmine.modules.dataprocessing.featdet_mobilogrambuilder;
+package io.github.mzmine.modules.dataprocessing.featdet_mobilogramsmoothing;
 
 import io.github.mzmine.datamodel.DataPoint;
 

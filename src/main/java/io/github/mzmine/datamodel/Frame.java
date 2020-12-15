@@ -23,7 +23,7 @@ import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import com.google.common.collect.Range;
-import io.github.mzmine.modules.dataprocessing.featdet_mobilogrambuilder.IMobilogram;
+import io.github.mzmine.modules.dataprocessing.featdet_mobilogramsmoothing.IMobilogram;
 
 /**
  * A frame is a collection of mobility resolved spectra at one point in time.

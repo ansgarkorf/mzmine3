@@ -16,7 +16,7 @@
  * USA
  */
 
-package io.github.mzmine.modules.dataprocessing.featdet_mobilogrambuilder;
+package io.github.mzmine.modules.dataprocessing.featdet_mobilogramsmoothing;
 
 import java.util.Set;
 import javax.annotation.Nonnull;

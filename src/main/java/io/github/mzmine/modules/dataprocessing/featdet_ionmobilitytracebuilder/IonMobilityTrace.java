@@ -1,11 +1,11 @@
-package io.github.mzmine.modules.dataprocessing.featdet_mobilogrambuilder;
+package io.github.mzmine.modules.dataprocessing.featdet_ionmobilitytracebuilder;
 
 import java.util.Set;
 import com.google.common.collect.Range;
 import io.github.mzmine.datamodel.MobilityType;
 import io.github.mzmine.datamodel.features.FeatureList;
 
-public class IonMobilityIonTrace implements IIonMobilityIonTrace {
+public class IonMobilityTrace implements IIonMobilityTrace {
 
   private double mz;
   private Float retentionTime;
@@ -22,7 +22,7 @@ public class IonMobilityIonTrace implements IIonMobilityIonTrace {
   private String representativeString;
   private FeatureList featureList;
 
-  public IonMobilityIonTrace(double mz, Float retentionTime, double mobility,
+  public IonMobilityTrace(double mz, Float retentionTime, double mobility,
       double maximumIntensity, Range<Double> mzRange) {
     this.mz = mz;
     this.retentionTime = retentionTime;
@@ -31,7 +31,7 @@ public class IonMobilityIonTrace implements IIonMobilityIonTrace {
     this.mzRange = mzRange;
   }
 
-  public IonMobilityIonTrace(double mz, Float retentionTime, double mobility,
+  public IonMobilityTrace(double mz, Float retentionTime, double mobility,
       double maximumIntensity, Range<Float> retentionTimeRange, Range<Double> mobilityRange,
       Range<Double> mzRange, Range<Double> intensityRange,
       Set<RetentionTimeMobilityDataPoint> dataPoints, Set<Integer> frameNumbers,
@@ -198,7 +198,7 @@ public class IonMobilityIonTrace implements IIonMobilityIonTrace {
       return false;
     if (getClass() != obj.getClass())
       return false;
-    IonMobilityIonTrace other = (IonMobilityIonTrace) obj;
+    IonMobilityTrace other = (IonMobilityTrace) obj;
     if (dataPoints == null) {
       if (other.dataPoints != null)
         return false;

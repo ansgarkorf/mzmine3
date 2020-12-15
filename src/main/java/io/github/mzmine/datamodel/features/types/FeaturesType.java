@@ -29,6 +29,7 @@ import io.github.mzmine.datamodel.features.ModularFeatureListRow;
 import io.github.mzmine.datamodel.features.types.graphicalnodes.AreaBarChart;
 import io.github.mzmine.datamodel.features.types.graphicalnodes.AreaShareChart;
 import io.github.mzmine.datamodel.features.types.graphicalnodes.FeatureShapeChart;
+import io.github.mzmine.datamodel.features.types.graphicalnodes.FeatureShapeIonMobilityRetentionTimeChart;
 import io.github.mzmine.datamodel.features.types.modifiers.SubColumnsFactory;
 import io.github.mzmine.main.MZmineCore;
 import io.github.mzmine.taskcontrol.AbstractTask;
@@ -69,23 +70,21 @@ public class FeaturesType extends DataType<MapProperty<RawDataFile, ModularFeatu
   public List<TreeTableColumn<ModularFeatureListRow, Object>> createSubColumns(
       final @Nullable RawDataFile raw) {
     /*
-    List<TreeTableColumn<ModularFeatureListRow, Object>> cols = new ArrayList<>();
-    // create bar chart
-    TreeTableColumn<ModularFeatureListRow, Object> barsCol = new TreeTableColumn<>("Area Bars");
-    barsCol.setCellValueFactory(new DataTypeCellValueFactory(null, this));
-    barsCol.setCellFactory(new DataTypeCellFactory(null, this, cols.size()));
-    cols.add(barsCol);
-
-    TreeTableColumn<ModularFeatureListRow, Object> sharesCol = new TreeTableColumn<>("Area Share");
-    sharesCol.setCellValueFactory(new DataTypeCellValueFactory(null, this));
-    sharesCol.setCellFactory(new DataTypeCellFactory(null, this, cols.size()));
-    cols.add(sharesCol);
-
-    TreeTableColumn<ModularFeatureListRow, Object> shapes = new TreeTableColumn<>("Shapes");
-    shapes.setCellValueFactory(new DataTypeCellValueFactory(null, this));
-    shapes.setCellFactory(new DataTypeCellFactory(null, this, cols.size()));
-    cols.add(shapes);
-    */
+     * List<TreeTableColumn<ModularFeatureListRow, Object>> cols = new ArrayList<>(); // create bar
+     * chart TreeTableColumn<ModularFeatureListRow, Object> barsCol = new
+     * TreeTableColumn<>("Area Bars"); barsCol.setCellValueFactory(new
+     * DataTypeCellValueFactory(null, this)); barsCol.setCellFactory(new DataTypeCellFactory(null,
+     * this, cols.size())); cols.add(barsCol);
+     * 
+     * TreeTableColumn<ModularFeatureListRow, Object> sharesCol = new
+     * TreeTableColumn<>("Area Share"); sharesCol.setCellValueFactory(new
+     * DataTypeCellValueFactory(null, this)); sharesCol.setCellFactory(new DataTypeCellFactory(null,
+     * this, cols.size())); cols.add(sharesCol);
+     * 
+     * TreeTableColumn<ModularFeatureListRow, Object> shapes = new TreeTableColumn<>("Shapes");
+     * shapes.setCellValueFactory(new DataTypeCellValueFactory(null, this));
+     * shapes.setCellFactory(new DataTypeCellFactory(null, this, cols.size())); cols.add(shapes);
+     */
     /*
      * sample columns are created in the FeatureListFX class
      */
@@ -160,6 +159,9 @@ public class FeaturesType extends DataType<MapProperty<RawDataFile, ModularFeatu
             break;
           case 2:
             n = new FeatureShapeChart(row, progress);
+            break;
+          case 3:
+            n = new FeatureShapeIonMobilityRetentionTimeChart(row, progress);
             break;
           default:
             n = null;

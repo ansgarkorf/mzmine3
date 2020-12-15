@@ -1,4 +1,4 @@
-package io.github.mzmine.modules.dataprocessing.featdet_mobilogrambuilder;
+package io.github.mzmine.modules.dataprocessing.featdet_ionmobilitytracebuilder;
 
 import java.util.Collection;
 import java.util.HashSet;
@@ -10,7 +10,6 @@ import io.github.mzmine.datamodel.Frame;
 import io.github.mzmine.datamodel.IMSRawDataFile;
 import io.github.mzmine.datamodel.MZmineProject;
 import io.github.mzmine.datamodel.RawDataFile;
-import io.github.mzmine.gui.preferences.MZminePreferences;
 import io.github.mzmine.main.MZmineCore;
 import io.github.mzmine.modules.MZmineModuleCategory;
 import io.github.mzmine.modules.MZmineRunnableModule;
@@ -18,12 +17,12 @@ import io.github.mzmine.parameters.ParameterSet;
 import io.github.mzmine.taskcontrol.Task;
 import io.github.mzmine.util.ExitCode;
 
-public class MobilogramBuilderModule implements MZmineRunnableModule {
+public class IonMobilityTraceBuilderModule implements MZmineRunnableModule {
 
   @Nonnull
   @Override
   public String getDescription() {
-    return "Builds mobilograms for each frame";
+    return "Builds ion mobility traces for a raw data file";
   }
 
   @Nonnull
@@ -31,10 +30,7 @@ public class MobilogramBuilderModule implements MZmineRunnableModule {
   public ExitCode runModule(@Nonnull MZmineProject project, @Nonnull ParameterSet parameters,
       @Nonnull Collection<Task> tasks) {
 
-    int numberOfThreads = MZmineCore.getConfiguration().getPreferences()
-        .getParameter(MZminePreferences.numOfThreads).getValue();
-
-    RawDataFile[] files = parameters.getParameter(MobilogramBuilderParameters.rawDataFiles)
+    RawDataFile[] files = parameters.getParameter(IonMobilityTraceBuilderParameters.rawDataFiles)
         .getValue().getMatchingRawDataFiles();
 
     for (RawDataFile file : files) {
@@ -42,18 +38,9 @@ public class MobilogramBuilderModule implements MZmineRunnableModule {
         continue;
       }
 
-      // List<Frame> framesList = new ArrayList<>(((IMSRawDataFile) file).getFrames());
-      // List<List<Frame>> frameLists =
-      // Lists.partition(framesList, ((IMSRawDataFile) file).getFrames().size() / numberOfThreads);
-      //
-      // for (List<Frame> frames : frameLists) {
-      // MobilogramBuilderTask task = new MobilogramBuilderTask(new HashSet<>(frames), parameters);
-      // MZmineCore.getTaskController().addTask(task);
-      // }
-
       Set<Frame> frames = new LinkedHashSet<>(((IMSRawDataFile) file).getFrames());
-      MobilogramBuilderTask task =
-          new MobilogramBuilderTask(project, file, new HashSet<>(frames), parameters);
+      IonMobilityTraceBuilderTask task =
+          new IonMobilityTraceBuilderTask(project, file, new HashSet<>(frames), parameters);
       MZmineCore.getTaskController().addTask(task);
     }
 
@@ -69,12 +56,12 @@ public class MobilogramBuilderModule implements MZmineRunnableModule {
   @Nonnull
   @Override
   public String getName() {
-    return "Mobiligram builder";
+    return "Ion mobility trace builder";
   }
 
   @Nullable
   @Override
   public Class<? extends ParameterSet> getParameterSetClass() {
-    return MobilogramBuilderParameters.class;
+    return IonMobilityTraceBuilderParameters.class;
   }
 }

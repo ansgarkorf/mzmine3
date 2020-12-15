@@ -48,8 +48,8 @@ import io.github.mzmine.datamodel.features.types.numbers.TailingFactorType;
 import io.github.mzmine.modules.dataprocessing.featdet_adapchromatogrambuilder.ADAPChromatogram;
 import io.github.mzmine.modules.dataprocessing.featdet_chromatogrambuilder.Chromatogram;
 import io.github.mzmine.modules.dataprocessing.featdet_chromatogramdeconvolution.ResolvedPeak;
+import io.github.mzmine.modules.dataprocessing.featdet_ionmobilitytracebuilder.IIonMobilityTrace;
 import io.github.mzmine.modules.dataprocessing.featdet_manual.ManualFeature;
-import io.github.mzmine.modules.dataprocessing.featdet_mobilogrambuilder.IIonMobilityIonTrace;
 import io.github.mzmine.modules.dataprocessing.featdet_peakextender.ExtendedPeak;
 import io.github.mzmine.modules.dataprocessing.gapfill_samerange.SameRangePeak;
 import io.github.mzmine.modules.tools.qualityparameters.QualityParameters;
@@ -135,7 +135,7 @@ public class FeatureConvertors {
   }
 
   public static ModularFeature IonMobilityIonTraceToModularFeature(
-      @Nonnull IIonMobilityIonTrace ionTrace, RawDataFile rawDataFile) {
+      @Nonnull IIonMobilityTrace ionTrace, RawDataFile rawDataFile) {
 
     if (ionTrace.getFeatureList() == null) {
       throw new NullPointerException("Feature list of the ion trace is null.");

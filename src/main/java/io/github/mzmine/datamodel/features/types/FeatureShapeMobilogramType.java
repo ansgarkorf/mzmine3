@@ -23,7 +23,7 @@ public class FeatureShapeMobilogramType extends DataType<MapProperty<RawDataFile
   @Nonnull
   @Override
   public String getHeaderString() {
-    return "Shapes";
+    return "Mobilogram";
   }
 
   @Override

@@ -28,7 +28,6 @@ import org.jfree.chart.axis.NumberAxis;
 import org.jfree.chart.plot.PlotOrientation;
 import org.jfree.chart.plot.XYPlot;
 import org.jfree.chart.renderer.LookupPaintScale;
-import org.jfree.chart.renderer.xy.XYBlockRenderer;
 import org.jfree.chart.title.PaintScaleLegend;
 import org.jfree.chart.ui.RectangleEdge;
 import org.jfree.chart.ui.RectangleInsets;
@@ -36,7 +35,7 @@ import org.jfree.data.xy.XYZDataset;
 import com.google.common.collect.Range;
 import io.github.mzmine.gui.chartbasics.chartthemes.EStandardChartTheme;
 import io.github.mzmine.gui.chartbasics.chartutils.XYBlockPixelSizePaintScales;
-import io.github.mzmine.gui.chartbasics.chartutils.XYBlockPixelSizeRenderer;
+import io.github.mzmine.gui.chartbasics.chartutils.XYBlockRendererSmallBlocks;
 import io.github.mzmine.gui.chartbasics.gui.javafx.EChartViewer;
 import io.github.mzmine.main.MZmineCore;
 
@@ -45,8 +44,7 @@ public class RetentionTimeMobilityHeatMapPlot extends EChartViewer {
   private final XYPlot plot;
   static final Font legendFont = new Font("SansSerif", Font.PLAIN, 12);
   private PaintScaleLegend legend;
-  private XYBlockPixelSizeRenderer pixelRenderer;
-  private XYBlockRenderer blockRenderer;
+  private XYBlockRendererSmallBlocks blockRenderer;
   private double dataPointHeight;
   private double dataPointWidth;
 
@@ -66,20 +64,6 @@ public class RetentionTimeMobilityHeatMapPlot extends EChartViewer {
       copyZValues[i] = dataset.getZValue(0, i);
     }
     Arrays.sort(copyZValues);
-
-    // copy and sort x-values.
-    double[] copyXValues = new double[dataset.getItemCount(0)];
-    for (int i = 0; i < dataset.getItemCount(0); i++) {
-      copyXValues[i] = dataset.getXValue(0, i);
-    }
-    Arrays.sort(copyXValues);
-
-    // copy and sort y-values.
-    double[] copyYValues = new double[dataset.getItemCount(0)];
-    for (int i = 0; i < dataset.getItemCount(0); i++) {
-      copyYValues[i] = dataset.getYValue(0, i);
-    }
-    Arrays.sort(copyYValues);
 
     // get index in accordance to percentile windows
     int minIndexScale = 0;
@@ -120,10 +104,8 @@ public class RetentionTimeMobilityHeatMapPlot extends EChartViewer {
   }
 
   void setPixelRenderer(LookupPaintScale scale) {
-    pixelRenderer = new XYBlockPixelSizeRenderer();
-    pixelRenderer.setPaintScale(scale);
     // set the block renderer
-    blockRenderer = new XYBlockRenderer();
+    blockRenderer = new XYBlockRendererSmallBlocks();
     blockRenderer.setBlockHeight(dataPointHeight);
     blockRenderer.setBlockWidth(dataPointWidth);
   }

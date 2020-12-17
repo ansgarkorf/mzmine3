@@ -28,7 +28,6 @@ import org.jfree.chart.axis.NumberAxis;
 import org.jfree.chart.plot.PlotOrientation;
 import org.jfree.chart.plot.XYPlot;
 import org.jfree.chart.renderer.LookupPaintScale;
-import org.jfree.chart.renderer.xy.XYBlockRenderer;
 import org.jfree.chart.title.PaintScaleLegend;
 import org.jfree.chart.ui.RectangleEdge;
 import org.jfree.chart.ui.RectangleInsets;
@@ -37,6 +36,7 @@ import com.google.common.collect.Range;
 import io.github.mzmine.gui.chartbasics.chartthemes.EStandardChartTheme;
 import io.github.mzmine.gui.chartbasics.chartutils.XYBlockPixelSizePaintScales;
 import io.github.mzmine.gui.chartbasics.chartutils.XYBlockPixelSizeRenderer;
+import io.github.mzmine.gui.chartbasics.chartutils.XYBlockRendererSmallBlocks;
 import io.github.mzmine.gui.chartbasics.gui.javafx.EChartViewer;
 import io.github.mzmine.main.MZmineCore;
 
@@ -46,7 +46,7 @@ public class RetentionTimeMobilityHeatMapPlot extends EChartViewer {
   static final Font legendFont = new Font("SansSerif", Font.PLAIN, 12);
   private PaintScaleLegend legend;
   public XYBlockPixelSizeRenderer pixelRenderer;
-  public XYBlockRenderer blockRenderer;
+  public XYBlockRendererSmallBlocks blockRenderer;
 
   public RetentionTimeMobilityHeatMapPlot(XYZDataset dataset, String paintScaleStyle) {
 
@@ -115,14 +115,22 @@ public class RetentionTimeMobilityHeatMapPlot extends EChartViewer {
   }
 
   void setPixelRenderer(double[] copyXValues, double[] copyYValues, LookupPaintScale scale) {
-    pixelRenderer = new XYBlockPixelSizeRenderer();
-    pixelRenderer.setPaintScale(scale);
-    // set the block renderer
-    blockRenderer = new XYBlockRenderer();
-    double retentionWidth = copyYValues.length / (double) copyXValues.length;
-    double mobilityWidth = copyXValues.length / (double) copyYValues.length;
+    blockRenderer = new XYBlockRendererSmallBlocks();
 
-    blockRenderer.setBlockHeight(mobilityWidth);
+    double retentionWidth = 0;
+    double mobilityHeight = 0;
+
+    for (int i = 0; i < copyXValues.length; i++) {
+      double rtOne = copyXValues[0];
+      if (rtOne < copyXValues[i]) {
+        retentionWidth = copyXValues[i] - rtOne;
+        break;
+      }
+    }
+
+    mobilityHeight = copyYValues[1] - copyYValues[0];
+
+    blockRenderer.setBlockHeight(mobilityHeight);
     blockRenderer.setBlockWidth(retentionWidth);
   }
 

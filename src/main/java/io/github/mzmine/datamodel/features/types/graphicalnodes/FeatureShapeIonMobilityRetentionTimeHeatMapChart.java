@@ -79,8 +79,7 @@ public class FeatureShapeIonMobilityRetentionTimeHeatMapChart extends StackPane 
           new RetentionTimeMobilityHeatMapPlot(dataset, "Rainbow", dataPointWidth, dataPointHeight);
       retentionTimeMobilityHeatMapPlot.getPlot().getRangeAxis().setRange(minMobility - 0.2,
           maxMobility + 0.2);
-      retentionTimeMobilityHeatMapPlot.getPlot().getDomainAxis().setRange(minRt - 2,
-          maxMobility + 2);
+      retentionTimeMobilityHeatMapPlot.getPlot().getDomainAxis().setRange(minRt - 2, maxRt + 2);
       this.getChildren().add(retentionTimeMobilityHeatMapPlot);
     } catch (Exception ex) {
       logger.log(Level.WARNING, "error in DP", ex);

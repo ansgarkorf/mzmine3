@@ -24,7 +24,7 @@ public class FeatureShapeIonMobilityRetentionTimeHeatMapType
   @Nonnull
   @Override
   public String getHeaderString() {
-    return "Shapes";
+    return "Ion Mobility Trace";
   }
 
   @Override

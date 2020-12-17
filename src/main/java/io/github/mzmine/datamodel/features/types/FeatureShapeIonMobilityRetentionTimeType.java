@@ -24,7 +24,7 @@ public class FeatureShapeIonMobilityRetentionTimeType
   @Nonnull
   @Override
   public String getHeaderString() {
-    return "Shapes";
+    return "Chromatogram";
   }
 
   @Override

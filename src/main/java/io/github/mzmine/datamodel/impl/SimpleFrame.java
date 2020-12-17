@@ -34,7 +34,7 @@ import io.github.mzmine.datamodel.MobilityType;
 import io.github.mzmine.datamodel.PolarityType;
 import io.github.mzmine.datamodel.RawDataFile;
 import io.github.mzmine.datamodel.Scan;
-import io.github.mzmine.modules.dataprocessing.featdet_mobilogrambuilder.IMobilogram;
+import io.github.mzmine.modules.dataprocessing.featdet_mobilogramsmoothing.IMobilogram;
 
 public class SimpleFrame extends SimpleScan implements Frame {
 

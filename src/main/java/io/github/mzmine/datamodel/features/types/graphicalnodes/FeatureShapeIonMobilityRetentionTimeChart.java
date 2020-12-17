@@ -30,8 +30,8 @@ public class FeatureShapeIonMobilityRetentionTimeChart extends StackPane {
       final NumberAxis yAxis = new NumberAxis();
       final LineChart<Number, Number> bc = new LineChart<>(xAxis, yAxis);
 
-      // DataPoint max = null;
-      double minRT = Double.MAX_VALUE, maxRT = 0;
+      double minRT = Double.MAX_VALUE;
+      double maxRT = 0;
       int size = row.getFilesFeatures().size();
       int fi = 0;
       for (Feature f : row.getFeatures()) {
@@ -91,7 +91,7 @@ public class FeatureShapeIonMobilityRetentionTimeChart extends StackPane {
       // do not add data to chart
       xAxis.setAutoRanging(false);
       xAxis.setUpperBound(maxRT + 2);
-      xAxis.setLowerBound(minRT == Double.MAX_VALUE ? 0 : minRT - 2);
+      xAxis.setLowerBound(((minRT - 2) > 0) ? (minRT - 2) : 0);
 
       bc.setOnScroll(new EventHandler<>() {
         @Override

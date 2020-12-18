@@ -18,42 +18,42 @@
 
 package io.github.mzmine.datamodel.features;
 
-import io.github.mzmine.datamodel.FeatureStatus;
-import io.github.mzmine.datamodel.IsotopePattern;
-import io.github.mzmine.datamodel.features.types.numbers.AsymmetryFactorType;
-import io.github.mzmine.datamodel.features.types.numbers.FwhmType;
-import io.github.mzmine.datamodel.features.types.numbers.MZRangeType;
-import io.github.mzmine.datamodel.features.types.numbers.RTRangeType;
-import io.github.mzmine.datamodel.features.types.numbers.TailingFactorType;
-import io.github.mzmine.datamodel.impl.SimpleFeatureInformation;
-import io.github.mzmine.modules.tools.qualityparameters.QualityParameters;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import javafx.collections.ObservableList;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import com.google.common.collect.Range;
 import io.github.mzmine.datamodel.DataPoint;
+import io.github.mzmine.datamodel.FeatureStatus;
+import io.github.mzmine.datamodel.IsotopePattern;
 import io.github.mzmine.datamodel.RawDataFile;
 import io.github.mzmine.datamodel.features.types.DataType;
 import io.github.mzmine.datamodel.features.types.DetectionType;
 import io.github.mzmine.datamodel.features.types.RawFileType;
 import io.github.mzmine.datamodel.features.types.numbers.AreaType;
+import io.github.mzmine.datamodel.features.types.numbers.AsymmetryFactorType;
 import io.github.mzmine.datamodel.features.types.numbers.BestScanNumberType;
 import io.github.mzmine.datamodel.features.types.numbers.DataPointsType;
+import io.github.mzmine.datamodel.features.types.numbers.FwhmType;
 import io.github.mzmine.datamodel.features.types.numbers.HeightType;
 import io.github.mzmine.datamodel.features.types.numbers.IntensityRangeType;
+import io.github.mzmine.datamodel.features.types.numbers.MZRangeType;
 import io.github.mzmine.datamodel.features.types.numbers.MZType;
+import io.github.mzmine.datamodel.features.types.numbers.RTRangeType;
 import io.github.mzmine.datamodel.features.types.numbers.RTType;
 import io.github.mzmine.datamodel.features.types.numbers.ScanNumbersType;
+import io.github.mzmine.datamodel.features.types.numbers.TailingFactorType;
+import io.github.mzmine.datamodel.impl.SimpleFeatureInformation;
+import io.github.mzmine.modules.tools.qualityparameters.QualityParameters;
 import javafx.beans.property.ListProperty;
 import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.Property;
 import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.collections.ObservableMap;
-import javax.annotation.Nullable;
 
 /**
  * Feature with modular DataTypes
@@ -106,7 +106,8 @@ public class ModularFeature implements Feature, ModularDataModel {
     assert featureStatus != null;
 
     if (dataPointsPerScan.length == 0) {
-      throw new IllegalArgumentException("Cannot create a ModularFeature instance with no data points");
+      throw new IllegalArgumentException(
+          "Cannot create a ModularFeature instance with no data points");
     }
 
     this.fragmentScanNumber = fragmentScanNumber;
@@ -133,15 +134,15 @@ public class ModularFeature implements Feature, ModularDataModel {
         .collect(Collectors.toCollection(FXCollections::observableArrayList));
 
     float fwhm = QualityParameters.calculateFWHM(this);
-    if(!Float.isNaN(fwhm)) {
+    if (!Float.isNaN(fwhm)) {
       set(FwhmType.class, fwhm);
     }
     float tf = QualityParameters.calculateTailingFactor(this);
-    if(!Float.isNaN(tf)) {
+    if (!Float.isNaN(tf)) {
       set(TailingFactorType.class, tf);
     }
     float af = QualityParameters.calculateAsymmetryFactor(this);
-    if(!Float.isNaN(af)) {
+    if (!Float.isNaN(af)) {
       set(AsymmetryFactorType.class, af);
     }
   }
@@ -150,13 +151,14 @@ public class ModularFeature implements Feature, ModularDataModel {
    * Initializes a new feature using given feature list and values
    *
    */
-  public ModularFeature(@Nonnull ModularFeatureList featureList, RawDataFile dataFile, double mz, float rt,
-      float height, float area, int[] scanNumbers, DataPoint[] dataPointsPerScan, FeatureStatus featureStatus,
-      int representativeScan, int fragmentScanNumber, int[] allMS2FragmentScanNumbers,
-      @Nonnull Range<Float> rtRange, @Nonnull Range<Double> mzRange,
-      @Nonnull Range<Float> intensityRange) {
-    this(dataFile, mz, rt, height, area, scanNumbers, dataPointsPerScan, featureStatus, representativeScan,
-        fragmentScanNumber, allMS2FragmentScanNumbers, rtRange, mzRange, intensityRange);
+  public ModularFeature(@Nonnull ModularFeatureList featureList, RawDataFile dataFile, double mz,
+      float rt, float height, float area, int[] scanNumbers, DataPoint[] dataPointsPerScan,
+      FeatureStatus featureStatus, int representativeScan, int fragmentScanNumber,
+      int[] allMS2FragmentScanNumbers, @Nonnull Range<Float> rtRange,
+      @Nonnull Range<Double> mzRange, @Nonnull Range<Float> intensityRange) {
+    this(dataFile, mz, rt, height, area, scanNumbers, dataPointsPerScan, featureStatus,
+        representativeScan, fragmentScanNumber, allMS2FragmentScanNumbers, rtRange, mzRange,
+        intensityRange);
     setFeatureList(featureList);
   }
 
@@ -192,15 +194,15 @@ public class ModularFeature implements Feature, ModularDataModel {
 
     // quality parameters
     float fwhm = f.getFWHM();
-    if(!Float.isNaN(fwhm)) {
+    if (!Float.isNaN(fwhm)) {
       set(FwhmType.class, fwhm);
     }
     float tf = f.getTailingFactor();
-    if(!Float.isNaN(tf)) {
+    if (!Float.isNaN(tf)) {
       set(TailingFactorType.class, tf);
     }
     float af = f.getAsymmetryFactor();
-    if(!Float.isNaN(af)) {
+    if (!Float.isNaN(af)) {
       set(AsymmetryFactorType.class, af);
     }
   }
@@ -300,7 +302,8 @@ public class ModularFeature implements Feature, ModularDataModel {
 
   @Override
   public float getAsymmetryFactor() {
-    if (get(AsymmetryFactorType.class) == null || get(AsymmetryFactorType.class).getValue() == null) {
+    if (get(AsymmetryFactorType.class) == null
+        || get(AsymmetryFactorType.class).getValue() == null) {
       return Float.NaN;
     }
     return get(AsymmetryFactorType.class).getValue();

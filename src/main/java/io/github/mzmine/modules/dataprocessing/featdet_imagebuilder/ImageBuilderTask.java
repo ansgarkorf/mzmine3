@@ -20,6 +20,7 @@
 package io.github.mzmine.modules.dataprocessing.featdet_imagebuilder;
 
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -32,6 +33,7 @@ import java.util.logging.Logger;
 import com.google.common.collect.Range;
 import com.google.common.collect.RangeSet;
 import com.google.common.collect.TreeRangeSet;
+import io.github.mzmine.datamodel.FeatureStatus;
 import io.github.mzmine.datamodel.ImagingRawDataFile;
 import io.github.mzmine.datamodel.MZmineProject;
 import io.github.mzmine.datamodel.RawDataFile;
@@ -39,7 +41,14 @@ import io.github.mzmine.datamodel.Scan;
 import io.github.mzmine.datamodel.features.ModularFeature;
 import io.github.mzmine.datamodel.features.ModularFeatureList;
 import io.github.mzmine.datamodel.features.ModularFeatureListRow;
+import io.github.mzmine.datamodel.features.types.DetectionType;
 import io.github.mzmine.datamodel.features.types.ImageType;
+import io.github.mzmine.datamodel.features.types.RawFileType;
+import io.github.mzmine.datamodel.features.types.numbers.HeightType;
+import io.github.mzmine.datamodel.features.types.numbers.IntensityRangeType;
+import io.github.mzmine.datamodel.features.types.numbers.MZRangeType;
+import io.github.mzmine.datamodel.features.types.numbers.MZType;
+import io.github.mzmine.datamodel.features.types.numbers.ScanNumbersType;
 import io.github.mzmine.gui.chartbasics.chartutils.paintscales.PaintScale;
 import io.github.mzmine.modules.io.rawdataimport.fileformats.imzmlimport.ImagingParameters;
 import io.github.mzmine.parameters.ParameterSet;
@@ -48,7 +57,6 @@ import io.github.mzmine.parameters.parametertypes.tolerances.MZTolerance;
 import io.github.mzmine.project.impl.StorableImagingScan;
 import io.github.mzmine.taskcontrol.AbstractTask;
 import io.github.mzmine.taskcontrol.TaskStatus;
-import io.github.mzmine.util.FeatureConvertors;
 
 /*
  * @author Ansgar Korf (ansgar.korf@uni-muenster.de)
@@ -299,46 +307,10 @@ public class ImageBuilderTask extends AbstractTask {
 
     }
 
-    // TODO think about representative scan
     image.setScanNumbers(scanNumbers);
     image.setMzRange(rawDataPointsMZRange);
     image.setIntensityRange(rawDataPointsIntensityRange);
     image.setMaximumIntensity(maximumIntensity);
-    // logger.info("Ion Trace results:\n" + "Scan numbers: " + ionTrace.getScanNumbers() + "\n" + //
-    // "Mobility range: " + ionTrace.getMobilityRange() + "\n" + //
-    // "m/z range: " + ionTrace.getMzRange() + "\n" + //
-    // "rt range: " + ionTrace.getRetentionTimeRange() + "\n" + //
-    // "intensity range: " + ionTrace.getIntensityRange() + "\n" + //
-    // "Max intensity : " + ionTrace.getMaximumIntensity() + "\n" + //
-    // "Retention time : " + ionTrace.getRetentionTime() + "\n" + //
-    // "Mobility : " + ionTrace.getMobility()//
-    // );
-    // TODO calc area
-    // Update area
-    // double area = 0;
-    // for (int i = 1; i < allScanNumbers.length; i++) {
-    // // For area calculation, we use retention time in seconds
-    // double previousRT = dataFile.getScan(allScanNumbers[i - 1]).getRetentionTime() * 60d;
-    // double currentRT = dataFile.getScan(allScanNumbers[i]).getRetentionTime() * 60d;
-    // double previousHeight = dataPointsMap.get(allScanNumbers[i - 1]).getIntensity();
-    // double currentHeight = dataPointsMap.get(allScanNumbers[i]).getIntensity();
-    // area += (currentRT - previousRT) * (currentHeight + previousHeight) / 2;
-    // }
-
-    // TODO
-    // Update fragment scan
-    // fragmentScan =
-    // ScanUtils.findBestFragmentScan(dataFile, dataFile.getDataRTRange(1), rawDataPointsMZRange);
-
-    // allMS2FragmentScanNumbers = ScanUtils.findAllMS2FragmentScans(dataFile,
-    // dataFile.getDataRTRange(1), rawDataPointsMZRange);
-
-    // if (fragmentScan > 0) {
-    // Scan fragmentScanObject = dataFile.getScan(fragmentScan);
-    // int precursorCharge = fragmentScanObject.getPrecursorCharge();
-    // if (precursorCharge > 0)
-    // this.charge = precursorCharge;
-    // }
 
     return image;
   }
@@ -348,17 +320,25 @@ public class ImageBuilderTask extends AbstractTask {
     taskDescription = "Build feature list";
     ModularFeatureList featureList =
         new ModularFeatureList(rawDataFile + " " + suffix, rawDataFile);
-    // featureList.addRowType(new FeatureShapeIonMobilityRetentionTimeType());
-    // featureList.addRowType(new FeatureShapeIonMobilityRetentionTimeHeatMapType());
-    // featureList.addRowType(new FeatureShapeMobilogramType());
-    // featureList.addRowType(new MobilityType());
     featureList.addRowType(new ImageType());
     int featureId = 1;
     for (IImage image : images) {
       image.setFeatureList(featureList);
-      ModularFeature modular = FeatureConvertors.ImageToModularFeature(image, rawDataFile);
+      ModularFeature modularFeature = new ModularFeature(featureList);
+      modularFeature.set(ScanNumbersType.class, new ArrayList<>(image.getScanNumbers()));
+      modularFeature.set(RawFileType.class, rawDataFile);
+      modularFeature.set(DetectionType.class, FeatureStatus.DETECTED);
+      modularFeature.set(MZType.class, image.getMz());
+      modularFeature.set(HeightType.class, (float) image.getMaximumIntensity());
+      Range<Double> mzRange =
+          Range.closed(image.getMzRange().lowerEndpoint(), image.getMzRange().upperEndpoint());
+      Range<Float> intensityRange =
+          Range.closed(image.getIntensityRange().lowerEndpoint().floatValue(),
+              image.getIntensityRange().upperEndpoint().floatValue());
+      modularFeature.set(MZRangeType.class, mzRange);
+      modularFeature.set(IntensityRangeType.class, intensityRange);
       ModularFeatureListRow newRow =
-          new ModularFeatureListRow(featureList, featureId, rawDataFile, modular);
+          new ModularFeatureListRow(featureList, featureId, rawDataFile, modularFeature);
       newRow.set(ImageType.class, newRow.getFeaturesProperty());
       // newRow.set(MobilityType.class, image.getMobility());
       // newRow.set(FeatureShapeIonMobilityRetentionTimeType.class, newRow.getFeaturesProperty());

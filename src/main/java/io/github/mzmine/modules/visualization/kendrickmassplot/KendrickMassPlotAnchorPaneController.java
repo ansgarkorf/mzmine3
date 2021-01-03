@@ -18,15 +18,15 @@
 
 package io.github.mzmine.modules.visualization.kendrickmassplot;
 
-import io.github.mzmine.datamodel.features.FeatureList;
-import io.github.mzmine.datamodel.features.FeatureListRow;
 import java.awt.Color;
 import java.text.DecimalFormat;
 import java.util.logging.Logger;
 import org.jfree.chart.JFreeChart;
 import org.jfree.chart.plot.XYPlot;
 import org.jfree.chart.title.PaintScaleLegend;
-import io.github.mzmine.gui.chartbasics.chartutils.XYBlockPixelSizeRenderer;
+import io.github.mzmine.datamodel.features.FeatureList;
+import io.github.mzmine.datamodel.features.FeatureListRow;
+import io.github.mzmine.gui.chartbasics.chartutils.XYBubbleSizeRenderer;
 import io.github.mzmine.gui.chartbasics.gui.javafx.EChartViewer;
 import io.github.mzmine.parameters.ParameterSet;
 import io.github.mzmine.util.FormulaUtils;
@@ -77,13 +77,7 @@ public class KendrickMassPlotAnchorPaneController {
   private BorderPane plotPane;
 
   @FXML
-  private Button blockSizeButton;
-
-  @FXML
   private Button backgroundButton;
-
-  @FXML
-  private Button gridButton;
 
   @FXML
   private Button annotationButton;
@@ -268,7 +262,7 @@ public class KendrickMassPlotAnchorPaneController {
   void toggleAnnotation(ActionEvent event) {
     logger.finest("Toggle annotations");
     XYPlot plot = getChart().getXYPlot();
-    XYBlockPixelSizeRenderer renderer = (XYBlockPixelSizeRenderer) plot.getRenderer();
+    XYBubbleSizeRenderer renderer = (XYBubbleSizeRenderer) plot.getRenderer();
     Boolean itemNameVisible = renderer.getDefaultItemLabelsVisible();
     if (itemNameVisible == false) {
       renderer.setDefaultItemLabelsVisible(true);
@@ -290,37 +284,6 @@ public class KendrickMassPlotAnchorPaneController {
       plot.setBackgroundPaint(Color.BLACK);
     } else {
       plot.setBackgroundPaint(Color.WHITE);
-    }
-  }
-
-  @FXML
-  void toggleBolckSize(ActionEvent event) {
-    logger.finest("Toggle block size");
-    XYPlot plot = getChart().getXYPlot();
-    XYBlockPixelSizeRenderer renderer = (XYBlockPixelSizeRenderer) plot.getRenderer();
-    int height = (int) renderer.getBlockHeightPixel();
-
-    if (height == 1) {
-      height++;
-    } else if (height == 5) {
-      height = 1;
-    } else if (height < 5 && height != 1) {
-      height++;
-    }
-    renderer.setBlockHeightPixel(height);
-    renderer.setBlockWidthPixel(height);
-  }
-
-  @FXML
-  void toggleGrid(ActionEvent event) {
-    logger.finest("Toggle grid");
-    XYPlot plot = getChart().getXYPlot();
-    if (plot.getDomainGridlinePaint() == Color.BLACK) {
-      plot.setDomainGridlinePaint(Color.WHITE);
-      plot.setRangeGridlinePaint(Color.WHITE);
-    } else {
-      plot.setDomainGridlinePaint(Color.BLACK);
-      plot.setRangeGridlinePaint(Color.BLACK);
     }
   }
 
@@ -552,18 +515,20 @@ public class KendrickMassPlotAnchorPaneController {
   void toggleKMDRKMZ(ActionEvent event) {
     logger.finest("Toggle KMD and RKM Z-Axis");
     XYPlot plot = getChart().getXYPlot();
-    if (plot.getDataset() instanceof KendrickMassPlotXYZDataset) {
+    if (plot.getDataset() instanceof KendrickMassPlotDataset) {
       if (useRKM_Z) {
         useRKM_Z = false;
-        PaintScaleLegend legend = (PaintScaleLegend) getChart().getSubtitle(1);
+        PaintScaleLegend legend = (PaintScaleLegend) getChart().getSubtitle(0);
         legend.getAxis().setLabel("KMD(" + customZAxisKMBase + ")");
+        imageViewKMDRKMZ.setImage(iconKMD);
       } else {
         useRKM_Z = true;
 
         // if the divisor is round(R) switch to round(R)-1 for RKM plot
         zAxisDivisor = checkDivisor(zAxisDivisor, useRKM_Z, customZAxisKMBase, false);
-        PaintScaleLegend legend = (PaintScaleLegend) getChart().getSubtitle(1);
+        PaintScaleLegend legend = (PaintScaleLegend) getChart().getSubtitle(0);
         legend.getAxis().setLabel("RKM(" + customZAxisKMBase + ")");
+        imageViewKMDRKMZ.setImage(iconRKM);
       }
       kendrickVariableChanged(plot);
     }
@@ -577,28 +542,12 @@ public class KendrickMassPlotAnchorPaneController {
     this.plotPane = plotPane;
   }
 
-  public Button getBlockSizeButton() {
-    return blockSizeButton;
-  }
-
-  public void setBlockSizeButton(Button blockSizeButton) {
-    this.blockSizeButton = blockSizeButton;
-  }
-
   public Button getBackgroundButton() {
     return backgroundButton;
   }
 
   public void setBackgroundButton(Button backgroundButton) {
     this.backgroundButton = backgroundButton;
-  }
-
-  public Button getGridButton() {
-    return gridButton;
-  }
-
-  public void setGridButton(Button gridButton) {
-    this.gridButton = gridButton;
   }
 
   public Button getAnnotationButton() {
@@ -694,198 +643,11 @@ public class KendrickMassPlotAnchorPaneController {
    */
   private void kendrickVariableChanged(XYPlot plot) {
 
-    if (plot.getDataset() instanceof KendrickMassPlotXYDataset) {
-      KendrickMassPlotXYDataset dataset = (KendrickMassPlotXYDataset) plot.getDataset();
-      double[] xValues = new double[dataset.getItemCount(0)];
-
-      // Calc xValues
-      xValues = new double[selectedRows.length];
-      if (useCustomXAxisKMBase == true) {
-        if (useRKM_X == false) {
-          for (int i = 0; i < selectedRows.length; i++) {
-            double unshiftedValue = Math
-                .ceil(xAxisCharge * selectedRows[i].getAverageMZ()
-                    * getKendrickMassFactor(customXAxisKMBase, xAxisDivisor))
-                - xAxisCharge * selectedRows[i].getAverageMZ()
-                    * getKendrickMassFactor(customXAxisKMBase, xAxisDivisor);
-            xValues[i] = unshiftedValue + xAxisShift - Math.floor(unshiftedValue + xAxisShift);
-          }
-        } else {
-          for (int i = 0; i < selectedRows.length; i++) {
-            double unshiftedValue = (xAxisCharge
-                * (xAxisDivisor - Math.round(FormulaUtils.calculateExactMass(customXAxisKMBase)))
-                * selectedRows[i].getAverageMZ())
-                / FormulaUtils.calculateExactMass(customXAxisKMBase)//
-                - Math.floor((xAxisCharge
-                    * (xAxisDivisor
-                        - Math.round(FormulaUtils.calculateExactMass(customXAxisKMBase)))
-                    * selectedRows[i].getAverageMZ())
-                    / FormulaUtils.calculateExactMass(customXAxisKMBase));
-            xValues[i] = unshiftedValue + xAxisShift - Math.floor(unshiftedValue + xAxisShift);
-          }
-        }
-      } else {
-        for (int i = 0; i < selectedRows.length; i++) {
-
-          // simply plot m/z values as x axis
-          if (xAxisKMBase.equals("m/z")) {
-            xValues[i] = selectedRows[i].getAverageMZ();
-          }
-
-          // plot Kendrick masses as x axis
-          else if (xAxisKMBase.equals("KM")) {
-            xValues[i] = selectedRows[i].getAverageMZ()
-                * getKendrickMassFactor(customYAxisKMBase, yAxisDivisor);
-          }
-        }
-      }
-
-      // Calc yValues
-      double[] yValues = new double[selectedRows.length];
-      if (useRKM_Y == false) {
-        for (int i = 0; i < selectedRows.length; i++) {
-          double unshiftedValue = Math
-              .ceil(yAxisCharge * (selectedRows[i].getAverageMZ())
-                  * getKendrickMassFactor(customYAxisKMBase, yAxisDivisor))
-              - yAxisCharge * (selectedRows[i].getAverageMZ())
-                  * getKendrickMassFactor(customYAxisKMBase, yAxisDivisor);
-          yValues[i] = unshiftedValue + yAxisShift - Math.floor(unshiftedValue + yAxisShift);
-        }
-      } else {
-        for (int i = 0; i < selectedRows.length; i++) {
-          double unshiftedValue = (yAxisCharge
-              * (yAxisDivisor - Math.round(FormulaUtils.calculateExactMass(customYAxisKMBase)))
-              * selectedRows[i].getAverageMZ()) / FormulaUtils.calculateExactMass(customYAxisKMBase)//
-              - Math.floor((yAxisCharge
-                  * (yAxisDivisor - Math.round(FormulaUtils.calculateExactMass(customYAxisKMBase)))
-                  * selectedRows[i].getAverageMZ())
-                  / FormulaUtils.calculateExactMass(customYAxisKMBase));
-          yValues[i] = unshiftedValue + yAxisShift - Math.floor(unshiftedValue + yAxisShift);
-        }
-      }
-      dataset.setyValues(yValues);
-      dataset.setxValues(xValues);
-      getChart().fireChartChanged();
-
-    } else if (plot.getDataset() instanceof KendrickMassPlotXYZDataset) {
-      KendrickMassPlotXYZDataset dataset = (KendrickMassPlotXYZDataset) plot.getDataset();
-      double[] xValues = new double[dataset.getItemCount(0)];
-
-      // Calc xValues
-      xValues = new double[selectedRows.length];
-      if (useCustomXAxisKMBase == true) {
-        if (useRKM_X == false) {
-          for (int i = 0; i < selectedRows.length; i++) {
-            double unshiftedValue = Math
-                .ceil(xAxisCharge * selectedRows[i].getAverageMZ()
-                    * getKendrickMassFactor(customXAxisKMBase, xAxisDivisor))
-                - xAxisCharge * selectedRows[i].getAverageMZ()
-                    * getKendrickMassFactor(customXAxisKMBase, xAxisDivisor);
-            xValues[i] = unshiftedValue + xAxisShift - Math.floor(unshiftedValue + xAxisShift);
-          }
-        } else {
-          for (int i = 0; i < selectedRows.length; i++) {
-            double unshiftedValue = (xAxisCharge
-                * (xAxisDivisor - Math.round(FormulaUtils.calculateExactMass(customXAxisKMBase)))
-                * selectedRows[i].getAverageMZ())
-                / FormulaUtils.calculateExactMass(customXAxisKMBase)//
-                - Math.floor((xAxisCharge
-                    * (xAxisDivisor
-                        - Math.round(FormulaUtils.calculateExactMass(customXAxisKMBase)))
-                    * selectedRows[i].getAverageMZ())
-                    / FormulaUtils.calculateExactMass(customXAxisKMBase));
-            xValues[i] = unshiftedValue + xAxisShift - Math.floor(unshiftedValue + xAxisShift);
-          }
-        }
-      } else {
-        for (int i = 0; i < selectedRows.length; i++) {
-
-          // simply plot m/z values as x axis
-          if (xAxisKMBase.equals("m/z")) {
-            xValues[i] = selectedRows[i].getAverageMZ();
-          }
-
-          // plot Kendrick masses as x axis
-          else if (xAxisKMBase.equals("KM")) {
-            xValues[i] = selectedRows[i].getAverageMZ()
-                * getKendrickMassFactor(customYAxisKMBase, yAxisDivisor);
-          }
-        }
-      }
-
-      // Calc yValues
-      double[] yValues = new double[selectedRows.length];
-      if (useRKM_Y == false) {
-        for (int i = 0; i < selectedRows.length; i++) {
-          double unshiftedValue = Math
-              .ceil(yAxisCharge * (selectedRows[i].getAverageMZ())
-                  * getKendrickMassFactor(customYAxisKMBase, yAxisDivisor))
-              - yAxisCharge * (selectedRows[i].getAverageMZ())
-                  * getKendrickMassFactor(customYAxisKMBase, yAxisDivisor);
-          yValues[i] = unshiftedValue + yAxisShift - Math.floor(unshiftedValue + yAxisShift);
-        }
-      } else {
-        for (int i = 0; i < selectedRows.length; i++) {
-          double unshiftedValue = (yAxisCharge
-              * (yAxisDivisor - Math.round(FormulaUtils.calculateExactMass(customYAxisKMBase)))
-              * selectedRows[i].getAverageMZ()) / FormulaUtils.calculateExactMass(customYAxisKMBase)//
-              - Math.floor((yAxisCharge
-                  * (yAxisDivisor - Math.round(FormulaUtils.calculateExactMass(customYAxisKMBase)))
-                  * selectedRows[i].getAverageMZ())
-                  / FormulaUtils.calculateExactMass(customYAxisKMBase));
-          yValues[i] = unshiftedValue + yAxisShift - Math.floor(unshiftedValue + yAxisShift);
-        }
-      }
-
-      // Calc zValues
-      double[] zValues = new double[selectedRows.length];
-      if (useCustomZAxisKMBase == true) {
-        if (useRKM_Z == false) {
-          for (int i = 0; i < selectedRows.length; i++) {
-            double unshiftedValue = Math
-                .ceil(zAxisCharge * (selectedRows[i].getAverageMZ())
-                    * getKendrickMassFactor(customZAxisKMBase, zAxisDivisor))
-                - zAxisCharge * (selectedRows[i].getAverageMZ())
-                    * getKendrickMassFactor(customZAxisKMBase, zAxisDivisor);
-            zValues[i] = unshiftedValue + zAxisShift - Math.floor(unshiftedValue + zAxisShift);
-          }
-        } else {
-          for (int i = 0; i < selectedRows.length; i++) {
-            double unshiftedValue = (zAxisCharge
-                * (zAxisDivisor - Math.round(FormulaUtils.calculateExactMass(customZAxisKMBase)))
-                * selectedRows[i].getAverageMZ())
-                / FormulaUtils.calculateExactMass(customZAxisKMBase)//
-                - Math.floor((zAxisCharge
-                    * (zAxisDivisor
-                        - Math.round(FormulaUtils.calculateExactMass(customZAxisKMBase)))
-                    * selectedRows[i].getAverageMZ())
-                    / FormulaUtils.calculateExactMass(customZAxisKMBase));
-            zValues[i] = unshiftedValue + zAxisShift - Math.floor(unshiftedValue + zAxisShift);
-          }
-        }
-      } else
-        for (int i = 0; i < selectedRows.length; i++) {
-
-          // plot selected feature characteristic as z Axis
-          if (zAxisKMBase.equals("Retention time")) {
-            zValues[i] = selectedRows[i].getAverageRT();
-          } else if (zAxisKMBase.equals("Intensity")) {
-            zValues[i] = selectedRows[i].getAverageHeight();
-          } else if (zAxisKMBase.equals("Area")) {
-            zValues[i] = selectedRows[i].getAverageArea();
-          } else if (zAxisKMBase.equals("Tailing factor")) {
-            zValues[i] = selectedRows[i].getBestFeature().getTailingFactor();
-          } else if (zAxisKMBase.equals("Asymmetry factor")) {
-            zValues[i] = selectedRows[i].getBestFeature().getAsymmetryFactor();
-          } else if (zAxisKMBase.equals("FWHM")) {
-            zValues[i] = selectedRows[i].getBestFeature().getFWHM();
-          } else if (zAxisKMBase.equals("m/z")) {
-            zValues[i] = selectedRows[i].getBestFeature().getMZ();
-          }
-        }
-      dataset.setyValues(yValues);
-      dataset.setxValues(xValues);
-      dataset.setzValues(zValues);
+    if (plot.getDataset() instanceof KendrickMassPlotDataset) {
+      KendrickMassPlotDataset dataset = (KendrickMassPlotDataset) plot.getDataset();
+      calculateUpdatedYValues(dataset);
+      calculateUpdatedXValues(dataset);
+      calculateUpdatedZValues(dataset);
       getChart().fireChartChanged();
     }
 
@@ -894,6 +656,102 @@ public class KendrickMassPlotAnchorPaneController {
 
     // set tooltip
     setTooltips();
+  }
+
+  private void calculateUpdatedXValues(KendrickMassPlotDataset dataset) {
+    double[] xValues = new double[selectedRows.length];
+    if (useCustomXAxisKMBase == true) {
+      if (useRKM_X == false) {
+        for (int i = 0; i < selectedRows.length; i++) {
+          double unshiftedValue = Math
+              .ceil(xAxisCharge * selectedRows[i].getAverageMZ()
+                  * getKendrickMassFactor(customXAxisKMBase, xAxisDivisor))
+              - xAxisCharge * selectedRows[i].getAverageMZ()
+                  * getKendrickMassFactor(customXAxisKMBase, xAxisDivisor);
+          xValues[i] = unshiftedValue + xAxisShift - Math.floor(unshiftedValue + xAxisShift);
+        }
+      } else {
+        for (int i = 0; i < selectedRows.length; i++) {
+          double unshiftedValue = (xAxisCharge
+              * (xAxisDivisor - Math.round(FormulaUtils.calculateExactMass(customXAxisKMBase)))
+              * selectedRows[i].getAverageMZ()) / FormulaUtils.calculateExactMass(customXAxisKMBase)//
+              - Math.floor((xAxisCharge
+                  * (xAxisDivisor - Math.round(FormulaUtils.calculateExactMass(customXAxisKMBase)))
+                  * selectedRows[i].getAverageMZ())
+                  / FormulaUtils.calculateExactMass(customXAxisKMBase));
+          xValues[i] = unshiftedValue + xAxisShift - Math.floor(unshiftedValue + xAxisShift);
+        }
+      }
+    } else {
+      for (int i = 0; i < selectedRows.length; i++) {
+
+        // simply plot m/z values as x axis
+        if (xAxisKMBase.equals("m/z")) {
+          xValues[i] = selectedRows[i].getAverageMZ();
+        }
+
+        // plot Kendrick masses as x axis
+        else if (xAxisKMBase.equals("KM")) {
+          xValues[i] = selectedRows[i].getAverageMZ()
+              * getKendrickMassFactor(customYAxisKMBase, yAxisDivisor);
+        }
+      }
+    }
+    dataset.setxValues(xValues);
+  }
+
+  private void calculateUpdatedYValues(KendrickMassPlotDataset dataset) {
+    double[] yValues = new double[selectedRows.length];
+    if (useRKM_Y == false) {
+      for (int i = 0; i < selectedRows.length; i++) {
+        double unshiftedValue = Math
+            .ceil(yAxisCharge * (selectedRows[i].getAverageMZ())
+                * getKendrickMassFactor(customYAxisKMBase, yAxisDivisor))
+            - yAxisCharge * (selectedRows[i].getAverageMZ())
+                * getKendrickMassFactor(customYAxisKMBase, yAxisDivisor);
+        yValues[i] = unshiftedValue + yAxisShift - Math.floor(unshiftedValue + yAxisShift);
+      }
+    } else {
+      for (int i = 0; i < selectedRows.length; i++) {
+        double unshiftedValue = (yAxisCharge
+            * (yAxisDivisor - Math.round(FormulaUtils.calculateExactMass(customYAxisKMBase)))
+            * selectedRows[i].getAverageMZ()) / FormulaUtils.calculateExactMass(customYAxisKMBase)//
+            - Math.floor((yAxisCharge
+                * (yAxisDivisor - Math.round(FormulaUtils.calculateExactMass(customYAxisKMBase)))
+                * selectedRows[i].getAverageMZ())
+                / FormulaUtils.calculateExactMass(customYAxisKMBase));
+        yValues[i] = unshiftedValue + yAxisShift - Math.floor(unshiftedValue + yAxisShift);
+      }
+    }
+    dataset.setyValues(yValues);
+  }
+
+  private void calculateUpdatedZValues(KendrickMassPlotDataset dataset) {
+    double[] zValues = new double[selectedRows.length];
+    if (useCustomZAxisKMBase == true) {
+      if (useRKM_Z == false) {
+        for (int i = 0; i < selectedRows.length; i++) {
+          double unshiftedValue = Math
+              .ceil(zAxisCharge * (selectedRows[i].getAverageMZ())
+                  * getKendrickMassFactor(customZAxisKMBase, zAxisDivisor))
+              - zAxisCharge * (selectedRows[i].getAverageMZ())
+                  * getKendrickMassFactor(customZAxisKMBase, zAxisDivisor);
+          zValues[i] = unshiftedValue + zAxisShift - Math.floor(unshiftedValue + zAxisShift);
+        }
+      } else {
+        for (int i = 0; i < selectedRows.length; i++) {
+          double unshiftedValue = (zAxisCharge
+              * (zAxisDivisor - Math.round(FormulaUtils.calculateExactMass(customZAxisKMBase)))
+              * selectedRows[i].getAverageMZ()) / FormulaUtils.calculateExactMass(customZAxisKMBase)//
+              - Math.floor((zAxisCharge
+                  * (zAxisDivisor - Math.round(FormulaUtils.calculateExactMass(customZAxisKMBase)))
+                  * selectedRows[i].getAverageMZ())
+                  / FormulaUtils.calculateExactMass(customZAxisKMBase));
+          zValues[i] = unshiftedValue + zAxisShift - Math.floor(unshiftedValue + zAxisShift);
+        }
+      }
+      dataset.setzValues(zValues);
+    }
   }
 
   private void setTooltips() {

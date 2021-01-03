@@ -39,13 +39,12 @@ import org.jfree.chart.title.TextTitle;
 import org.jfree.chart.ui.RectangleEdge;
 import org.jfree.chart.ui.RectangleInsets;
 import org.jfree.chart.ui.TextAnchor;
-import org.jfree.data.xy.XYZDataset;
 import com.google.common.collect.Range;
 import io.github.mzmine.datamodel.features.FeatureList;
 import io.github.mzmine.datamodel.features.FeatureListRow;
 import io.github.mzmine.gui.chartbasics.chartutils.NameItemLabelGenerator;
 import io.github.mzmine.gui.chartbasics.chartutils.ScatterPlotToolTipGenerator;
-import io.github.mzmine.gui.chartbasics.chartutils.XYBlockPixelSizeRenderer;
+import io.github.mzmine.gui.chartbasics.chartutils.XYBubbleSizeRenderer;
 import io.github.mzmine.gui.chartbasics.chartutils.paintscales.PaintScale;
 import io.github.mzmine.gui.chartbasics.chartutils.paintscales.PaintScaleFactory;
 import io.github.mzmine.gui.chartbasics.gui.javafx.EChartViewer;
@@ -71,7 +70,6 @@ public class KendrickMassPlotTask extends AbstractTask {
   private Logger logger = Logger.getLogger(this.getClass().getName());
 
   private ParameterSet parameters;
-  private XYZDataset dataset3D;
   private JFreeChart chart;
   private FeatureList featureList;
   private String title;
@@ -134,56 +132,18 @@ public class KendrickMassPlotTask extends AbstractTask {
     setStatus(TaskStatus.PROCESSING);
     logger.info("Create Kendrick mass plot of " + featureList);
     // Task canceled?
-    if (isCanceled())
+    if (isCanceled()) {
       return;
+    }
 
-    chart = create3DKendrickMassPlot();
+    chart = createKendrickMassPlot();
     chart.setBackgroundPaint(Color.white);
 
     // create chartViewer
     EChartViewer chartViewer = new EChartViewer(chart, true, true, true, true, false);
 
-    // get plot
-    XYPlot plot = (XYPlot) chart.getPlot();
-
-    // mouse listener
-    chartViewer.addChartMouseListener(new ChartMouseListenerFX() {
-
-      @Override
-      public void chartMouseMoved(ChartMouseEventFX event) {}
-
-      @Override
-      public void chartMouseClicked(ChartMouseEventFX event) {
-        double xValue = plot.getDomainCrosshairValue();
-        double yValue = plot.getRangeCrosshairValue();
-        if (plot.getDataset() instanceof KendrickMassPlotXYZDataset) {
-          KendrickMassPlotXYZDataset dataset = (KendrickMassPlotXYZDataset) plot.getDataset();
-          double[] xValues = new double[dataset.getItemCount(0)];
-          for (int i = 0; i < xValues.length; i++) {
-            if ((event.getTrigger().getButton().equals(MouseButton.PRIMARY))
-                && (event.getTrigger().getClickCount() == 2)) {
-              if (dataset.getX(0, i).doubleValue() == xValue
-                  && dataset.getY(0, i).doubleValue() == yValue) {
-                new FeatureOverviewWindow(rows[i]);
-              }
-            }
-          }
-        }
-        if (plot.getDataset() instanceof KendrickMassPlotXYDataset) {
-          KendrickMassPlotXYDataset dataset = (KendrickMassPlotXYDataset) plot.getDataset();
-          double[] xValues = new double[dataset.getItemCount(0)];
-          for (int i = 0; i < xValues.length; i++) {
-            if ((event.getTrigger().getButton().equals(MouseButton.PRIMARY))
-                && (event.getTrigger().getClickCount() == 2)) {
-              if (dataset.getX(0, i).doubleValue() == xValue
-                  && dataset.getY(0, i).doubleValue() == yValue) {
-                new FeatureOverviewWindow(rows[i]);
-              }
-            }
-          }
-        }
-      }
-    });
+    // add chart mouse listener for feature overview
+    addMouseListener(chartViewer);
 
 
     // set title properties
@@ -203,32 +163,48 @@ public class KendrickMassPlotTask extends AbstractTask {
     logger.info("Finished creating Kendrick mass plot of " + featureList);
   }
 
+  private void addMouseListener(EChartViewer chartViewer) {
+    chartViewer.addChartMouseListener(new ChartMouseListenerFX() {
+
+      @Override
+      public void chartMouseMoved(ChartMouseEventFX event) {}
+
+      @Override
+      public void chartMouseClicked(ChartMouseEventFX event) {
+        XYPlot plot = (XYPlot) chart.getPlot();
+        double xValue = plot.getDomainCrosshairValue();
+        double yValue = plot.getRangeCrosshairValue();
+        if (plot.getDataset() instanceof KendrickMassPlotDataset) {
+          KendrickMassPlotDataset dataset = (KendrickMassPlotDataset) plot.getDataset();
+          double[] xValues = new double[dataset.getItemCount(0)];
+          for (int i = 0; i < xValues.length; i++) {
+            if ((event.getTrigger().getButton().equals(MouseButton.PRIMARY))
+                && (event.getTrigger().getClickCount() == 2)
+                && (dataset.getX(0, i).doubleValue() == xValue
+                    && dataset.getY(0, i).doubleValue() == yValue)) {
+              new FeatureOverviewWindow(rows[i]);
+            }
+          }
+        }
+      }
+    });
+  }
+
   /**
-   * create 3D Kendrick mass plot
+   * create Kendrick mass plot
    */
-  private JFreeChart create3DKendrickMassPlot() {
+  private JFreeChart createKendrickMassPlot() {
 
-    logger.info("Creating new 3D chart instance");
+    logger.info("Creating new Kendrick Plot");
     appliedSteps++;
-    // load dataseta
-    dataset3D = new KendrickMassPlotXYZDataset(parameters);
-
-    // copy and sort z-Values for min and max of the paint scale
-    Double[] copyZValues = new Double[dataset3D.getItemCount(0)];
-    for (int i = 0; i < dataset3D.getItemCount(0); i++) {
-      copyZValues[i] = dataset3D.getZValue(0, i);
-    }
-    Arrays.sort(copyZValues);
-    double min = copyZValues[0];
-    double max = copyZValues[copyZValues.length - 1];
-    PaintScale paintScale = createPaintScale(copyZValues);
-
+    // load dataset
+    KendrickMassPlotDataset dataset = new KendrickMassPlotDataset(parameters);
+    PaintScale paintScale = preparePaintScale(dataset);
     PaintScaleFactory paintScaleFactoy = new PaintScaleFactory();
     paintScaleFactoy.createColorsForPaintScale(paintScale);
-    // contourColors = XYBlockPixelSizePaintScales.scaleAlphaForPaintScale(contourColors);
 
     // create chart
-    chart = ChartFactory.createScatterPlot(title, xAxisLabel, yAxisLabel, dataset3D,
+    chart = ChartFactory.createScatterPlot(title, xAxisLabel, yAxisLabel, dataset,
         PlotOrientation.VERTICAL, true, true, true);
     XYPlot plot = chart.getXYPlot();
 
@@ -240,7 +216,7 @@ public class KendrickMassPlotTask extends AbstractTask {
       domain.setRange(0, 1);
     }
     // set renderer
-    XYBlockPixelSizeRenderer renderer = new XYBlockPixelSizeRenderer();
+    XYBubbleSizeRenderer renderer = new XYBubbleSizeRenderer();
     appliedSteps++;
 
     // Set paint scale
@@ -269,9 +245,39 @@ public class KendrickMassPlotTask extends AbstractTask {
     plot.setDomainCrosshairVisible(true);
     plot.setRangeCrosshairVisible(true);
 
-    // Legend
+    // Paint scale legend
+    if (paintScale.getLowerBound() != 0.0 && paintScale.getUpperBound() != 1.0) {
+      addPaintScaleLegend(paintScale);
+    }
+
+    return chart;
+  }
+
+  private PaintScale preparePaintScale(KendrickMassPlotDataset dataset) {
+    // copy and sort z-Values for min and max of the paint scale
+    Double[] copyZValues = new Double[dataset.getItemCount(0)];
+    for (int i = 0; i < dataset.getItemCount(0); i++) {
+      copyZValues[i] = dataset.getZValue(0, i);
+    }
+    Arrays.sort(copyZValues);
+    double min = copyZValues[0];
+    double max = copyZValues[copyZValues.length - 1];
+    if (min >= max) {
+      return createPaintScale(0, 1);
+    } else {
+      return createPaintScale(min, max);
+    }
+  }
+
+  private PaintScale createPaintScale(double min, double max) {
+    Range<Double> zValueRange = Range.closed(min, max);
+    return new PaintScale(paintScaleParameter.getPaintScaleColorStyle(),
+        paintScaleParameter.getPaintScaleBoundStyle(), zValueRange);
+  }
+
+  private void addPaintScaleLegend(PaintScale paintScale) {
     NumberAxis scaleAxis = new NumberAxis(zAxisLabel);
-    scaleAxis.setRange(min, max);
+    scaleAxis.setRange(paintScale.getLowerBound(), paintScale.getUpperBound());
     scaleAxis.setAxisLinePaint(Color.white);
     scaleAxis.setTickMarkPaint(Color.white);
     PaintScaleLegend legend = new PaintScaleLegend(paintScale, scaleAxis);
@@ -287,14 +293,6 @@ public class KendrickMassPlotTask extends AbstractTask {
     legend.getAxis().setLabelFont(legendFont);
     legend.getAxis().setTickLabelFont(legendFont);
     chart.addSubtitle(legend);
-
-    return chart;
-  }
-
-  private PaintScale createPaintScale(Double[] zValues) {
-    Range<Double> zValueRange = Range.closed(zValues[0], zValues[zValues.length - 1]);
-    return new PaintScale(paintScaleParameter.getPaintScaleColorStyle(),
-        paintScaleParameter.getPaintScaleBoundStyle(), zValueRange);
   }
 
 }

@@ -54,6 +54,11 @@ public class KendrickMassPlotParameters extends SimpleParameterSet {
       new OptionalParameter<>(new StringParameter("Kendrick mass base for x-Axis",
           "Enter a sum formula for a Kendrick mass base to display a 2D Kendrick mass defect plot"));
 
+  public static final ComboParameter<String> bubbleSize = new ComboParameter<>("Bubble Size",
+      "Select a parameter for a third dimension, displayed as a heatmap or select none for a 2D plot",
+      new String[] {"none", "Retention time", "Intensity", "Area", "Tailing factor",
+          "Asymmetry factor", "FWHM", "m/z"});
+
   public static final ComboParameter<String> zAxisValues = new ComboParameter<>("Z-Axis",
       "Select a parameter for a third dimension, displayed as a heatmap or select none for a 2D plot",
       new String[] {"none", "Retention time", "Intensity", "Area", "Tailing factor",
@@ -83,8 +88,8 @@ public class KendrickMassPlotParameters extends SimpleParameterSet {
 
   public KendrickMassPlotParameters() {
     super(new Parameter[] {featureList, selectedRows, yAxisCustomKendrickMassBase, xAxisValues,
-        xAxisCustomKendrickMassBase, zAxisValues, zAxisCustomKendrickMassBase, paintScale,
-        windowSettings});
+        xAxisCustomKendrickMassBase, zAxisValues, zAxisCustomKendrickMassBase, bubbleSize,
+        paintScale, windowSettings});
   }
 
   @Override

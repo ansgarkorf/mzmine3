@@ -112,5 +112,12 @@ public abstract class MetadataOnlyScan implements Scan {
   public Iterator<DataPoint> iterator() {
     throw new UnsupportedOperationException(
         "This scan contains no data, only metadata and is only used to build a scan while reading data.");
+
+  }
+
+  @Override
+  public @Nullable TwoDRt getTwoDRt() {
+    throw new UnsupportedOperationException(
+        "This scan contains no data, only metadata and is only used to build a scan while reading data.");
   }
 }

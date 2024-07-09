@@ -31,6 +31,7 @@ import io.github.mzmine.datamodel.MassSpectrumType;
 import io.github.mzmine.datamodel.PolarityType;
 import io.github.mzmine.datamodel.RawDataFile;
 import io.github.mzmine.datamodel.Scan;
+import io.github.mzmine.datamodel.TwoDRt;
 import io.github.mzmine.datamodel.msms.MsMsInfo;
 import io.github.mzmine.util.scans.ScanUtils;
 import java.nio.DoubleBuffer;
@@ -54,6 +55,7 @@ public class SimpleScan extends AbstractStorableSpectrum implements Scan {
   private Range<Double> scanMZRange;
   private MassList massList = null;
   private MsMsInfo msMsInfo;
+  private TwoDRt twoDRt = null;
 
   /**
    * clone scan with new data
@@ -249,6 +251,15 @@ public class SimpleScan extends AbstractStorableSpectrum implements Scan {
   @Override
   public @Nullable Float getInjectionTime() {
     return injectionTime;
+  }
+
+  @Override
+  public TwoDRt getTwoDRt() {
+    return twoDRt;
+  }
+
+  public void setTwoDRt(TwoDRt twoDRt) {
+    this.twoDRt = twoDRt;
   }
 }
 

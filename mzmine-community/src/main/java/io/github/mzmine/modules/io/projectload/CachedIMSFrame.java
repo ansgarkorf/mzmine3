@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2022 The MZmine Development Team
+ * Copyright (c) 2004-2024 The MZmine Development Team
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -26,17 +26,24 @@
 package io.github.mzmine.modules.io.projectload;
 
 import com.google.common.collect.Range;
-import io.github.mzmine.datamodel.*;
+import io.github.mzmine.datamodel.DataPoint;
+import io.github.mzmine.datamodel.Frame;
+import io.github.mzmine.datamodel.MassList;
+import io.github.mzmine.datamodel.MassSpectrumType;
+import io.github.mzmine.datamodel.MobilityScan;
+import io.github.mzmine.datamodel.MobilityType;
+import io.github.mzmine.datamodel.PolarityType;
+import io.github.mzmine.datamodel.RawDataFile;
+import io.github.mzmine.datamodel.TwoDRt;
 import io.github.mzmine.datamodel.impl.MobilityScanStorage;
 import io.github.mzmine.datamodel.msms.MsMsInfo;
 import io.github.mzmine.datamodel.msms.PasefMsMsInfo;
 import it.unimi.dsi.fastutil.doubles.DoubleImmutableList;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * This class is used during project import to cache
@@ -260,5 +267,10 @@ public class CachedIMSFrame implements Frame {
   @Override
   public @Nullable Float getInjectionTime() {
     return originalFrame.getInjectionTime();
+  }
+
+  @Override
+  public @Nullable TwoDRt getTwoDRt() {
+    throw new UnsupportedOperationException("Not supported by " + this.getClass().getName());
   }
 }

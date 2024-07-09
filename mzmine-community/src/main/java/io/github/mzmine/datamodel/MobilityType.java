@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2023 The MZmine Development Team
+ * Copyright (c) 2004-2024 The MZmine Development Team
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -50,7 +50,8 @@ public enum MobilityType {
   TIMS("1/k0", "Vs/cm^2", "TIMS"), // trapped ion mobility spectrometry
   DRIFT_TUBE("Drift time", "ms", "DTIMS"), // drift tube
   TRAVELING_WAVE("Drift time", "ms", "TWIMS"), // traveling wave ion mobility spectrometry
-  FAIMS("TODO", "TODO", "FAIMS"); // field asymmetric waveform ion mobility spectrometry
+  FAIMS("TODO", "TODO", "FAIMS"), // field asymmetric waveform ion mobility spectrometry
+  GCxGC("RT2", "min", "GCxGC (pseudo)");
 
   private final String axisLabel;
   private final String unit;
@@ -111,7 +112,7 @@ public enum MobilityType {
 
   public String getCcsBaseEntryString() {
     return switch (this) {
-      case NONE, FAIMS, OTHER, MIXED -> null;
+      case NONE, FAIMS, OTHER, MIXED, GCxGC -> null;
       case TIMS -> "TIMS";
       case DRIFT_TUBE -> "DT";
       case TRAVELING_WAVE -> "TW";

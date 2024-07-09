@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2022 The MZmine Development Team
+ * Copyright (c) 2004-2024 The MZmine Development Team
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -54,6 +54,9 @@ public class MzMLCV {
    */
   public static final String MS_RT_RETENTION_TIME_NORMALIZED = "MS:1000896"; // "normalized
   // retention time"
+
+  public static final String cvFirstColumnElutionTime = "MS:1002082";
+  public static final String cvSecondColumnElutionTime = "MS:1002083";
 
   // MS level
   /**

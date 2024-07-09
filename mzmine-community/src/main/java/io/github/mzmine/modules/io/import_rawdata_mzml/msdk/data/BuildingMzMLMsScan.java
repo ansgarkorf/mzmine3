@@ -40,6 +40,7 @@ import io.github.mzmine.datamodel.MetadataOnlyScan;
 import io.github.mzmine.datamodel.MobilityType;
 import io.github.mzmine.datamodel.PolarityType;
 import io.github.mzmine.datamodel.RawDataFile;
+import io.github.mzmine.datamodel.TwoDRt;
 import io.github.mzmine.datamodel.featuredata.impl.StorageUtils;
 import io.github.mzmine.datamodel.impl.DDAMsMsInfoImpl;
 import io.github.mzmine.datamodel.msms.ActivationMethod;
@@ -457,28 +458,16 @@ public class BuildingMzMLMsScan extends MetadataOnlyScan {
 
         // check accession
         switch (accession) {
-          case MzMLCV.MS_RT_SCAN_START, MzMLCV.MS_RT_RETENTION_TIME, MzMLCV.MS_RT_RETENTION_TIME_LOCAL, MzMLCV.MS_RT_RETENTION_TIME_NORMALIZED -> {
-            if (value.isEmpty()) {
-              throw new IllegalStateException(
-                  "For retention time cvParam the `value` must have been specified");
-            }
-            if (unitAccession.isPresent()) {
-              // there was a time unit defined
-              switch (param.getUnitAccession().orElse("")) {
-                case MzMLCV.cvUnitsMin1, MzMLCV.cvUnitsMin2 ->
-                    retentionTime = Float.parseFloat(value.get());
-                case MzMLCV.cvUnitsSec -> retentionTime = Float.parseFloat(value.get()) / 60f;
-                default -> throw new IllegalStateException(
-                    "Unknown time unit encountered: [" + unitAccession + "]");
-              }
-            } else {
-              // no time units defined, should be seconds
-              retentionTime = Float.parseFloat(value.get()) / 60f;
-            }
-          }
+          case MzMLCV.MS_RT_SCAN_START, MzMLCV.MS_RT_RETENTION_TIME,
+               MzMLCV.MS_RT_RETENTION_TIME_LOCAL, MzMLCV.MS_RT_RETENTION_TIME_NORMALIZED ->
+              retentionTime = parseTimeToFloat(param, unitAccession, value);
           default -> {
             continue; // not a retention time parameter
           }
+        }
+
+        if(retentionTime != null) {
+          return retentionTime;
         }
       }
     }
@@ -632,7 +621,7 @@ public class BuildingMzMLMsScan extends MetadataOnlyScan {
     if (mzBinaryDataInfo.getArrayLength() != intensityBinaryDataInfo.getArrayLength()) {
       logger.warning(
           "Binary data array contains an array of different length than the default array length of the scan (#"
-          + getScanNumber() + ")");
+              + getScanNumber() + ")");
     }
     double[] mzs = MzMLPeaksDecoder.decodeToDouble(mzBinaryDataInfo);
     double[] intensities = MzMLPeaksDecoder.decodeToDouble(intensityBinaryDataInfo);
@@ -660,5 +649,56 @@ public class BuildingMzMLMsScan extends MetadataOnlyScan {
    */
   public void clearMobilityData() {
     mobilityScanSimpleSpectralData = null;
+  }
+
+  @Override
+  public @Nullable TwoDRt getTwoDRt() {
+
+    Float firstDimensionRt = null;
+    Float secondDimensionRt = null;
+
+    if (!getScanList().getScans().isEmpty()) {
+      for (MzMLCVParam param : getScanList().getScans().get(0).getCVParamsList()) {
+        String accession = param.getAccession();
+        Optional<String> unitAccession = param.getUnitAccession();
+        Optional<String> value = param.getValue();
+
+        // check accession
+        switch (accession) {
+          case MzMLCV.cvFirstColumnElutionTime ->
+              firstDimensionRt = parseTimeToFloat(param, unitAccession, value);
+          case MzMLCV.cvSecondColumnElutionTime ->
+              secondDimensionRt = parseTimeToFloat(param, unitAccession, value);
+          default -> {
+            continue; // not a retention time parameter
+          }
+        }
+      }
+    }
+
+    if (firstDimensionRt != null && secondDimensionRt != null) {
+      return new TwoDRt(firstDimensionRt, secondDimensionRt);
+    }
+    return null;
+  }
+
+  private Float parseTimeToFloat(MzMLCVParam param, Optional<String> unitAccession,
+      Optional<String> value) {
+    if (value.isEmpty()) {
+      throw new IllegalStateException(
+          "For retention time cvParam the `value` must have been specified");
+    }
+    if (unitAccession.isPresent()) {
+      // there was a time unit defined
+      return switch (param.getUnitAccession().orElse("")) {
+        case MzMLCV.cvUnitsMin1, MzMLCV.cvUnitsMin2 -> Float.parseFloat(value.get());
+        case MzMLCV.cvUnitsSec -> Float.parseFloat(value.get()) / 60f;
+        default -> throw new IllegalStateException(
+            "Unknown time unit encountered: [" + unitAccession + "]");
+      };
+    } else {
+      // no time units defined, should be seconds
+      return Float.parseFloat(value.get()) / 60f;
+    }
   }
 }

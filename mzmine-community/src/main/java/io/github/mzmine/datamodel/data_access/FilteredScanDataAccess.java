@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2022 The MZmine Development Team
+ * Copyright (c) 2004-2024 The MZmine Development Team
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -27,11 +27,13 @@ package io.github.mzmine.datamodel.data_access;
 
 import io.github.mzmine.datamodel.RawDataFile;
 import io.github.mzmine.datamodel.Scan;
+import io.github.mzmine.datamodel.TwoDRt;
 import io.github.mzmine.datamodel.data_access.EfficientDataAccess.ScanDataType;
 import io.github.mzmine.parameters.parametertypes.selectors.ScanSelection;
 import java.util.ArrayList;
 import java.util.List;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * The intended use of this memory access is to loop over all scans and access data points via
@@ -79,4 +81,8 @@ public class FilteredScanDataAccess extends ScanDataAccess {
     return totalScans;
   }
 
+  @Override
+  public @Nullable TwoDRt getTwoDRt() {
+    return getCurrentScan().getTwoDRt();
+  }
 }

@@ -34,6 +34,7 @@ import io.github.mzmine.datamodel.MobilityScan;
 import io.github.mzmine.datamodel.MobilityType;
 import io.github.mzmine.datamodel.PolarityType;
 import io.github.mzmine.datamodel.RawDataFile;
+import io.github.mzmine.datamodel.TwoDRt;
 import io.github.mzmine.datamodel.impl.MobilityScanStorage;
 import io.github.mzmine.datamodel.msms.MsMsInfo;
 import io.github.mzmine.datamodel.msms.PasefMsMsInfo;
@@ -307,5 +308,10 @@ public class CachedFrame implements Frame {
   @Override
   public @Nullable Float getInjectionTime() {
     return originalFrame.getInjectionTime();
+  }
+
+  @Override
+  public @Nullable TwoDRt getTwoDRt() {
+    throw new UnsupportedOperationException("Not supported by " + this.getClass().getName());
   }
 }

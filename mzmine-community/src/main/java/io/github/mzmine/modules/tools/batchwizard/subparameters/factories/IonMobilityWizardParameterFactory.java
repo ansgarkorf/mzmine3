@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2022 The MZmine Development Team
+ * Copyright (c) 2004-2024 The MZmine Development Team
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -39,7 +39,7 @@ public enum IonMobilityWizardParameterFactory implements WizardParameterFactory 
    * TIMS actually is a different workflow than the rest. slight changes because of MS2 acquisition
    * in PASEF
    */
-  TIMS, IMS, DTIMS, TWIMS;
+  TIMS, IMS, DTIMS, TWIMS, GCxGC;
 
   @Override
   public String toString() {
@@ -48,6 +48,7 @@ public enum IonMobilityWizardParameterFactory implements WizardParameterFactory 
       case TIMS, IMS -> super.toString();
       case DTIMS -> "DTIMS";
       case TWIMS -> "TWIMS";
+      case GCxGC -> "GCxGC";
     };
   }
 
@@ -64,6 +65,7 @@ public enum IonMobilityWizardParameterFactory implements WizardParameterFactory 
           new IonMobilityWizardParameters(this, 4, 0.7, true, true, MobilityType.DRIFT_TUBE);
       case TWIMS ->
           new IonMobilityWizardParameters(this, 4, 0.4, true, true, MobilityType.TRAVELING_WAVE);
+      case GCxGC -> new IonMobilityWizardParameters(this, 8, 0.01, false, true, MobilityType.GCxGC);
     };
   }
 
@@ -80,7 +82,7 @@ public enum IonMobilityWizardParameterFactory implements WizardParameterFactory 
    */
   public MassSpectrometerWizardParameterFactory[] getMatchingMassSpectrometerPresets() {
     return switch (this) {
-      case TIMS, TWIMS, DTIMS ->
+      case TIMS, TWIMS, DTIMS, GCxGC ->
           new MassSpectrometerWizardParameterFactory[]{MassSpectrometerWizardParameterFactory.QTOF};
       case NO_IMS, IMS -> MassSpectrometerWizardParameterFactory.values();
     };

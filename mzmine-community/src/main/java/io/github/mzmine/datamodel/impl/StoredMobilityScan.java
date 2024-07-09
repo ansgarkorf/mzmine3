@@ -34,6 +34,7 @@ import io.github.mzmine.datamodel.MassSpectrumType;
 import io.github.mzmine.datamodel.MobilityScan;
 import io.github.mzmine.datamodel.MobilityType;
 import io.github.mzmine.datamodel.RawDataFile;
+import io.github.mzmine.datamodel.TwoDRt;
 import io.github.mzmine.datamodel.msms.PasefMsMsInfo;
 import io.github.mzmine.util.scans.ScanUtils;
 import java.util.Iterator;
@@ -251,5 +252,10 @@ public class StoredMobilityScan implements MobilityScan {
   @Override
   public @Nullable Float getInjectionTime() {
     return getFrame().getInjectionTime();
+  }
+
+  @Override
+  public @Nullable TwoDRt getTwoDRt() {
+    return getFrame().getTwoDRt();
   }
 }

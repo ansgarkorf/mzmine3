@@ -32,6 +32,7 @@ import io.github.mzmine.datamodel.MergedMassSpectrum;
 import io.github.mzmine.datamodel.PolarityType;
 import io.github.mzmine.datamodel.RawDataFile;
 import io.github.mzmine.datamodel.Scan;
+import io.github.mzmine.datamodel.TwoDRt;
 import io.github.mzmine.datamodel.impl.masslist.ScanPointerMassList;
 import io.github.mzmine.datamodel.msms.MsMsInfo;
 import io.github.mzmine.util.MemoryMapStorage;
@@ -214,5 +215,10 @@ public class SimpleMergedMassSpectrum extends AbstractStorableSpectrum implement
   @Override
   public @Nullable Float getInjectionTime() {
     return null;
+  }
+
+  @Override
+  public @Nullable TwoDRt getTwoDRt() {
+    throw new UnsupportedOperationException("Not supported by " + this.getClass().getName());
   }
 }

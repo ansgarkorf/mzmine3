@@ -152,6 +152,8 @@ public class ConversionUtils {
         scan.getRetentionTime(), info, mzs, intensities, spectrumType, scan.getPolarity(),
         scan.getScanDefinition(), scan.getScanningMZRange(), injTime);
 
+    newScan.setTwoDRt(scan.getTwoDRt());
+
     return newScan;
   }
 

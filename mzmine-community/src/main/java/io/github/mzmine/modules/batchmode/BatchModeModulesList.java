@@ -136,6 +136,7 @@ import io.github.mzmine.modules.io.export_network_graphml.NetworkGraphMlExportMo
 import io.github.mzmine.modules.io.export_rawdata_mzml.MzMLExportModule;
 import io.github.mzmine.modules.io.export_rawdata_netcdf.NetCDFExportModule;
 import io.github.mzmine.modules.io.export_scans.ExportScansFromRawFilesModule;
+import io.github.mzmine.modules.io.gcxgctoims.GCxGCToImsModule;
 import io.github.mzmine.modules.io.import_feature_networks.ImportFeatureNetworksSimpleModule;
 import io.github.mzmine.modules.io.import_features_mztabm.MZTabmImportModule;
 import io.github.mzmine.modules.io.import_rawdata_all.AllSpectralDataImportModule;
@@ -239,6 +240,7 @@ public class BatchModeModulesList {
       ScanSmoothingModule.class, //
       MaldiPseudoFileGeneratorModule.class, //
       DenormalizeScansMultiplyByInjectTimeModule.class, //
+      GCxGCToImsModule.class, //
 
       /*
        * {@link io.github.mzmine.modules.MZmineModuleCategory.MainCategory#SPECTRAL_DATA}

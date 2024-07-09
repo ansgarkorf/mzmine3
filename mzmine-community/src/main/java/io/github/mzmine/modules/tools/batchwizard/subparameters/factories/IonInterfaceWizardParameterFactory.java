@@ -141,7 +141,8 @@ public enum IonInterfaceWizardParameterFactory implements WizardParameterFactory
       case DIRECT_INFUSION, FLOW_INJECT, HPLC, UHPLC, HILIC, GC_CI, MALDI, LDI, DESI, SIMS ->
           IonMobilityWizardParameterFactory.values();
       case GC_EI ->
-          new IonMobilityWizardParameterFactory[]{IonMobilityWizardParameterFactory.NO_IMS};
+          new IonMobilityWizardParameterFactory[]{IonMobilityWizardParameterFactory.NO_IMS,
+              IonMobilityWizardParameterFactory.GCxGC};
     };
   }
 

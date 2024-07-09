@@ -34,6 +34,7 @@ import io.github.mzmine.datamodel.MassSpectrumType;
 import io.github.mzmine.datamodel.PolarityType;
 import io.github.mzmine.datamodel.RawDataFile;
 import io.github.mzmine.datamodel.Scan;
+import io.github.mzmine.datamodel.TwoDRt;
 import io.github.mzmine.datamodel.impl.DDAMsMsInfoImpl;
 import io.github.mzmine.datamodel.impl.masslist.ScanPointerMassList;
 import io.github.mzmine.datamodel.msms.MsMsInfo;
@@ -197,5 +198,10 @@ public class LibraryEntryWrappedScan implements Scan {
 
   public @NotNull SpectralLibraryEntry getEntry() {
     return entry;
+  }
+
+  @Override
+  public @Nullable TwoDRt getTwoDRt() {
+    throw new UnsupportedOperationException("Not supported by " + this.getClass().getName());
   }
 }

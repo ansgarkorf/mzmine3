@@ -427,7 +427,9 @@ task signApp(dependsOn: jpackage) {
                 if (f.toPath().toString().endsWith('ThermoRawFileParserMac')) {
                     continue
                 }
+                // Added signature verification after signing commands
                 codesign(f.toPath())
+                exec { commandLine(["codesign", "--verify", "--deep", "--verbose=2", f.toPath().toString()]) }
             }
 
             // Zip ThermoRawFileParser back
@@ -445,13 +447,14 @@ task signApp(dependsOn: jpackage) {
                     -> bfa.isRegularFile() && p.getFileName().toString().matches(".*\\.dylib|.*\\.so|.*\\.dll|.*\\.a|.*\\.lib"))) {
                 getLogger().lifecycle("Signing native lib '${nativeLib}'")
                 codesign(nativeLib.toAbsolutePath())
+                exec { commandLine(["codesign", "--verify", "--deep", "--verbose=2", nativeLib.toAbsolutePath().toString()]) }
             }
 
             getLogger().lifecycle("Signing libraires nested in jars...")
 
             // Define native libraries nested in jars that are to be signed
             ArrayList<Path> jarNestedLibs = [
-                    /*FileSystems.newFileSystem(jarsDir.resolve("jna-inchi-darwin-x86-64-1.2.jar")).getPath("darwin-x86-64/libjnainchi.dylib"),*/
+                    FileSystems.newFileSystem(jarsDir.resolve("jna-inchi-darwin-x86-64-1.2.jar")).getPath("darwin-x86-64/libjnainchi.dylib"),
                     FileSystems.newFileSystem(jarsDir.resolve("jna-inchi-darwin-aarch64-1.2.jar")).getPath("darwin-aarch64/libjnainchi.dylib"),
                     /*FileSystems.newFileSystem(jarsDir.resolve("adap-4.1.10.jar")).getPath("lib/macosx-x86_64/libadapwavelet.so"),*/
             ]
@@ -463,6 +466,7 @@ task signApp(dependsOn: jpackage) {
                 Path tmpPath = tmpJarsDir.resolve(inJar.getFileName().toString())
                 Files.copy(inJar, tmpPath, StandardCopyOption.REPLACE_EXISTING)
                 codesign(tmpPath.toAbsolutePath())
+                exec { commandLine(["codesign", "--verify", "--deep", "--verbose=2", tmpPath.toAbsolutePath().toString()]) }
                 Files.copy(tmpPath, inJar, StandardCopyOption.REPLACE_EXISTING)
                 inJar.fileSystem.close()
             }
@@ -474,11 +478,13 @@ task signApp(dependsOn: jpackage) {
                     -> bfa.isRegularFile() && p.getFileName().toString().matches(".*\\.jar"))) {
                 getLogger().lifecycle("Signing jar '${jar}'")
                 codesign(jar.toAbsolutePath())
+                exec { commandLine(["codesign", "--verify", "--deep", "--verbose=2", jar.toAbsolutePath().toString()]) }
             }
 
             // Sign .app directory
             getLogger().lifecycle("Signing .app directory...")
             codesign(imageDir)
+            exec { commandLine(["codesign", "--verify", "--deep", "--verbose=2", imageDir.toString()]) }
 
             getLogger().lifecycle("Zipping .app directory...")
             exec {

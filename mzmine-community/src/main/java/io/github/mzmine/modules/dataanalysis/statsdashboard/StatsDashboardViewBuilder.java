@@ -30,6 +30,7 @@ import io.github.mzmine.datamodel.features.ModularFeatureList;
 import io.github.mzmine.datamodel.features.ModularFeatureListRow;
 import io.github.mzmine.javafx.mvci.FxViewBuilder;
 import io.github.mzmine.modules.dataanalysis.pca_new.PCAController;
+import io.github.mzmine.modules.dataanalysis.plsda.PLSDAController;
 import io.github.mzmine.modules.dataanalysis.rowsboxplot.RowsBoxplotController;
 import io.github.mzmine.modules.dataanalysis.volcanoplot.VolcanoPlotController;
 import io.github.mzmine.modules.visualization.featurelisttable_modular.FeatureTableFX;
@@ -47,15 +48,18 @@ public class StatsDashboardViewBuilder extends FxViewBuilder<StatsDashboardModel
 
   private final FeatureTableFX table;
   private final PCAController pcaController;
+  private final PLSDAController plsdaController;
   private final VolcanoPlotController volcanoPlotController;
   private final RowsBoxplotController boxplotController;
 
   public StatsDashboardViewBuilder(StatsDashboardModel model, FeatureTableFX table,
-      PCAController pcaController, VolcanoPlotController controller,
+      PCAController pcaController, PLSDAController plsdaController,
+      VolcanoPlotController controller,
       RowsBoxplotController boxplotController) {
     super(model);
     this.table = table;
     this.pcaController = pcaController;
+    this.plsdaController = plsdaController;
     this.volcanoPlotController = controller;
     this.boxplotController = boxplotController;
   }
@@ -105,7 +109,8 @@ public class StatsDashboardViewBuilder extends FxViewBuilder<StatsDashboardModel
     stats.setOrientation(Orientation.HORIZONTAL);
     final var analysisTab = new TabPane();
     analysisTab.getTabs().addAll(new Tab("PCA", pcaController.buildView()),
-        new Tab("Volcano Plot", volcanoPlotController.buildView()));
+        new Tab("Volcano Plot", volcanoPlotController.buildView()),
+        new Tab("PLS-DA", plsdaController.buildView()));
     stats.getItems().add(analysisTab);
     stats.getItems().add(boxplotController.buildView());
     stats.setDividerPositions(0.9);

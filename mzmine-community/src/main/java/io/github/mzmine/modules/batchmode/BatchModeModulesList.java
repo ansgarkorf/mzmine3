@@ -29,6 +29,7 @@ import io.github.mzmine.modules.MZmineProcessingModule;
 import io.github.mzmine.modules.MZmineRunnableModule;
 import io.github.mzmine.modules.dataanalysis.feat_ms2_similarity_intra.IntraFeatureRowMs2SimilarityModule;
 import io.github.mzmine.modules.dataanalysis.pca_new.PCAModule;
+import io.github.mzmine.modules.dataanalysis.plsda.PLSDAModule;
 import io.github.mzmine.modules.dataanalysis.spec_chimeric_precursor.PrecursorPurityCheckerModule;
 import io.github.mzmine.modules.dataanalysis.statsdashboard.StatsDasboardModule;
 import io.github.mzmine.modules.dataanalysis.volcanoplot.VolcanoPlotModule;
@@ -457,6 +458,7 @@ public class BatchModeModulesList {
           // stats
           StatsDasboardModule.class, //
           PCAModule.class, //
+          PLSDAModule.class, //
           VolcanoPlotModule.class //
 
 //      , CodingDemoModule.class // only test purpose

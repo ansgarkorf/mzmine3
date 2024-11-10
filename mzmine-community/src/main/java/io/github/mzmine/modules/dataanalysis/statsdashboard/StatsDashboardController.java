@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2024 The MZmine Development Team
+ * Copyright (c) 2004-2024 The mzmine Development Team
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -36,6 +36,7 @@ import io.github.mzmine.gui.framework.fx.SelectedRowsBinding;
 import io.github.mzmine.javafx.mvci.FxController;
 import io.github.mzmine.javafx.mvci.FxViewBuilder;
 import io.github.mzmine.modules.dataanalysis.pca_new.PCAController;
+import io.github.mzmine.modules.dataanalysis.plsda.PLSDAController;
 import io.github.mzmine.modules.dataanalysis.rowsboxplot.RowsBoxplotController;
 import io.github.mzmine.modules.dataanalysis.volcanoplot.VolcanoPlotController;
 import io.github.mzmine.modules.visualization.featurelisttable_modular.FeatureTableFX;
@@ -50,6 +51,7 @@ public class StatsDashboardController extends FxController<StatsDashboardModel> 
     SelectedMetadataColumnBinding {
 
   private final PCAController pcaController = new PCAController();
+  private final PLSDAController plsdaController = new PLSDAController();
   private final VolcanoPlotController volcanoController = new VolcanoPlotController(null);
   private final RowsBoxplotController boxplotController = new RowsBoxplotController();
   private final FeatureTableFX table;
@@ -58,12 +60,14 @@ public class StatsDashboardController extends FxController<StatsDashboardModel> 
   public StatsDashboardController(FeatureTableFX table) {
     super(new StatsDashboardModel());
     this.table = table == null ? new FeatureTableFX() : table;
-    builder = new StatsDashboardViewBuilder(model, table, pcaController, volcanoController,
+    builder = new StatsDashboardViewBuilder(model, table, pcaController, plsdaController,
+        volcanoController,
         boxplotController);
 
     FxControllerBinding.bindExposedProperties(this, volcanoController);
     FxControllerBinding.bindExposedProperties(this, boxplotController);
     FxControllerBinding.bindExposedProperties(this, pcaController);
+    FxControllerBinding.bindExposedProperties(this, plsdaController);
     pcaController.waitAndUpdate();
     // feature table bindings in view builder
   }

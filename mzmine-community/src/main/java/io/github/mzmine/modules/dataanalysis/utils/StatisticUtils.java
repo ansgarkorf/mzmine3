@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2024 The MZmine Development Team
+ * Copyright (c) 2004-2024 The mzmine Development Team
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -31,10 +31,14 @@ import io.github.mzmine.datamodel.features.Feature;
 import io.github.mzmine.datamodel.features.FeatureListRow;
 import io.github.mzmine.datamodel.features.ModularDataModel;
 import io.github.mzmine.datamodel.features.ModularFeature;
+import io.github.mzmine.main.MZmineCore;
 import io.github.mzmine.modules.dataanalysis.significance.RowSignificanceTestResult;
 import io.github.mzmine.modules.dataanalysis.utils.scaling.ScalingFunction;
+import io.github.mzmine.modules.visualization.projectmetadata.table.columns.MetadataColumn;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 import org.apache.commons.math.util.MathUtils;
@@ -163,4 +167,52 @@ public class StatisticUtils {
 
     return data;
   }
+
+  public static RealMatrix createResponseMatrixBasedOnMetadata(List<RawDataFile> files,
+      MetadataColumn<?> metadataColumn) {
+    // Step 1: Map each unique metadata value (class label) to a unique column index, starting from 0
+    Map<String, Integer> metadataClassMap = new HashMap<>();
+    int classCounter = 0;
+
+    // Populate metadataClassMap only with unique metadata values in the current dataset
+    for (RawDataFile file : files) {
+      Object metadataValue = MZmineCore.getProjectMetadata().getValue(metadataColumn, file);
+      if (metadataValue != null) {
+        String metadataKey = metadataValue.toString();
+        if (!metadataClassMap.containsKey(metadataKey)) {
+          metadataClassMap.put(metadataKey, classCounter++);
+        }
+      }
+    }
+
+    // Ensure the matrix dimensions match the number of unique classes
+    int numSamples = files.size();
+    int numClasses = metadataClassMap.size();
+    RealMatrix responseMatrix = new Array2DRowRealMatrix(numSamples, numClasses);
+
+    // Debugging output to confirm the correct map and matrix sizes
+    System.out.println("Number of Samples: " + numSamples);
+    System.out.println("Number of Classes: " + numClasses);
+    System.out.println("Metadata Class Map: " + metadataClassMap);
+
+    // Populate response matrix based on metadata class indices
+    for (int i = 0; i < numSamples; i++) {
+      RawDataFile file = files.get(i);
+      Object metadataValue = MZmineCore.getProjectMetadata().getValue(metadataColumn, file);
+      if (metadataValue != null) {
+        Integer classIndex = metadataClassMap.get(metadataValue.toString());
+        if (classIndex != null && classIndex < numClasses) {
+          responseMatrix.setEntry(i, classIndex, 1.0);
+        } else {
+          System.err.println(
+              "Error: Class index out of bounds or null for metadata value: " + metadataValue
+                  + " with classIndex " + classIndex);
+        }
+      }
+    }
+
+    return responseMatrix;
+  }
+
+
 }

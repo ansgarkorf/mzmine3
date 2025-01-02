@@ -29,7 +29,6 @@ import static io.github.mzmine.modules.dataprocessing.featdet_chromatogramdeconv
 import static io.github.mzmine.modules.dataprocessing.featdet_chromatogramdeconvolution.classic.ClassicResolverParameters.MIN_ABSOLUTE_HEIGHT;
 import static io.github.mzmine.modules.dataprocessing.featdet_chromatogramdeconvolution.classic.ClassicResolverParameters.MIN_RATIO;
 import static io.github.mzmine.modules.dataprocessing.featdet_chromatogramdeconvolution.classic.ClassicResolverParameters.MIN_RELATIVE_HEIGHT;
-import static io.github.mzmine.modules.dataprocessing.featdet_chromatogramdeconvolution.classic.ClassicResolverParameters.PEAK_DURATION;
 import static io.github.mzmine.modules.dataprocessing.featdet_chromatogramdeconvolution.classic.ClassicResolverParameters.SEARCH_RT_RANGE;
 
 import com.google.common.collect.Range;
@@ -45,7 +44,6 @@ import org.jetbrains.annotations.NotNull;
 public class ClassicResolver extends AbstractResolver {
 
   private final ParameterSet parameters;
-  private final Range<Double> xRange;
   private final double searchXWidth;
   private final double minRatio;
   private final int minDataPoints;
@@ -60,7 +58,6 @@ public class ClassicResolver extends AbstractResolver {
     super(parameterSet, flist);
     this.parameters = parameterSet;
     minDataPoints = parameters.getParameter(MIN_NUMBER_OF_DATAPOINTS).getValue();
-    xRange = parameters.getParameter(PEAK_DURATION).getValue();
     searchXWidth = parameters.getParameter(SEARCH_RT_RANGE).getValue();
     minRatio = parameters.getParameter(MIN_RATIO).getValue();
     minAbsoluteHeight = parameters.getParameter(MIN_ABSOLUTE_HEIGHT).getValue();
@@ -232,7 +229,7 @@ public class ClassicResolver extends AbstractResolver {
 
     // Check shape
     if (checkPeakShape(x, numberOfDataPoints, currentRegionHeight, minHeight, peakMinLeft,
-        peakMinRight, currentRegionEnd, currentRegionStart)) {
+        peakMinRight)) {
       final Range<Double> range = adjustStartAndEnd(x, y, currentRegionStart, currentRegionEnd);
       resolved.add(range);
     }
@@ -243,12 +240,10 @@ public class ClassicResolver extends AbstractResolver {
   }
 
   private boolean checkPeakShape(double[] x, int numberOfDataPoints, double currentRegionHeight,
-      double minHeight, double peakMinLeft, double peakMinRight, int currentRegionEnd,
-      int currentRegionStart) {
+      double minHeight, double peakMinLeft, double peakMinRight) {
     return numberOfDataPoints >= minDataPoints && currentRegionHeight >= minHeight
         && currentRegionHeight >= peakMinLeft * minRatio
-        && currentRegionHeight >= peakMinRight * minRatio && xRange.contains(
-        x[currentRegionEnd] - x[currentRegionStart]);
+        && currentRegionHeight >= peakMinRight * minRatio;
   }
 
   /**

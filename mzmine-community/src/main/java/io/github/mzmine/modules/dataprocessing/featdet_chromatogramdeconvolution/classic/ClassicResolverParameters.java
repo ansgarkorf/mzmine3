@@ -25,7 +25,6 @@
 
 package io.github.mzmine.modules.dataprocessing.featdet_chromatogramdeconvolution.classic;
 
-import com.google.common.collect.Range;
 import io.github.mzmine.datamodel.features.ModularFeatureList;
 import io.github.mzmine.main.MZmineCore;
 import io.github.mzmine.modules.dataprocessing.featdet_chromatogramdeconvolution.FeatureResolverSetupDialog;
@@ -36,18 +35,12 @@ import io.github.mzmine.parameters.ParameterSet;
 import io.github.mzmine.parameters.impl.IonMobilitySupport;
 import io.github.mzmine.parameters.parametertypes.DoubleParameter;
 import io.github.mzmine.parameters.parametertypes.PercentParameter;
-import io.github.mzmine.parameters.parametertypes.ranges.DoubleRangeParameter;
 import io.github.mzmine.util.ExitCode;
 import java.text.DecimalFormat;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 public class ClassicResolverParameters extends GeneralResolverParameters {
-
-  public static final PercentParameter CHROMATOGRAPHIC_THRESHOLD_LEVEL = new PercentParameter(
-      "Chromatographic threshold", "Percentile threshold for removing noise.\n"
-      + "The algorithm will remove the lowest abundant X % data points from a chromatogram and only consider\n"
-      + "the remaining (highest) values. Important filter for noisy chromatograms.", 0.85d, 0d, 1d);
 
   public static final DoubleParameter SEARCH_RT_RANGE = new DoubleParameter(
       "Minimum search range RT/Mobility (absolute)",
@@ -68,14 +61,10 @@ public class ClassicResolverParameters extends GeneralResolverParameters {
           + "\nThis parameter helps to reduce detection of false peaks in case the chromatogram is not smooth.",
       new DecimalFormat("0.00"), 1.7d);
 
-  public static final DoubleRangeParameter PEAK_DURATION = new DoubleRangeParameter(
-      "Peak duration range (min/mobility)", "Range of acceptable peak lengths",
-      MZmineCore.getConfiguration().getRTFormat(), Range.closed(0.0, 10.0));
-
   public ClassicResolverParameters() {
     super(new Parameter[]{PEAK_LISTS, SUFFIX, handleOriginal, groupMS2Parameters, dimension,
-            CHROMATOGRAPHIC_THRESHOLD_LEVEL, SEARCH_RT_RANGE, MIN_RELATIVE_HEIGHT, MIN_ABSOLUTE_HEIGHT,
-            MIN_RATIO, PEAK_DURATION, MIN_NUMBER_OF_DATAPOINTS},
+            SEARCH_RT_RANGE, MIN_RELATIVE_HEIGHT, MIN_ABSOLUTE_HEIGHT, MIN_RATIO,
+            MIN_NUMBER_OF_DATAPOINTS},
         "https://mzmine.github.io/mzmine_documentation/module_docs/featdet_resolver_local_minimum/local-minimum-resolver.html");
   }
 

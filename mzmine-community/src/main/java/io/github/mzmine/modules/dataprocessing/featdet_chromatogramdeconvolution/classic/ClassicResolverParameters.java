@@ -26,7 +26,6 @@
 package io.github.mzmine.modules.dataprocessing.featdet_chromatogramdeconvolution.classic;
 
 import io.github.mzmine.datamodel.features.ModularFeatureList;
-import io.github.mzmine.main.MZmineCore;
 import io.github.mzmine.modules.dataprocessing.featdet_chromatogramdeconvolution.FeatureResolverSetupDialog;
 import io.github.mzmine.modules.dataprocessing.featdet_chromatogramdeconvolution.GeneralResolverParameters;
 import io.github.mzmine.modules.dataprocessing.featdet_chromatogramdeconvolution.Resolver;
@@ -34,7 +33,6 @@ import io.github.mzmine.parameters.Parameter;
 import io.github.mzmine.parameters.ParameterSet;
 import io.github.mzmine.parameters.impl.IonMobilitySupport;
 import io.github.mzmine.parameters.parametertypes.DoubleParameter;
-import io.github.mzmine.parameters.parametertypes.PercentParameter;
 import io.github.mzmine.util.ExitCode;
 import java.text.DecimalFormat;
 import org.jetbrains.annotations.NotNull;
@@ -48,13 +46,9 @@ public class ClassicResolverParameters extends GeneralResolverParameters {
           + "Start optimising with a value close to the FWHM of a peak.",
       new DecimalFormat("0.000"), 0.05);
 
-  public static final PercentParameter MIN_RELATIVE_HEIGHT = new PercentParameter(
-      "Minimum relative height",
-      "Minimum height of a peak relative to the chromatogram top data point", 0d);
-
-  public static final DoubleParameter MIN_ABSOLUTE_HEIGHT = new DoubleParameter(
-      "Minimum absolute height", "Minimum absolute height of a peak to be recognized",
-      MZmineCore.getConfiguration().getIntensityFormat(), 1E3);
+  public static final DoubleParameter SIGNAL_TO_NOISE = new DoubleParameter("Signal-to-Noise (S/N)",
+      "Minimum S/N ratio required for a peak to be considered valid.", new DecimalFormat("0.0"),
+      3.0);
 
   public static final DoubleParameter MIN_RATIO = new DoubleParameter("Min ratio of peak top/edge",
       "Minimum ratio between peak's top intensity and side (lowest) data points."
@@ -63,7 +57,7 @@ public class ClassicResolverParameters extends GeneralResolverParameters {
 
   public ClassicResolverParameters() {
     super(new Parameter[]{PEAK_LISTS, SUFFIX, handleOriginal, groupMS2Parameters, dimension,
-            SEARCH_RT_RANGE, MIN_RELATIVE_HEIGHT, MIN_ABSOLUTE_HEIGHT, MIN_RATIO,
+            SEARCH_RT_RANGE, SIGNAL_TO_NOISE, MIN_RATIO,
             MIN_NUMBER_OF_DATAPOINTS},
         "https://mzmine.github.io/mzmine_documentation/module_docs/featdet_resolver_local_minimum/local-minimum-resolver.html");
   }

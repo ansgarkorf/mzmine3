@@ -26,10 +26,9 @@
 package io.github.mzmine.modules.dataprocessing.featdet_chromatogramdeconvolution.classic;
 
 import static io.github.mzmine.modules.dataprocessing.featdet_chromatogramdeconvolution.GeneralResolverParameters.MIN_NUMBER_OF_DATAPOINTS;
-import static io.github.mzmine.modules.dataprocessing.featdet_chromatogramdeconvolution.classic.ClassicResolverParameters.MIN_ABSOLUTE_HEIGHT;
 import static io.github.mzmine.modules.dataprocessing.featdet_chromatogramdeconvolution.classic.ClassicResolverParameters.MIN_RATIO;
-import static io.github.mzmine.modules.dataprocessing.featdet_chromatogramdeconvolution.classic.ClassicResolverParameters.MIN_RELATIVE_HEIGHT;
 import static io.github.mzmine.modules.dataprocessing.featdet_chromatogramdeconvolution.classic.ClassicResolverParameters.SEARCH_RT_RANGE;
+import static io.github.mzmine.modules.dataprocessing.featdet_chromatogramdeconvolution.classic.ClassicResolverParameters.SIGNAL_TO_NOISE;
 
 import com.google.common.collect.Range;
 import io.github.mzmine.datamodel.features.ModularFeatureList;
@@ -47,12 +46,7 @@ public class ClassicResolver extends AbstractResolver {
   private final double searchXWidth;
   private final double minRatio;
   private final int minDataPoints;
-  private final double minAbsoluteHeight;
-  private final double minRelativeHeight;
-
-  double[] xBuffer;
-  double[] yBuffer;
-
+  private final double signalToNoise;
 
   public ClassicResolver(ParameterSet parameterSet, ModularFeatureList flist) {
     super(parameterSet, flist);
@@ -60,8 +54,7 @@ public class ClassicResolver extends AbstractResolver {
     minDataPoints = parameters.getParameter(MIN_NUMBER_OF_DATAPOINTS).getValue();
     searchXWidth = parameters.getParameter(SEARCH_RT_RANGE).getValue();
     minRatio = parameters.getParameter(MIN_RATIO).getValue();
-    minAbsoluteHeight = parameters.getParameter(MIN_ABSOLUTE_HEIGHT).getValue();
-    minRelativeHeight = parameters.getParameter(MIN_RELATIVE_HEIGHT).getValue();
+    signalToNoise = parameters.getParameter(SIGNAL_TO_NOISE).getValue();
   }
 
 
@@ -125,23 +118,26 @@ public class ClassicResolver extends AbstractResolver {
     if (valueCount == 0) {
       return resolved;
     }
+    int windowSize = (int) Math.ceil(valueCount * 0.25);
 
-    // Instead of user-set threshold, compute dynamic threshold for entire array
-    double dynamicThreshold = calculateDynamicThreshold(y);
+    // 1. Compute local threshold array
+    double[] localThresholds = calculateLocalThresholds(y, windowSize, 1.0); // window=50, factor=2
 
-    // Remove all data points below dynamic threshold
-    double maxY = 0;
-    for (int i = 0; i < y.length; i++) {
-      if (y[i] < dynamicThreshold) {
+    // 2. Zero out intensities below local threshold
+    for (int i = 0; i < valueCount; i++) {
+      if (y[i] < localThresholds[i]) {
         y[i] = 0.0;
-      }
-      if (y[i] > maxY) {
-        maxY = y[i];
       }
     }
 
-    // The final minHeight depends on max signal now that noise is zeroed
-    final double minHeight = Math.max(minAbsoluteHeight, minRelativeHeight * maxY);
+    // 3. Estimate global noise from local thresholds
+    //    e.g. take the median of the localThreshold array as "baseline"
+    double[] copyThresholds = Arrays.copyOf(localThresholds, localThresholds.length);
+    double baselineNoise = median(copyThresholds);
+
+    // 4. Define minHeight using S/N
+    double minHeight = baselineNoise * signalToNoise; // e.g., S/N=3 => minHeight=3*baselineNoise
+
     final int lastScan = valueCount - 1;
 
     // Main local-minimum search logic
@@ -219,6 +215,37 @@ public class ClassicResolver extends AbstractResolver {
   }
 
   /**
+   * Computes a local threshold array. For each point i in intensities, we estimate the baseline
+   * noise from a local window around i.
+   *
+   * @param intensities The full intensity array y.
+   * @param windowSize  The total number of points in the window (center ± halfWindow).
+   * @param factor      The multiplier for (median + factor * MAD).
+   * @return A threshold array where thresholds[i] applies specifically to intensities[i].
+   */
+  private double[] calculateLocalThresholds(double[] intensities, int windowSize, double factor) {
+    final int length = intensities.length;
+    double[] thresholds = new double[length];
+
+    int halfWindow = windowSize / 2;
+
+    for (int i = 0; i < length; i++) {
+      int start = Math.max(0, i - halfWindow);
+      int end = Math.min(length, i + halfWindow + 1);
+
+      double[] subArray = Arrays.copyOfRange(intensities, start, end);
+
+      double localMedian = median(subArray);
+      double localMad = medianAbsoluteDeviation(subArray, localMedian);
+
+      // threshold = median + factor×MAD
+      thresholds[i] = localMedian + factor * localMad;
+    }
+
+    return thresholds;
+  }
+
+  /**
    * Attempt to finalize peak and return updated region start
    */
   private int tryToFinalizePeak(double[] x, double[] y, int currentRegionEnd,
@@ -228,7 +255,7 @@ public class ClassicResolver extends AbstractResolver {
     final int numberOfDataPoints = currentRegionEnd - currentRegionStart + 1;
 
     // Check shape
-    if (checkPeakShape(x, numberOfDataPoints, currentRegionHeight, minHeight, peakMinLeft,
+    if (checkPeakShape(numberOfDataPoints, currentRegionHeight, minHeight, peakMinLeft,
         peakMinRight)) {
       final Range<Double> range = adjustStartAndEnd(x, y, currentRegionStart, currentRegionEnd);
       resolved.add(range);
@@ -239,7 +266,7 @@ public class ClassicResolver extends AbstractResolver {
     return currentRegionStart;
   }
 
-  private boolean checkPeakShape(double[] x, int numberOfDataPoints, double currentRegionHeight,
+  private boolean checkPeakShape(int numberOfDataPoints, double currentRegionHeight,
       double minHeight, double peakMinLeft, double peakMinRight) {
     return numberOfDataPoints >= minDataPoints && currentRegionHeight >= minHeight
         && currentRegionHeight >= peakMinLeft * minRatio

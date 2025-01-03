@@ -26,7 +26,6 @@
 package io.github.mzmine.modules.dataprocessing.featdet_chromatogramdeconvolution.classic;
 
 import static io.github.mzmine.modules.dataprocessing.featdet_chromatogramdeconvolution.GeneralResolverParameters.MIN_NUMBER_OF_DATAPOINTS;
-import static io.github.mzmine.modules.dataprocessing.featdet_chromatogramdeconvolution.classic.ClassicResolverParameters.MIN_RATIO;
 import static io.github.mzmine.modules.dataprocessing.featdet_chromatogramdeconvolution.classic.ClassicResolverParameters.SEARCH_RT_RANGE;
 import static io.github.mzmine.modules.dataprocessing.featdet_chromatogramdeconvolution.classic.ClassicResolverParameters.SIGNAL_TO_NOISE;
 
@@ -40,23 +39,39 @@ import java.util.Arrays;
 import java.util.List;
 import org.jetbrains.annotations.NotNull;
 
+/**
+ * ClassicResolver with these key points:
+ * <p>
+ * (1) One-pass detection with a ratioParam (e.g., 1.2). (2) searchXWidth is used only to decide if
+ * the region is "big enough" to check for a separate peak or local minimum. The final peak width
+ * can exceed searchXWidth if intensities remain high. (3) No overlapping data points: once we
+ * finalize [start..end], we skip that range for the next peak. (4) We do NOT zero out intensities
+ * below local threshold. The threshold is used only in final shape/validity checks. (5)
+ * postFilterRatio(...) to handle high/mid/low ratio peaks with some hard-coded thresholds.
+ */
 public class ClassicResolver extends AbstractResolver {
 
   private final ParameterSet parameters;
   private final double searchXWidth;
-  private final double minRatio;
   private final int minDataPoints;
   private final double signalToNoise;
+
+  /**
+   * Hardcoded ratio thresholds:
+   *   - If ratio >= 10 => High ratio => always keep
+   *   - If ratio < 1.5 => Low ratio => keep only if few
+   */
+  private double HIGH_RATIO_THRESHOLD = 10.0;
+  private double LOW_RATIO_THRESHOLD = 1.5;
+  private int MAX_LOW_RATIO_ALLOWED = 2; // If we detect >2 "low ratio" peaks, discard them all
 
   public ClassicResolver(ParameterSet parameterSet, ModularFeatureList flist) {
     super(parameterSet, flist);
     this.parameters = parameterSet;
-    minDataPoints = parameters.getParameter(MIN_NUMBER_OF_DATAPOINTS).getValue();
-    searchXWidth = parameters.getParameter(SEARCH_RT_RANGE).getValue();
-    minRatio = parameters.getParameter(MIN_RATIO).getValue();
-    signalToNoise = parameters.getParameter(SIGNAL_TO_NOISE).getValue();
+    this.minDataPoints = parameters.getParameter(MIN_NUMBER_OF_DATAPOINTS).getValue();
+    this.searchXWidth = parameters.getParameter(SEARCH_RT_RANGE).getValue();
+    this.signalToNoise = parameters.getParameter(SIGNAL_TO_NOISE).getValue();
   }
-
 
   @Override
   public @NotNull Class<? extends MZmineModule> getModuleClass() {
@@ -64,46 +79,9 @@ public class ClassicResolver extends AbstractResolver {
   }
 
   /**
-   * Dynamically calculate a threshold for the entire chromatogram. For example, we can use median +
-   * k * MAD (Median Absolute Deviation). This is just one of many possible dynamic strategies.
-   */
-  private double calculateDynamicThreshold(double[] intensities) {
-    // Copy intensities so we don't mutate the original array when sorting
-    double[] copy = Arrays.copyOf(intensities, intensities.length);
-
-    // 1) Calculate median
-    double median = median(copy);
-
-    // 2) Calculate MAD
-    double mad = medianAbsoluteDeviation(copy, median);
-
-    // 3) Define threshold as median + factor * MAD
-    // The factor (e.g., 2 or 3) is somewhat arbitrary; adjust to desired sensitivity
-    return median + 2.0 * mad;
-  }
-
-  private double median(double[] data) {
-    Arrays.sort(data);
-    int mid = data.length / 2;
-    if (data.length % 2 == 0) {
-      return (data[mid - 1] + data[mid]) / 2.0;
-    } else {
-      return data[mid];
-    }
-  }
-
-  private double medianAbsoluteDeviation(double[] data, double median) {
-    double[] deviations = new double[data.length];
-    for (int i = 0; i < data.length; i++) {
-      deviations[i] = Math.abs(data[i] - median);
-    }
-    return median(deviations);
-  }
-
-  /**
-   * @param x domain values (e.g., RT or mobility), strictly monotonically increasing
-   * @param y intensity values for each domain point
-   * @return list of resolved peak ranges
+   * Main resolve method:
+   *  1) detectCandidates(...) with ratioParam=1.2 (somewhat permissive),
+   *  2) postFilterRatio(...) to handle High/Mid/Low ratio peaks.
    */
   @Override
   @NotNull
@@ -111,185 +89,298 @@ public class ClassicResolver extends AbstractResolver {
     if (x.length != y.length) {
       throw new AssertionError("Lengths of x and y arrays must match.");
     }
-
-    final int valueCount = x.length;
-    List<Range<Double>> resolved = new ArrayList<>();
-
-    if (valueCount == 0) {
-      return resolved;
-    }
-    int windowSize = (int) Math.ceil(valueCount * 0.25);
-
-    // 1. Compute local threshold array
-    double[] localThresholds = calculateLocalThresholds(y, windowSize, 1.0); // window=50, factor=2
-
-    // 2. Zero out intensities below local threshold
-    for (int i = 0; i < valueCount; i++) {
-      if (y[i] < localThresholds[i]) {
-        y[i] = 0.0;
-      }
+    if (x.length == 0) {
+      return new ArrayList<>();
     }
 
-    // 3. Estimate global noise from local thresholds
-    //    e.g. take the median of the localThreshold array as "baseline"
-    double[] copyThresholds = Arrays.copyOf(localThresholds, localThresholds.length);
-    double baselineNoise = median(copyThresholds);
+    // 1) Detect candidates (local-min search + shape checks)
+    List<PeakCandidate> rawCandidates = detectCandidates(x, y, /* ratioParam= */ 1.2);
 
-    // 4. Define minHeight using S/N
-    double minHeight = baselineNoise * signalToNoise; // e.g., S/N=3 => minHeight=3*baselineNoise
+    // 2) Post-filter the final set
+    List<PeakCandidate> finalCandidates = postFilterRatio(rawCandidates);
 
-    final int lastScan = valueCount - 1;
-
-    // Main local-minimum search logic
-    startSearch:
-    for (int currentRegionStart = 0; currentRegionStart < lastScan - 2; currentRegionStart++) {
-
-      // Need at least two consecutive non-zero data points to consider a start
-      if (y[currentRegionStart] == 0.0 || y[currentRegionStart + 1] == 0.0) {
-        continue;
-      }
-
-      double currentRegionHeight = y[currentRegionStart];
-
-      endSearch:
-      for (int currentRegionEnd = currentRegionStart + 1; currentRegionEnd < valueCount;
-          currentRegionEnd++) {
-
-        // Update height of current region
-        currentRegionHeight = Math.max(currentRegionHeight, y[currentRegionEnd]);
-
-        // If next intensity is 0 or we've reached the end, finalize the region
-        if (currentRegionEnd == lastScan || y[currentRegionEnd + 1] == 0.0) {
-
-          // Intensities at the edges
-          final double peakMinLeft = y[currentRegionStart];
-          final double peakMinRight = y[currentRegionEnd];
-
-          // Attempt to finalize a peak
-          currentRegionStart = tryToFinalizePeak(x, y, currentRegionEnd, currentRegionStart,
-              currentRegionHeight, minHeight, peakMinLeft, peakMinRight, resolved);
-          continue startSearch;
-        }
-
-        // If we've reached minimum required width
-        if (x[currentRegionEnd] - x[currentRegionStart] >= searchXWidth) {
-
-          // Simple check for local left side
-          final Range<Double> checkRange = Range.closed(x[currentRegionEnd] - searchXWidth,
-              x[currentRegionEnd] + searchXWidth);
-
-          // Check left side
-          for (int i = currentRegionEnd - 1; i > 0; i--) {
-            if (!checkRange.contains(x[i])) {
-              break;
-            }
-            if (y[i] < y[currentRegionEnd]) {
-              // Not a minimum => break the loop
-              continue endSearch;
-            }
-          }
-
-          // Check right side
-          for (int i = currentRegionEnd + 1; i < valueCount; i++) {
-            if (!checkRange.contains(x[i])) {
-              break;
-            }
-            if (y[i] < y[currentRegionEnd]) {
-              continue endSearch;
-            }
-          }
-
-          final double peakMinLeft = y[currentRegionStart];
-          final double peakMinRight = y[currentRegionEnd];
-
-          // Ratio check
-          if (currentRegionHeight >= peakMinRight * minRatio) {
-            currentRegionStart = tryToFinalizePeak(x, y, currentRegionEnd, currentRegionStart,
-                currentRegionHeight, minHeight, peakMinLeft, peakMinRight, resolved);
-            continue startSearch;
-          }
-        }
-      }
+    // Convert to List<Range<Double>>
+    List<Range<Double>> resolvedRanges = new ArrayList<>(finalCandidates.size());
+    for (PeakCandidate pc : finalCandidates) {
+      resolvedRanges.add(Range.closed(pc.startX, pc.endX));
     }
-    return resolved;
+    return resolvedRanges;
   }
 
   /**
-   * Computes a local threshold array. For each point i in intensities, we estimate the baseline
-   * noise from a local window around i.
-   *
-   * @param intensities The full intensity array y.
-   * @param windowSize  The total number of points in the window (center ± halfWindow).
-   * @param factor      The multiplier for (median + factor * MAD).
-   * @return A threshold array where thresholds[i] applies specifically to intensities[i].
+   * Step #2: postFilterRatio
+   * <p>
+   * - ratio >= HIGH_RATIO_THRESHOLD (e.g., 10) => keep always
+   * - ratio < LOW_RATIO_THRESHOLD (e.g., 1.5) => keep only if we detect <= MAX_LOW_RATIO_ALLOWED
+   * - else => "mid ratio"
    */
+  private List<PeakCandidate> postFilterRatio(List<PeakCandidate> candidates) {
+    List<PeakCandidate> highRatio = new ArrayList<>();
+    List<PeakCandidate> lowRatio = new ArrayList<>();
+    List<PeakCandidate> midRatio = new ArrayList<>();
+
+    for (PeakCandidate pc : candidates) {
+      double edge = Math.min(pc.peakMinLeft, pc.peakMinRight);
+      double ratio = (edge > 0) ? (pc.topIntensity / edge) : Double.POSITIVE_INFINITY;
+
+      if (ratio >= HIGH_RATIO_THRESHOLD) {
+        highRatio.add(pc); // definitely keep
+      } else if (ratio < LOW_RATIO_THRESHOLD) {
+        lowRatio.add(pc);  // keep only if few
+      } else {
+        midRatio.add(pc);
+      }
+    }
+
+    // Discard all low-ratio peaks if we found more than allowed
+    if (lowRatio.size() > MAX_LOW_RATIO_ALLOWED) {
+      lowRatio.clear();
+    }
+
+    List<PeakCandidate> finalList = new ArrayList<>(
+        highRatio.size() + midRatio.size() + lowRatio.size());
+    finalList.addAll(highRatio);
+    finalList.addAll(midRatio);
+    finalList.addAll(lowRatio);
+
+    return finalList;
+  }
+
+  // ----------------------------------------------------------------------------
+  // Step #1: detectCandidates with local-min search, ensuring no overlap in data
+  // ----------------------------------------------------------------------------
+  private List<PeakCandidate> detectCandidates(double[] x, double[] y, double ratioParam) {
+    final int valueCount = x.length;
+
+    // (A) Compute local thresholds but do NOT zero intensities.
+    int windowSize = (int) Math.ceil(valueCount * 0.25);
+    double factor = 0.5;
+    double[] localThresholds = calculateLocalThresholds(y, windowSize, factor);
+
+    // Keep track of which points are above threshold if we want shape checks later
+    boolean[] aboveThreshold = new boolean[valueCount];
+    for (int i = 0; i < valueCount; i++) {
+      aboveThreshold[i] = (y[i] >= localThresholds[i]);
+    }
+
+    // (B) Estimate baseline => define minHeight
+    double baselineNoise = median(localThresholds);
+    double minHeight = baselineNoise * signalToNoise;
+
+    // (C) Local-min search with no overlap
+    List<PeakCandidate> detectedPeaks = new ArrayList<>();
+    final int lastScan = valueCount - 1;
+
+    // We'll iterate data points with "start," finalize a peak [start..end], then skip to end+1
+    for (int start = 0; start <= lastScan; ) {
+
+      // Skip zero or negative intensities
+      if (y[start] <= 0) {
+        start++;
+        continue;
+      }
+
+      double peakTop = y[start];
+      double leftEdge = y[start];
+      int bestEnd = -1;
+
+      //  find region
+      for (int end = start + 1; end <= lastScan; end++) {
+
+        peakTop = Math.max(peakTop, y[end]);
+        double rightEdge = y[end];
+
+        // (1) If next intensity is <= 0 OR we reached the last scan => finalize region
+        if (end == lastScan || y[end + 1] <= 0) {
+          int usedEnd = tryToFinalizePeak(x, y, start, end, peakTop, minHeight, leftEdge, rightEdge,
+              ratioParam, aboveThreshold, localThresholds, detectedPeaks);
+          bestEnd = usedEnd;
+          break;
+        }
+
+        // (2) If we've reached searchXWidth, check if there's a local min or reason to finalize
+        if ((x[end] - x[start]) >= searchXWidth) {
+          // Decide if y[end] is near a local minimum
+          if (isLocalMinimum(y, end)) {
+            int usedEnd = tryToFinalizePeak(x, y, start, end, peakTop, minHeight, leftEdge,
+                rightEdge, ratioParam, aboveThreshold, localThresholds, detectedPeaks);
+            bestEnd = usedEnd;
+            break;
+          }
+        }
+      }
+
+      // If we never finalized a region, move on by 1
+      if (bestEnd < 0) {
+        start++;
+      } else {
+        // we used [start..bestEnd], skip them
+        start = bestEnd + 1;
+      }
+    }
+
+    return detectedPeaks;
+  }
+
+  /**
+   * Decide if y[idx] is a local minimum: For example: y[idx] < y[idx-1] && y[idx] <= y[idx+1]. You
+   * can make a more advanced check if needed.
+   */
+  private boolean isLocalMinimum(double[] y, int idx) {
+    if (idx <= 0 || idx >= (y.length - 1)) {
+      return false;
+    }
+    // Example: strict local min if it's lower than both neighbors
+    return (y[idx] < y[idx - 1]) && (y[idx] <= y[idx + 1]);
+  }
+
+  /**
+   * Attempt to finalize a peak [start..end]. If shape checks pass => create PeakCandidate. Returns
+   * the "end" if we used that region, else returns "start" if invalid.
+   */
+  private int tryToFinalizePeak(double[] x, double[] y, int start, int end, double peakTop,
+      double minHeight, double peakMinLeft, double peakMinRight, double ratioParam,
+      boolean[] aboveThreshold, double[] localThresholds, List<PeakCandidate> detected) {
+
+    final int numberOfPoints = (end - start + 1);
+
+    boolean valid = checkPeakShape(numberOfPoints, peakTop, minHeight, peakMinLeft, peakMinRight,
+        ratioParam, start, end, y, aboveThreshold, localThresholds);
+
+    if (valid) {
+      // Possibly expand boundaries to local min if desired
+      Range<Double> adjusted = adjustStartAndEnd(x, y, start, end);
+
+      double startX = adjusted.lowerEndpoint();
+      double endX = adjusted.upperEndpoint();
+
+      PeakCandidate candidate = new PeakCandidate(startX, endX, peakTop, peakMinLeft, peakMinRight);
+      detected.add(candidate);
+
+      return end;
+    }
+
+    return start;
+  }
+
+  /**
+   * Evaluate shape constraints:
+   *  - Enough points
+   *  - top >= minHeight
+   *  - top >= peakMin*(ratioParam)
+   *  - optional fraction above threshold
+   */
+  private boolean checkPeakShape(int numberOfDataPoints, double regionTop, double minHeight,
+      double peakMinLeft, double peakMinRight, double ratioParam, int regionStart, int regionEnd,
+      double[] y, boolean[] aboveThreshold, double[] localThresholds) {
+
+    // 1) Enough data
+    if (numberOfDataPoints < minDataPoints) {
+      return false;
+    }
+    // 2) apex above minHeight
+    if (regionTop < minHeight) {
+      return false;
+    }
+    // 3) apex >= edges * ratioParam
+    if (regionTop < (peakMinLeft * ratioParam)) {
+      return false;
+    }
+    if (regionTop < (peakMinRight * ratioParam)) {
+      return false;
+    }
+    // 4) optionally require some fraction above threshold
+    int countAbove = 0;
+    for (int i = regionStart; i <= regionEnd; i++) {
+      if (aboveThreshold[i]) {
+        countAbove++;
+      }
+    }
+    double fractionAbove = (double) countAbove / (double) numberOfDataPoints;
+    // e.g., require at least 40% above local threshold
+    if (fractionAbove < 0.4) {
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Expand the boundaries to the local minima or zero intensities as needed, instead of stopping
+   * exactly at "start" or "end".
+   */
+  private @NotNull Range<Double> adjustStartAndEnd(double[] x, double[] y, int currentRegionStart,
+      int currentRegionEnd) {
+
+    int start = currentRegionStart;
+    int end = currentRegionEnd;
+
+    // Expand left if intensities suggest we haven't reached min
+    while (start > 0 && y[start - 1] > 0 && y[start] <= y[start - 1]) {
+      start--;
+    }
+    // Expand right
+    while (end < (y.length - 1) && y[end + 1] > 0 && y[end] <= y[end + 1]) {
+      end++;
+    }
+
+    double startX = x[start];
+    double endX = x[end];
+    if (startX > endX) {
+      double tmp = startX;
+      startX = endX;
+      endX = tmp;
+    }
+
+    return Range.closed(startX, endX);
+  }
+
+  // -------------------------------------------------------------
+  // Local thresholding and baseline logic
+  // -------------------------------------------------------------
   private double[] calculateLocalThresholds(double[] intensities, int windowSize, double factor) {
     final int length = intensities.length;
     double[] thresholds = new double[length];
-
     int halfWindow = windowSize / 2;
 
     for (int i = 0; i < length; i++) {
-      int start = Math.max(0, i - halfWindow);
-      int end = Math.min(length, i + halfWindow + 1);
+      int wStart = Math.max(0, i - halfWindow);
+      int wEnd = Math.min(length, i + halfWindow + 1);
 
-      double[] subArray = Arrays.copyOfRange(intensities, start, end);
-
-      double localMedian = median(subArray);
-      double localMad = medianAbsoluteDeviation(subArray, localMedian);
-
-      // threshold = median + factor×MAD
-      thresholds[i] = localMedian + factor * localMad;
+      double[] subArray = Arrays.copyOfRange(intensities, wStart, wEnd);
+      double localMed = median(subArray);
+      double localMad = medianAbsoluteDeviation(subArray, localMed);
+      thresholds[i] = localMed + factor * localMad;
     }
 
     return thresholds;
   }
 
-  /**
-   * Attempt to finalize peak and return updated region start
-   */
-  private int tryToFinalizePeak(double[] x, double[] y, int currentRegionEnd,
-      int currentRegionStart, double currentRegionHeight, double minHeight, double peakMinLeft,
-      double peakMinRight, List<Range<Double>> resolved) {
-
-    final int numberOfDataPoints = currentRegionEnd - currentRegionStart + 1;
-
-    // Check shape
-    if (checkPeakShape(numberOfDataPoints, currentRegionHeight, minHeight, peakMinLeft,
-        peakMinRight)) {
-      final Range<Double> range = adjustStartAndEnd(x, y, currentRegionStart, currentRegionEnd);
-      resolved.add(range);
+  private double median(double[] data) {
+    if (data.length == 0) {
+      return 0.0;
     }
-
-    // Move region start to just before currentRegionEnd
-    currentRegionStart = currentRegionEnd - 1;
-    return currentRegionStart;
+    Arrays.sort(data);
+    int mid = data.length / 2;
+    if (data.length % 2 == 0) {
+      return (data[mid - 1] + data[mid]) / 2.0;
+    }
+    return data[mid];
   }
 
-  private boolean checkPeakShape(int numberOfDataPoints, double currentRegionHeight,
-      double minHeight, double peakMinLeft, double peakMinRight) {
-    return numberOfDataPoints >= minDataPoints && currentRegionHeight >= minHeight
-        && currentRegionHeight >= peakMinLeft * minRatio
-        && currentRegionHeight >= peakMinRight * minRatio;
+  private double medianAbsoluteDeviation(double[] data, double med) {
+    double[] dev = new double[data.length];
+    for (int i = 0; i < data.length; i++) {
+      dev[i] = Math.abs(data[i] - med);
+    }
+    return median(dev);
   }
 
-  /**
-   * Include zero-intensity neighbors if relevant
-   */
-  private static @NotNull Range<Double> adjustStartAndEnd(double[] x, double[] y,
-      int currentRegionStart, int currentRegionEnd) {
-
-    int start = currentRegionStart;
-    if (y[currentRegionStart] != 0 && currentRegionStart > 0 && y[currentRegionStart - 1] == 0.0) {
-      start = currentRegionStart - 1;
-    }
-
-    int end = currentRegionEnd;
-    if (y[currentRegionEnd] != 0 && currentRegionEnd < y.length - 1
-        && y[currentRegionEnd + 1] == 0.0) {
-      end = currentRegionEnd + 1;
-    }
-
-    return Range.closed(x[start], x[end]);
+  // -------------------------------------------------------------
+  // Simple container for a detected peak region
+  // -------------------------------------------------------------
+  private record PeakCandidate(double startX, double endX, double topIntensity, double peakMinLeft,
+                               double peakMinRight) {
+    // ratio is computed in postFilterRatio
   }
 }

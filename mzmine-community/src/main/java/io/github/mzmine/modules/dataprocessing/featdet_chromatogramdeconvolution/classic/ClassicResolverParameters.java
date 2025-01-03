@@ -50,15 +50,10 @@ public class ClassicResolverParameters extends GeneralResolverParameters {
       "Minimum S/N ratio required for a peak to be considered valid.", new DecimalFormat("0.0"),
       3.0);
 
-  public static final DoubleParameter MIN_RATIO = new DoubleParameter("Min ratio of peak top/edge",
-      "Minimum ratio between peak's top intensity and side (lowest) data points."
-          + "\nThis parameter helps to reduce detection of false peaks in case the chromatogram is not smooth.",
-      new DecimalFormat("0.00"), 1.7d);
 
   public ClassicResolverParameters() {
     super(new Parameter[]{PEAK_LISTS, SUFFIX, handleOriginal, groupMS2Parameters, dimension,
-            SEARCH_RT_RANGE, SIGNAL_TO_NOISE, MIN_RATIO,
-            MIN_NUMBER_OF_DATAPOINTS},
+            SEARCH_RT_RANGE, SIGNAL_TO_NOISE, MIN_NUMBER_OF_DATAPOINTS},
         "https://mzmine.github.io/mzmine_documentation/module_docs/featdet_resolver_local_minimum/local-minimum-resolver.html");
   }
 

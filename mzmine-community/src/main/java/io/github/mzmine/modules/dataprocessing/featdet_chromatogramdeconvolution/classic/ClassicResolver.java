@@ -40,7 +40,7 @@ import java.util.List;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * ClassicResolver with these key points:
+ * AutoMinimumSearchResolver with these key points:
  * <p>
  * (1) One-pass detection with a ratioParam (e.g., 1.2). (2) searchXWidth is used only to decide if
  * the region is "big enough" to check for a separate peak or local minimum. The final peak width

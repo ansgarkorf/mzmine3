@@ -12,6 +12,7 @@
  *
  * The above copyright notice and this permission notice shall be
  * included in all copies or substantial portions of the Software.
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
  * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
  * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
@@ -52,14 +53,14 @@ import org.jetbrains.annotations.NotNull;
  */
 public class MinimumSearchFeatureResolver extends AbstractResolver {
 
-  final Range<Double> xRange;
-  final double searchXWidth;
-  final double minRatio;
-  private final ParameterSet parameters;
-  private final double chromThreshold;
-  private final int minDataPoints;
-  private final double minAbsoluteHeight;
-  private final double minRelativeHeight;
+  protected Range<Double> xRange;
+  protected double searchXWidth;
+  protected double minRatio;
+  protected ParameterSet parameters;
+  protected double chromThreshold;
+  protected int minDataPoints;
+  protected double minAbsoluteHeight;
+  protected double minRelativeHeight;
   double[] xBuffer;
   double[] yBuffer;
 

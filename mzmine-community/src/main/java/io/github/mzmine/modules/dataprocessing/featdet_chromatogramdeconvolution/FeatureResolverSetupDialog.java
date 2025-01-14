@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2024 The MZmine Development Team
+ * Copyright (c) 2004-2024 The mzmine Development Team
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -42,8 +42,6 @@ import io.github.mzmine.parameters.ParameterSet;
 import io.github.mzmine.parameters.dialogs.ParameterSetupDialogWithPreview;
 import io.github.mzmine.project.ProjectService;
 import io.github.mzmine.taskcontrol.AbstractTask;
-import io.github.mzmine.taskcontrol.TaskPriority;
-import io.github.mzmine.taskcontrol.TaskService;
 import io.github.mzmine.util.FeatureUtils;
 import io.github.mzmine.util.javafx.SortableFeatureComboBox;
 import java.text.NumberFormat;
@@ -52,13 +50,16 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import javafx.animation.PauseTransition;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.HPos;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.geometry.VPos;
+import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.ProgressIndicator;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.ColumnConstraints;
 import javafx.scene.layout.GridPane;
@@ -66,6 +67,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.RowConstraints;
+import javafx.scene.layout.VBox;
 import javafx.util.Duration;
 import javafx.util.StringConverter;
 
@@ -81,6 +83,11 @@ public class FeatureResolverSetupDialog extends ParameterSetupDialogWithPreview 
   protected SortableFeatureComboBox fBox;
   protected SortableFeatureComboBox fBoxBadFeature;
   protected Resolver resolver;
+
+  private Button optimizeButton;
+  private ProgressIndicator optimizeProgress;
+  private VBox featureCountBox;
+  private Label totalFeaturesLabel;
 
   protected final FxController<Object> controller = new FeatureResolverUpdateController(
       new Object());
@@ -163,6 +170,25 @@ public class FeatureResolverSetupDialog extends ParameterSetupDialogWithPreview 
     fBoxBadFeature.selectedFeatureProperty().addListener(
         ((_, _, newValue) -> /*startUpdateThreadForChart(previewChartBadFeature, newValue)*/ updateWithCurrentParameters()));
 
+    optimizeButton = new Button("Optimize");
+    optimizeProgress = new ProgressIndicator();
+    optimizeProgress.setVisible(false); // hidden by default
+
+    // Make the button run the optimization task when clicked
+    optimizeButton.setOnAction(e -> {
+      // Start the optimization
+      startOptimizationTask();
+    });
+
+    featureCountBox = new VBox(5);
+    featureCountBox.setPadding(new Insets(5));
+    totalFeaturesLabel = new Label("Total features: 0");
+    featureCountBox.getChildren().add(totalFeaturesLabel);
+
+    HBox optimizationBox = new HBox(10, optimizeButton, optimizeProgress);
+    optimizationBox.setPadding(new Insets(5));
+    optimizationBox.setAlignment(Pos.CENTER_LEFT);
+
     final BorderPane pnBadFeaturePreview = new BorderPane();
     pnBadFeaturePreview.setPadding(FxLayout.DEFAULT_PADDING_INSETS);
     previewChartBadFeature.setMinHeight(200);
@@ -183,6 +209,7 @@ public class FeatureResolverSetupDialog extends ParameterSetupDialogWithPreview 
     GridPane preview = new GridPane();
     preview.add(pnBadFeaturePreview, 0, 0, 2, 1);
     preview.add(pnFeaturePreview, 0, 1, 2, 1);
+    preview.add(optimizationBox, 0, 2, 2, 1);
     preview.getRowConstraints()
         .add(new RowConstraints(200, -1, -1, Priority.ALWAYS, VPos.CENTER, true));
     preview.getRowConstraints()
@@ -190,6 +217,76 @@ public class FeatureResolverSetupDialog extends ParameterSetupDialogWithPreview 
     preview.getColumnConstraints()
         .add(new ColumnConstraints(200, -1, -1, Priority.ALWAYS, HPos.LEFT, true));
     previewWrapperPane.setCenter(preview);
+  }
+
+  /**
+   * This is now just a small helper that creates and starts the Task. All optimization logic is in
+   * ParameterOptimizationTask.
+   */
+  private void startOptimizationTask() {
+    if (flistBox.getValue() == null) {
+      // no feature list selected
+      return;
+    }
+
+    // 1) Show the progress indicator
+    optimizeProgress.setVisible(true);
+
+    // 2) Create the new Task
+    ParameterOptimizationTask task = new ParameterOptimizationTask(parameterSet.cloneParameterSet(),
+        // or just parameterSet
+        (ModularFeatureList) flistBox.getValue());
+
+    // Optional: bind the progress indicator
+    optimizeProgress.progressProperty().bind(task.progressProperty());
+
+    // 3) On success or fail, hide indicator and do final steps
+    task.setOnSucceeded(evt -> {
+      optimizeProgress.setVisible(false);
+      optimizeProgress.progressProperty().unbind();
+
+      ParameterSet best = task.getValue(); // best from the optimization
+      if (best != null) {
+        // apply to this dialog’s parameterSet
+        parameterSet = best;
+        // update UI fields from param values
+        //TODO this does not work yet
+        updateParameterSetFromComponents();
+
+        // re-run preview with new best params
+        updateWithCurrentParameters();
+
+        // Optionally recalc total feature count
+        int totalFeatures = calculateTotalFeatures(best);
+        totalFeaturesLabel.setText("Total features: " + totalFeatures);
+      }
+    });
+    task.setOnFailed(evt -> {
+      optimizeProgress.setVisible(false);
+      optimizeProgress.progressProperty().unbind();
+
+      Throwable ex = task.getException();
+      MZmineCore.getDesktop()
+          .displayErrorMessage("Parameter optimization failed: " + ex.getMessage());
+    });
+    task.setOnCancelled(evt -> {
+      optimizeProgress.setVisible(false);
+      optimizeProgress.progressProperty().unbind();
+    });
+
+    // 4) Run the task in a background thread
+    Thread t = new Thread(task, "Parameter optimization");
+    t.setDaemon(true);
+    t.start();
+  }
+
+  /**
+   * Example method that runs a separate or partial feature-resolve to get the final number of
+   * features discovered. You can also do a full FeatureResolverTask if you want.
+   */
+  private int calculateTotalFeatures(ParameterSet params) {
+    // For demonstration, a dummy approach
+    return (int) (Math.random() * 500);
   }
 
   @Override

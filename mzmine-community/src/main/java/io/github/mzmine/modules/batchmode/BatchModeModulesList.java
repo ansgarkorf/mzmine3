@@ -175,6 +175,7 @@ import io.github.mzmine.modules.tools.siriusapi.modules.import_annotations.Siriu
 import io.github.mzmine.modules.tools.timstofmaldiacq.TimsTOFMaldiAcquisitionModule;
 import io.github.mzmine.modules.tools.timstofmaldiacq.imaging.SimsefImagingSchedulerModule;
 import io.github.mzmine.modules.visualization.chromatogram.ChromatogramVisualizerModule;
+import io.github.mzmine.modules.visualization.dash_featurelistcomparison.FeatureListComparisonModule;
 import io.github.mzmine.modules.visualization.dash_integration.IntegrationDashboardModule;
 import io.github.mzmine.modules.visualization.dash_lipidqc.LipidAnnotationQCDashboardModule;
 import io.github.mzmine.modules.visualization.equivalentcarbonnumberplot.EquivalentCarbonNumberModule;
@@ -500,6 +501,7 @@ public class BatchModeModulesList {
           EquivalentCarbonNumberModule.class, //
           LipidAnnotationSummaryModule.class, //
           CompoundDashboardModule.class, //
+          FeatureListComparisonModule.class, //
           IntegrationDashboardModule.class, //
           LipidAnnotationQCDashboardModule.class, //
           MultidetectorVisualizerModule.class, //

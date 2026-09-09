@@ -169,6 +169,63 @@ Text.contrast-label {
     -fx-text-fill: -jr-tooltip-fg;
 }
 
+/* Feature-list comparison dashboard */
+.feature-comparison-dashboard {
+    -fx-padding: 8px;
+}
+
+.feature-comparison-header {
+    -fx-spacing: 2px;
+}
+
+.feature-comparison-dashboard-title {
+    -fx-font-size: 18px;
+    -fx-font-weight: bold;
+}
+
+.feature-comparison-dashboard-metrics,
+.feature-comparison-selection-summary {
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+}
+
+.feature-comparison-card {
+    -fx-background-radius: 6px;
+    -fx-border-radius: 6px;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.16), 8, 0.08, 0, 2);
+}
+
+.feature-comparison-card-header {
+    -fx-spacing: 1px;
+    -fx-padding: 0 0 7px 0;
+}
+
+.feature-comparison-card-step {
+    -fx-font-size: 9px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -jr-selected;
+}
+
+.feature-comparison-card-title {
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+}
+
+.feature-comparison-secondary-text {
+    -fx-font-size: 10px;
+    -fx-opacity: 0.72;
+}
+
+.feature-comparison-footer {
+    -fx-padding: 7px 10px 2px 10px;
+    -fx-font-weight: bold;
+}
+
+.feature-comparison-conflict-row {
+    -fx-border-color: -warning-text-color;
+    -fx-border-width: 0 0 0 3px;
+}
+
 .tooltip-error {
     -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.8), 5, 0, 0, 5);
     -fx-font-weight: bold;

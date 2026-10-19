@@ -95,8 +95,12 @@
                                 text="Show raw data overview"/>
                               <MenuItem onAction="#handleShowRawDataSummary"
                                 text="Show raw data summary"/>
-                              <MenuItem onAction="#handleShowIMSDataOverview"
+                              <MenuItem fx:id="showImsOverviewItem"
+                                onAction="#handleShowIMSDataOverview"
                                 text="Show ion mobility raw data overview"/>
+                              <MenuItem fx:id="showGcxGcOverviewItem"
+                                onAction="#handleShowGcxGcOverview"
+                                text="Show GCxGC 2D retention time map"/>
 
                               <SeparatorMenuItem/>
                               <MenuItem onAction="#handleShowChromatogram"

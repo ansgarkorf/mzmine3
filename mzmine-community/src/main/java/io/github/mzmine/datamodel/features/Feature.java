@@ -277,6 +277,16 @@ public interface Feature {
   @Nullable Range<Float> getMobilityRange();
 
   /**
+   * @return the second dimension retention time (2D RT) of GCxGC features in minutes or null
+   */
+  @Nullable Float getSecondDimensionRT();
+
+  /**
+   * @return the second dimension retention time range of GCxGC features in minutes or null
+   */
+  @Nullable Range<Float> getSecondDimensionRTRange();
+
+  /**
    * Sets the mobiltiy range
    */
   void setMobilityRange(Range<Float> range);

@@ -152,7 +152,8 @@ public class MobilogramBinningSetupDialog extends ParameterSetupDialogWithPrevie
           parameterSet.getParameter(MobilogramBinningParameters.timsBinningWidth).getValue();
       case TRAVELING_WAVE ->
           parameterSet.getParameter(MobilogramBinningParameters.twimsBinningWidth).getValue();
-      case DRIFT_TUBE ->
+      // GCxGC is sampled at a constant rate like drift tube data
+      case DRIFT_TUBE, GCXGC ->
           parameterSet.getParameter(MobilogramBinningParameters.dtimsBinningWidth).getValue();
       default -> throw new UnsupportedOperationException(
           "Summing of the mobility type in raw data file " + f.getRawDataFile().getName()

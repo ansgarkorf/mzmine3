@@ -31,6 +31,7 @@ import io.github.mzmine.datamodel.RawDataFile;
 import io.github.mzmine.datamodel.Scan;
 import io.github.mzmine.datamodel.features.Feature;
 import io.github.mzmine.datamodel.features.FeatureList;
+import io.github.mzmine.datamodel.features.FeatureListRow;
 import io.github.mzmine.gui.MZmineGUI;
 import io.github.mzmine.gui.chartbasics.chartutils.paintscales.PaintScaleTransform;
 import io.github.mzmine.gui.mainwindow.MZmineTab;
@@ -115,6 +116,8 @@ class IntensityMapTab extends MZmineTab {
   // feature list of the peak labels, null for none
   private @Nullable FeatureList labelList;
   private @Nullable IntensityMapLabelState labelState;
+  // only these rows get peak labels, null for all rows of the label list
+  private @Nullable Set<FeatureListRow> labelRows;
   // features opened from the feature table
   private final @NotNull List<? extends Feature> features;
   // images: known annotations of the extracted ions by layer id, appended to the overlay titles
@@ -691,7 +694,8 @@ class IntensityMapTab extends MZmineTab {
   private boolean updateLabels() {
     final FeatureList list = labelList;
     final Range<Float> times = frames.retentionTimes();
-    final IntensityMapLabelState state = new IntensityMapLabelState(list, layers, times);
+    final IntensityMapLabelState state = new IntensityMapLabelState(list, layers, times,
+        labelRows);
     if (state.equals(labelState)) {
       return false;
     }
@@ -709,10 +713,46 @@ class IntensityMapTab extends MZmineTab {
       case LC_MS, AUTOMATIC, RT_MOBILITY, MOBILITY_FRAME -> {
         plot.setLabels(list == null ? List.of()
             : IntensityMapLabels.of(list, List.copyOf(layers), mode, times,
-                ConfigService.getGuiFormats()));
+                ConfigService.getGuiFormats(), labelRows));
         yield false;
       }
     };
+  }
+
+  /**
+   * @param rows only these rows of the label list get peak labels, null for all rows
+   */
+  void setLabelRows(@Nullable final Set<FeatureListRow> rows) {
+    labelRows = rows == null ? null : Set.copyOf(rows);
+    if (updateLabels()) {
+      publish();
+    }
+  }
+
+  /**
+   * Replaces the overlays by these m/z ranges, or by the default all-m/z overlay if empty
+   */
+  void showMzRanges(@NotNull final List<Range<Double>> ranges) {
+    if (ranges.isEmpty()) {
+      resetMzRanges();
+    } else {
+      setMzRanges(ranges);
+    }
+  }
+
+  /**
+   * @param compact true to show only the plot, see {@link IntensityMapPlot#setCompact(boolean)}
+   */
+  void setCompact(final boolean compact) {
+    plot.setCompact(compact);
+  }
+
+  /**
+   * Closes the view when it is embedded instead of opened as a tab, see
+   * {@link EmbeddedIntensityMap}
+   */
+  void dispose() {
+    close();
   }
 
   private void close() {

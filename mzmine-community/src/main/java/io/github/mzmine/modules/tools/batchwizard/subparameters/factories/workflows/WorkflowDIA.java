@@ -53,7 +53,7 @@ public class WorkflowDIA extends WorkflowWizardParameterFactory {
 
     return switch (ionInterface.group()) {
       case CHROMATOGRAPHY_SOFT -> new WizardBatchBuilderLcDIA(steps);
-      case CHROMATOGRAPHY_HARD, SPATIAL_IMAGING, DIRECT_AND_FLOW ->
+      case CHROMATOGRAPHY_HARD, CHROMATOGRAPHY_2D_HARD, SPATIAL_IMAGING, DIRECT_AND_FLOW ->
           throw new UnsupportedWorkflowException(steps);
     };
   }

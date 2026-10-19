@@ -38,6 +38,7 @@ import io.github.mzmine.parameters.ParameterSet;
 import io.github.mzmine.parameters.parametertypes.OriginalFeatureListHandlingParameter.OriginalFeatureListOption;
 import io.github.mzmine.parameters.parametertypes.tolerances.MZTolerance;
 import io.github.mzmine.parameters.parametertypes.tolerances.RTTolerance;
+
 import io.github.mzmine.taskcontrol.AbstractFeatureListTask;
 import io.github.mzmine.taskcontrol.AbstractTask;
 import io.github.mzmine.taskcontrol.threadpools.ThreadPoolTask;
@@ -70,6 +71,9 @@ public class GcEiGapFillingTask extends AbstractFeatureListTask {
   private final int numTopSignals;
   private final @NotNull RTTolerance sampleToSampleRtTolerance;
   private final @NotNull RTTolerance intraSampleCoelutionTolerance;
+  // second dimension of GCxGC data, null if inactive
+  private final @Nullable RTTolerance sampleToSample2DTolerance;
+  private final @Nullable RTTolerance intraSampleCoelution2DTolerance;
   private @Nullable ModularFeatureList processedList;
 
   public GcEiGapFillingTask(@NotNull final MZmineProject project,
@@ -86,6 +90,13 @@ public class GcEiGapFillingTask extends AbstractFeatureListTask {
         GcEiGapFillingParameters.SAMPLE_TO_SAMPLE_RT_TOLERANCE);
     intraSampleCoelutionTolerance = parameters.getValue(
         GcEiGapFillingParameters.INTRA_SAMPLE_COELUTION_TOLERANCE);
+    final var secondDimParam = parameters.getParameter(GcEiGapFillingParameters.SECOND_DIMENSION);
+    final ParameterSet secondDim =
+        secondDimParam.getValue() ? secondDimParam.getEmbeddedParameters() : null;
+    sampleToSample2DTolerance = secondDim == null ? null : secondDim.getValue(
+        GcEiGapFillingSecondDimensionParameters.SAMPLE_TO_SAMPLE_TOLERANCE);
+    intraSampleCoelution2DTolerance = secondDim == null ? null : secondDim.getValue(
+        GcEiGapFillingSecondDimensionParameters.INTRA_SAMPLE_COELUTION_TOLERANCE);
   }
 
   @Override
@@ -122,6 +133,7 @@ public class GcEiGapFillingTask extends AbstractFeatureListTask {
     for (final Map.Entry<RawDataFile, List<GcEiGapFillTarget>> entry : gapsPerFile.entrySet()) {
       subTasks.add(new GcEiRawFileGapFillingTask(targetList, entry.getKey(), entry.getValue(),
           settings, sampleToSampleRtTolerance, intraSampleCoelutionTolerance,
+          sampleToSample2DTolerance, intraSampleCoelution2DTolerance,
           this::incrementFinishedItems, getModuleCallDate()));
     }
 

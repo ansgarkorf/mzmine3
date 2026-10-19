@@ -25,10 +25,14 @@
 
 package io.github.mzmine.modules.dataprocessing.align_gc;
 
+import io.github.mzmine.parameters.parametertypes.tolerances.RTTolerance;
+import io.github.mzmine.parameters.parametertypes.tolerances.RTTolerance.Unit;
+import io.github.mzmine.util.GcxGcUtils;
 import io.github.mzmine.main.MZmineCore;
 import io.github.mzmine.parameters.Parameter;
 import io.github.mzmine.parameters.impl.SimpleParameterSet;
 import io.github.mzmine.parameters.parametertypes.DoubleParameter;
+import io.github.mzmine.parameters.parametertypes.OptionalParameter;
 import io.github.mzmine.parameters.parametertypes.OriginalFeatureListHandlingParameter;
 import io.github.mzmine.parameters.parametertypes.StringParameter;
 import io.github.mzmine.parameters.parametertypes.selectors.FeatureListsParameter;
@@ -36,6 +40,7 @@ import io.github.mzmine.parameters.parametertypes.submodules.ModuleOptionsEnumCo
 import io.github.mzmine.parameters.parametertypes.tolerances.MZToleranceParameter;
 import io.github.mzmine.parameters.parametertypes.tolerances.RTToleranceParameter;
 import io.github.mzmine.parameters.parametertypes.tolerances.ToleranceType;
+
 import io.github.mzmine.util.scans.similarity.SpectralSimilarityFunctions;
 
 public class GCAlignerParameters extends SimpleParameterSet {
@@ -57,6 +62,12 @@ public class GCAlignerParameters extends SimpleParameterSet {
       "Similarity", "Algorithm to calculate spectral similarity between to samples",
       SpectralSimilarityFunctions.NIST_COMPOSITE_COSINE);
 
+  public static final OptionalParameter<RTToleranceParameter> SECOND_DIMENSION_TOLERANCE = new OptionalParameter<>(
+      GcxGcUtils.secondDimensionRTToleranceParameter("2D RT tolerance", """
+          Maximum difference of the second dimension retention time (GCxGC second column).
+          Activate for GCxGC data.""", new RTTolerance(0.1f, Unit.SECONDS)),
+      false);
+
   public static final StringParameter FEATURE_LIST_NAME = new StringParameter("Feature list name",
       "Feature list name", "Aligned feature list");
 
@@ -65,8 +76,8 @@ public class GCAlignerParameters extends SimpleParameterSet {
       false);
 
   public GCAlignerParameters() {
-    super(new Parameter[]{FEATURE_LISTS, MZ_TOLERANCE, RT_TOLERANCE, RT_WEIGHT, SIMILARITY_FUNCTION,
-            FEATURE_LIST_NAME, handleOriginal},
+    super(new Parameter[]{FEATURE_LISTS, MZ_TOLERANCE, RT_TOLERANCE, RT_WEIGHT,
+            SECOND_DIMENSION_TOLERANCE, SIMILARITY_FUNCTION, FEATURE_LIST_NAME, handleOriginal},
         "https://mzmine.github.io/mzmine_documentation/module_docs/align_gcei/align_gc_ei.html");
   }
 }

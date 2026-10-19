@@ -57,7 +57,9 @@ public class HierarchicalClusteringAlgorithm implements SpectralDeconvolutionAlg
   }
 
   @Override
-  public List<List<ModularFeature>> groupFeatures(List<ModularFeature> features) {
+  public List<List<ModularFeature>> groupFeatures(List<ModularFeature> input) {
+    // sort a copy, the input list may be shared, e.g., by the preview
+    final List<ModularFeature> features = new ArrayList<>(input);
     features.sort(Comparator.comparingDouble(ModularFeature::getHeight).reversed());
 
     List<Cluster> clusters = new ArrayList<>();

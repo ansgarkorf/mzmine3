@@ -106,6 +106,11 @@ public class FeatureConvertors {
     ModularFeature modularFeature = new ModularFeature(featureList, dataFile, timeSeries,
         FeatureStatus.DETECTED);
 
+    if (GcxGcUtils.isSecondDimensionChromatogram(timeSeries)) {
+      // GCxGC chromatograms along the 2D RT spectra have no first dimension RT range
+      return modularFeature;
+    }
+
     // use wider mz range to group MS2 with chromatogram
     Range<Double> toleranceRange = mzTolerance.getToleranceRange(modularFeature.getMZ());
     Range<Double> mzRange = toleranceRange.span(modularFeature.getRawDataPointsMZRange());

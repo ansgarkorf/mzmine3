@@ -49,10 +49,12 @@ import org.jetbrains.annotations.Nullable;
  * @param detectedRange the retention time range of all detected features of the row
  * @param leftWidth     median distance from the start of the detected features to their apex
  * @param rightWidth    median distance from the apex of the detected features to their end
+ * @param secondDimension the second dimension of GCxGC rows, null for one-dimensional rows
  */
 public record GcEiGapFillTarget(@NotNull FeatureListRow row, double quantifierMz, float rt,
                                 double @NotNull [] topMzs, @NotNull Range<Float> detectedRange,
-                                float leftWidth, float rightWidth) {
+                                float leftWidth, float rightWidth,
+                                @Nullable GcEiGapFillSecondDimension secondDimension) {
 
   /**
    * @param numTopSignals number of signals to extract from the pseudo spectra
@@ -89,7 +91,8 @@ public record GcEiGapFillTarget(@NotNull FeatureListRow row, double quantifierMz
 
     return new GcEiGapFillTarget(row, row.getAverageMZ(), row.getAverageRT(), topMzs,
         detectedRange, (float) MathUtils.calcMedian(leftWidths),
-        (float) MathUtils.calcMedian(rightWidths));
+        (float) MathUtils.calcMedian(rightWidths),
+        GcEiGapFillSecondDimension.fromFeatures(features));
   }
 
   /**

@@ -55,6 +55,7 @@ public class RowAlignmentScoreCalculator {
   private final double mzWeight;
   private final double rtWeight;
   private final double mobilityWeight;
+  private final boolean emptyMobilityDelta;
   private final int totalSamples;
 
   /**
@@ -66,7 +67,17 @@ public class RowAlignmentScoreCalculator {
   public RowAlignmentScoreCalculator(final List<FeatureList> originalFeatureLists,
       @NotNull MZTolerance mzTol, @Nullable RTTolerance rtTol, @Nullable MobilityTolerance mobTol,
       double mzWeight, double rtWeight, double mobilityWeight) {
+    this(originalFeatureLists, mzTol, rtTol, mobTol, mzWeight, rtWeight, mobilityWeight, false);
+  }
 
+  /**
+   * @param emptyMobilityDelta true to leave the mobility difference empty if the rows have no
+   *                           mobility, e.g., for GCxGC data. Otherwise, it is 0.
+   */
+  public RowAlignmentScoreCalculator(final List<FeatureList> originalFeatureLists,
+      @NotNull MZTolerance mzTol, @Nullable RTTolerance rtTol, @Nullable MobilityTolerance mobTol,
+      double mzWeight, double rtWeight, double mobilityWeight, final boolean emptyMobilityDelta) {
+    this.emptyMobilityDelta = emptyMobilityDelta;
     this.mzTol = mzTol;
     this.rtTol = rtTol;
     this.mobTol = mobTol;
@@ -143,7 +154,13 @@ public class RowAlignmentScoreCalculator {
     float rate = testedAlignedFeatures / (float) totalSamples;
 
     float rtDelta = minRt == null ? 0 : maxRt - minRt;
-    float mobilityDelta = minMobility == null ? 0 : maxMobility - minMobility;
+    // GCxGC has no mobility, keep the value empty so that exports drop the column
+    final Float mobilityDelta;
+    if (minMobility != null) {
+      mobilityDelta = maxMobility - minMobility;
+    } else {
+      mobilityDelta = emptyMobilityDelta ? null : 0f;
+    }
     double mzDelta = minMz == null ? 0 : maxMz - minMz;
 
     float ppm = (float) (mzDelta / mz * 1_000_000f);

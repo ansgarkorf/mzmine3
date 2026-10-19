@@ -37,6 +37,7 @@ import io.github.mzmine.datamodel.featuredata.MzSeries;
 import io.github.mzmine.datamodel.featuredata.TimeSeries;
 import io.github.mzmine.modules.io.projectload.CachedIMSFrame;
 import io.github.mzmine.modules.io.projectload.version_3_0.CONST;
+import io.github.mzmine.util.GcxGcUtils;
 import io.github.mzmine.util.DataPointUtils;
 import io.github.mzmine.util.MemoryMapStorage;
 import io.github.mzmine.util.ParsingUtils;
@@ -130,7 +131,9 @@ public class SimpleIonTimeSeries implements IonTimeSeries<Scan> {
       switch (reader.getLocalName()) {
         case CONST.XML_SCAN_LIST_ELEMENT -> {
           int[] indices = ParsingUtils.stringToIntArray(reader.getElementText());
-          scans = ParsingUtils.getSublistFromIndices(file.getScans(), indices); // use all scans
+          // use all scans, for GCxGC followed by the 2D RT spectra
+          scans = ParsingUtils.getSublistFromIndices(GcxGcUtils.getScansForIndexing(file),
+              indices);
 
           // if the scans were CachedFrames, we have to replace them when storing them to the series,
           // otherwise, we would keep the refences to cached mobility scans alive.

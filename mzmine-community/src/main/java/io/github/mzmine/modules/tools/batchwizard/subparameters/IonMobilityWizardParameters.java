@@ -52,7 +52,7 @@ public final class IonMobilityWizardParameters extends WizardStepParameters {
       new BooleanParameter("IMS active", "Flag if IMS is active", false));
 
   public static final ComboParameter<MobilityType> instrumentType = new ComboParameter<>("IMS type",
-      "", MobilityType.values(), MobilityType.TIMS);
+      "", MobilityType.ionMobilityValues(), MobilityType.TIMS);
 
   public static final BooleanParameter smoothing = new BooleanParameter("Smoothing",
       "Apply smoothing in the mobility dimension, usually only needed if the peak shapes are spiky.",

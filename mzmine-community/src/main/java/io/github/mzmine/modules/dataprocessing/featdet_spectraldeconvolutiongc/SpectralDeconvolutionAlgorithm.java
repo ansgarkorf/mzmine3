@@ -28,13 +28,23 @@ package io.github.mzmine.modules.dataprocessing.featdet_spectraldeconvolutiongc;
 import io.github.mzmine.datamodel.features.ModularFeature;
 import io.github.mzmine.modules.MZmineModule;
 import io.github.mzmine.parameters.parametertypes.tolerances.RTTolerance;
+
 import java.util.List;
+import org.jetbrains.annotations.Nullable;
 
 public interface SpectralDeconvolutionAlgorithm extends MZmineModule {
 
   List<List<ModularFeature>> groupFeatures(List<ModularFeature> features);
 
   RTTolerance getRtTolerance();
+
+  /**
+   * @return the tolerance of the second separation dimension (GCxGC second column retention time)
+   * or null if the algorithm only groups by retention time
+   */
+  default @Nullable RTTolerance getSecondDimensionTolerance() {
+    return null;
+  }
 
   default List<List<ModularFeature>> groupFeatures() {
     throw new UnsupportedOperationException("Method not implemented. Please implement me.");

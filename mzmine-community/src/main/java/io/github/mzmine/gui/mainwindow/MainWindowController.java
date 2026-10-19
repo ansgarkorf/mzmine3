@@ -25,9 +25,12 @@
 
 package io.github.mzmine.gui.mainwindow;
 
+import javafx.stage.WindowEvent;
+import io.github.mzmine.util.GcxGcUtils;
 import io.github.mzmine.datamodel.IMSRawDataFile;
 import io.github.mzmine.datamodel.ImagingRawDataFile;
 import io.github.mzmine.datamodel.MassSpectrumType;
+import io.github.mzmine.datamodel.MobilityType;
 import io.github.mzmine.datamodel.RawDataFile;
 import io.github.mzmine.datamodel.features.FeatureList;
 import io.github.mzmine.datamodel.features.ModularFeatureList;
@@ -112,11 +115,11 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.Scene;
-import javafx.scene.control.Alert;
 import javafx.scene.control.Alert.AlertType;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
-import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonBar.ButtonData;
+import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.ColorPicker;
 import javafx.scene.control.ContextMenu;
@@ -158,6 +161,10 @@ public class MainWindowController {
 
   @FXML
   public ContextMenu rawDataContextMenu;
+  @FXML
+  public MenuItem showImsOverviewItem;
+  @FXML
+  public MenuItem showGcxGcOverviewItem;
   @FXML
   public ContextMenu featureListContextMenu;
   @FXML
@@ -452,11 +459,22 @@ public class MainWindowController {
     rawDataList.setOnDragExited(_ -> dragDropOpacity.set(0.3));
     rawDataList.setOnDragDropped(_ -> dragDropOpacity.set(0.3));
 
+    // GCxGC uses the ion mobility data model internally but has its own overview
+    rawDataContextMenu.addEventHandler(WindowEvent.WINDOW_SHOWING, _ -> {
+      final List<RawDataFile> selected = MZmineGUI.getSelectedRawDataFiles();
+      showImsOverviewItem.setVisible(selected.isEmpty() || selected.stream()
+          .anyMatch(raw -> raw instanceof IMSRawDataFile && !GcxGcUtils.isGcxGc(raw)));
+      showGcxGcOverviewItem.setVisible(selected.stream().anyMatch(GcxGcUtils::isGcxGc));
+    });
+
     // Add mouse clicked event handler
     rawDataList.getTreeView().setOnMouseClicked(event -> {
       if (event.getClickCount() == 2) {
         RawDataFile clickedFile = MZmineGUI.getSelectedRawDataFiles().get(0);
-        if (clickedFile instanceof IMSRawDataFile) {
+        // GCxGC opens in the 2D visualizer as first vs. second dimension retention time
+        if (GcxGcUtils.isGcxGc(clickedFile) && clickedFile instanceof IMSRawDataFile gcxgc) {
+          IntensityMap3DModule.showGcxGcRetentionTimes(gcxgc);
+        } else if (clickedFile instanceof IMSRawDataFile) {
           if (clickedFile instanceof ImagingRawDataFile) {
             if (!DialogLoggerUtil.showDialogYesNo(AlertType.WARNING, "Warning!", """
                 You are trying to open an IMS MS imaging file.
@@ -627,9 +645,19 @@ public class MainWindowController {
     MZmineCore.setupAndRunModule(RawDataSummaryModule.class);
   }
 
+  public void handleShowGcxGcOverview(Event event) {
+    MZmineGUI.getSelectedRawDataFiles().stream().filter(GcxGcUtils::isGcxGc)
+        .map(IMSRawDataFile.class::cast).forEach(IntensityMap3DModule::showGcxGcRetentionTimes);
+  }
+
   public void handleShowIMSDataOverview(Event event) {
     logger.finest("Activated Show ion mobility raw data overview");
-    var selectedFiles = MZmineGUI.getSelectedRawDataFiles();
+    // GCxGC files have their own overview
+    var selectedFiles = MZmineGUI.getSelectedRawDataFiles().stream()
+        .filter(raw -> !GcxGcUtils.isGcxGc(raw)).toList();
+    if (selectedFiles.isEmpty()) {
+      return;
+    }
     ParameterSet parameters = MZmineCore.getConfiguration()
         .getModuleParameters(IMSRawDataOverviewModule.class);
     parameters.getParameter(RawDataOverviewParameters.rawDataFiles)

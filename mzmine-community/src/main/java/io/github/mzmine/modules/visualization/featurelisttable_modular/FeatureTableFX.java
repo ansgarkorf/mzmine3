@@ -25,6 +25,9 @@
 
 package io.github.mzmine.modules.visualization.featurelisttable_modular;
 
+import io.github.mzmine.datamodel.features.types.FeatureShapeSecondDimensionType;
+import io.github.mzmine.datamodel.features.types.FeatureShapeGcxGc2DType;
+import io.github.mzmine.util.GcxGcUtils;
 import io.github.mzmine.datamodel.AbundanceMeasure;
 import io.github.mzmine.datamodel.IMSRawDataFile;
 import io.github.mzmine.datamodel.ImagingRawDataFile;
@@ -424,6 +427,7 @@ public class FeatureTableFX extends BorderPane {
   private void setShapeColumnsVisible(boolean state) {
     setVisible(ColumnType.ROW_TYPE, FeatureShapeType.class, null, state);
     setVisible(ColumnType.ROW_TYPE, FeatureShapeMobilogramType.class, null, state);
+    setVisible(ColumnType.ROW_TYPE, FeatureShapeSecondDimensionType.class, null, state);
     applyVisibilityParametersToAllColumns();
   }
 
@@ -1259,8 +1263,12 @@ public class FeatureTableFX extends BorderPane {
           // non-imaging files don't need a image column
           continue;
         } else if (ftype instanceof FeatureShapeIonMobilityRetentionTimeHeatMapType && (
-            !(dataFile instanceof IMSRawDataFile) || dataFile instanceof ImagingRawDataFile)) {
+            !(dataFile instanceof IMSRawDataFile) || dataFile instanceof ImagingRawDataFile
+                || GcxGcUtils.isGcxGc(dataFile))) {
           // non ims files or ims-imaging files don't need a ims trace column
+          continue;
+        } else if (ftype instanceof FeatureShapeGcxGc2DType && !GcxGcUtils.isGcxGc(dataFile)) {
+          // only GCxGC files have 2D features
           continue;
         }
 
@@ -1569,6 +1577,8 @@ public class FeatureTableFX extends BorderPane {
     boolean imagesVisible = getDefaultVisibilityOfImages() && imagingFiles == 1;
     setVisible(ColumnType.FEATURE_TYPE, FeatureShapeIonMobilityRetentionTimeHeatMapType.class, null,
         imsVisible);
+    // the 2D feature shapes of GCxGC like the IMS traces
+    setVisible(ColumnType.FEATURE_TYPE, FeatureShapeGcxGc2DType.class, null, imsVisible);
     setVisible(ColumnType.FEATURE_TYPE, FeatureShapeMobilogramType.class, null, imagesVisible);
     applyVisibilityParametersToAllColumns();
   }
@@ -1587,6 +1597,7 @@ public class FeatureTableFX extends BorderPane {
     boolean smallDataset = flist.getNumberOfRawDataFiles() <= getMaximumSamplesForVisibleShapes();
     setVisible(ColumnType.ROW_TYPE, FeatureShapeType.class, null, smallDataset);
     setVisible(ColumnType.ROW_TYPE, FeatureShapeMobilogramType.class, null, smallDataset);
+    setVisible(ColumnType.ROW_TYPE, FeatureShapeSecondDimensionType.class, null, smallDataset);
 //    setVisible(ColumnType.ROW_TYPE, FeaturesType.class, null, true);
 
     applyVisibilityParametersToAllColumns();

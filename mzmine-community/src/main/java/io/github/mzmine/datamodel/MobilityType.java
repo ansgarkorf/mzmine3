@@ -29,6 +29,7 @@ import io.github.mzmine.datamodel.features.Feature;
 import io.github.mzmine.datamodel.utils.UniqueIdSupplier;
 import io.github.mzmine.gui.preferences.UnitFormat;
 import io.github.mzmine.main.MZmineCore;
+import java.util.Arrays;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -53,7 +54,14 @@ public enum MobilityType implements UniqueIdSupplier {
   DRIFT_TUBE("Drift time", "ms", "DTIMS"), // drift tube
   TRAVELING_WAVE("Drift time", "ms", "TWIMS"), // traveling wave ion mobility spectrometry
   FAIMS("TODO", "TODO", "FAIMS"), // field asymmetric waveform ion mobility spectrometry
-  SLIM("Drift time", "ms", "SLIM");
+  SLIM("Drift time", "ms", "SLIM"), //
+  /**
+   * Comprehensive two-dimensional gas chromatography, not an ion mobility type. Internal marker of
+   * GCxGC data that reuses the IMS data model: frames are modulations at the first column
+   * retention time, the "mobility" is the second column retention time in minutes. Users never see
+   * this as mobility, see {@link io.github.mzmine.util.GcxGcUtils}.
+   */
+  GCXGC("2D RT", "min", "GCxGC");
 
   private final String axisLabel;
   private final String unit;
@@ -65,10 +73,40 @@ public enum MobilityType implements UniqueIdSupplier {
     this.name = name;
   }
 
+  /**
+   * @return all ion mobility types, without chromatographic second dimensions like GCxGC
+   */
+  public static MobilityType @NotNull [] ionMobilityValues() {
+    return Arrays.stream(values()).filter(type -> !type.isChromatographic())
+        .toArray(MobilityType[]::new);
+  }
+
   public String getAxisLabel() {
     UnitFormat uf = MZmineCore.getConfiguration().getUnitFormat();
-    final String sb = "Mobility (" + axisLabel + ")";
-    return uf.format(sb, getUnit());
+    return uf.format(getLabel(), getUnit());
+  }
+
+  /**
+   * @return the name of the separation dimension without unit
+   */
+  public @NotNull String getLabel() {
+    return switch (this) {
+      // the second chromatographic dimension is no ion mobility
+      case GCXGC -> axisLabel;
+      case NONE, MIXED, OTHER, TIMS, DRIFT_TUBE, TRAVELING_WAVE, FAIMS, SLIM ->
+          "Mobility (" + axisLabel + ")";
+    };
+  }
+
+  /**
+   * @return true if this is a chromatographic second dimension (GCxGC) and not an ion mobility
+   * separation. CCS values cannot be calculated for these types.
+   */
+  public boolean isChromatographic() {
+    return switch (this) {
+      case GCXGC -> true;
+      case NONE, MIXED, OTHER, TIMS, DRIFT_TUBE, TRAVELING_WAVE, FAIMS, SLIM -> false;
+    };
   }
 
   public String getUnit() {
@@ -114,7 +152,7 @@ public enum MobilityType implements UniqueIdSupplier {
 
   public String getCcsBaseEntryString() {
     return switch (this) {
-      case NONE, FAIMS, OTHER, MIXED -> null;
+      case NONE, FAIMS, OTHER, MIXED, GCXGC -> null;
       case TIMS -> "TIMS";
       case DRIFT_TUBE -> "DT";
       case TRAVELING_WAVE -> "TW";
@@ -133,6 +171,7 @@ public enum MobilityType implements UniqueIdSupplier {
       case TRAVELING_WAVE -> "TRAVELING_WAVE";
       case FAIMS -> "FAIMS";
       case SLIM -> "SLIM";
+      case GCXGC -> "GCXGC";
     };
   }
 }

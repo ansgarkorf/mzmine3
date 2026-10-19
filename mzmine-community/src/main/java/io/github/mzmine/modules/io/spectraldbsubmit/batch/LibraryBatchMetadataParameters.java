@@ -65,7 +65,7 @@ public class LibraryBatchMetadataParameters extends SimpleParameterSet {
           "Exchange all polarities with this value in case its not provided.", Polarity.values(),
           Polarity.Positive), false);
   public static final ComboParameter<MobilityType> ION_MOBILITY = new ComboParameter<>(
-      "Ion mobility", "", MobilityType.values(), MobilityType.NONE);
+      "Ion mobility", "", MobilityType.ionMobilityValues(), MobilityType.NONE);
 
   public static final ComboParameter<Instrument> INSTRUMENT = new ComboParameter<>("INSTRUMENT", "",
       Instrument.values(), Instrument.Orbitrap);

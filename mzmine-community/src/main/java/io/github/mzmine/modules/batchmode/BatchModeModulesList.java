@@ -25,6 +25,9 @@
 
 package io.github.mzmine.modules.batchmode;
 
+import io.github.mzmine.modules.dataprocessing.featdet_gcxgc.GcxGcSecondDimensionSpectraModule;
+import io.github.mzmine.modules.dataprocessing.featdet_gcxgc.GcxGc2DFeatureBuilderModule;
+import io.github.mzmine.modules.dataprocessing.featdet_gcxgc.GcxGc2DFeatureFinderModule;
 import io.github.mzmine.datamodel.identities.fx.GlobalIonLibrariesModule;
 import io.github.mzmine.modules.MZmineProcessingModule;
 import io.github.mzmine.modules.MZmineRunnableModule;
@@ -111,6 +114,7 @@ import io.github.mzmine.modules.dataprocessing.id_ccscalibration.external.Extern
 import io.github.mzmine.modules.dataprocessing.id_ccscalibration.reference.ReferenceCCSCalibrationModule;
 import io.github.mzmine.modules.dataprocessing.id_cliquems.CliqueMSModule;
 import io.github.mzmine.modules.dataprocessing.id_formulapredictionfeaturelist.FormulaPredictionFeatureListModule;
+import io.github.mzmine.modules.dataprocessing.id_gc_ei_ion_notation.GcEiIonNotationModule;
 import io.github.mzmine.modules.dataprocessing.id_gnpsresultsimport.GNPSResultsImportModule;
 import io.github.mzmine.modules.dataprocessing.id_ion_identity_networking.addionannotations.AddIonNetworkingModule;
 import io.github.mzmine.modules.dataprocessing.id_ion_identity_networking.checkmsms.IonNetworkMSMSCheckModule;
@@ -261,6 +265,7 @@ public class BatchModeModulesList {
           MassDetectionModule.class, //
           MassCalibrationModule.class, //
           MobilityScanMergerModule.class, //
+          GcxGcSecondDimensionSpectraModule.class, //
           RawFileMergeModule.class, //
 
           /*
@@ -301,6 +306,8 @@ public class BatchModeModulesList {
           SpectralDeconvolutionGCModule.class, //
           ADAP3DModule.class, //
           ImsExpanderModule.class, //
+          GcxGc2DFeatureBuilderModule.class, //
+          GcxGc2DFeatureFinderModule.class, //
           MaldiSpotFeatureDetectionModule.class, //
           BaselineCorrectionModule.class, //
 
@@ -387,6 +394,7 @@ public class BatchModeModulesList {
           IonNetworkMSMSCheckModule.class, //
           FormulaPredictionIonNetworkModule.class, //
           CreateAvgNetworkFormulasModule.class, //
+          GcEiIonNotationModule.class, //
           OnlineLcReactivityModule.class, //
           ClearIonIdentitiesModule.class, //
 

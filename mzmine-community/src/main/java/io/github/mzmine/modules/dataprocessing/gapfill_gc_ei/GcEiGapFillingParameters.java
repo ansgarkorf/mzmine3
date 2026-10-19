@@ -36,6 +36,9 @@ import io.github.mzmine.parameters.parametertypes.selectors.FeatureListsSelectio
 import io.github.mzmine.parameters.parametertypes.tolerances.RTTolerance;
 import io.github.mzmine.parameters.parametertypes.tolerances.RTTolerance.Unit;
 import io.github.mzmine.parameters.parametertypes.tolerances.RTToleranceParameter;
+import io.github.mzmine.parameters.ParameterSet;
+import io.github.mzmine.parameters.parametertypes.submodules.OptionalModuleParameter;
+
 import org.jetbrains.annotations.NotNull;
 
 public class GcEiGapFillingParameters extends SimpleParameterSet {
@@ -61,6 +64,13 @@ public class GcEiGapFillingParameters extends SimpleParameterSet {
       in the same sample. Usually the same tolerance as used for the GC-EI spectral deconvolution.""",
       new RTTolerance(0.04f, Unit.MINUTES));
 
+  public static final OptionalModuleParameter<GcEiGapFillingSecondDimensionParameters> SECOND_DIMENSION = new OptionalModuleParameter<>(
+      "Second dimension (GCxGC)", """
+      For GCxGC data. The co-elution of the signals is also checked in the second dimension (second column retention time)
+      and the gap-filled features are extracted within the second dimension of the row.
+      Without this option, compounds of the same modulation that are separated in the second dimension would be summed.""",
+      new GcEiGapFillingSecondDimensionParameters(), false);
+
   public static final StringParameter SUFFIX = new StringParameter("Name suffix",
       "Suffix to be added to feature list name", "gaps");
 
@@ -69,7 +79,7 @@ public class GcEiGapFillingParameters extends SimpleParameterSet {
 
   public GcEiGapFillingParameters() {
     super(new Parameter[]{FEATURE_LISTS, NUMBER_OF_TOP_SIGNALS, SAMPLE_TO_SAMPLE_RT_TOLERANCE,
-            INTRA_SAMPLE_COELUTION_TOLERANCE, SUFFIX, HANDLE_ORIGINAL},
+            INTRA_SAMPLE_COELUTION_TOLERANCE, SECOND_DIMENSION, SUFFIX, HANDLE_ORIGINAL},
         "https://mzmine.github.io/mzmine_documentation/module_docs/gapfill_gc_ei/gc-ei-gap-filling.html");
   }
 
@@ -88,6 +98,29 @@ public class GcEiGapFillingParameters extends SimpleParameterSet {
     params.setParameter(INTRA_SAMPLE_COELUTION_TOLERANCE, intraSampleCoelutionTolerance);
     params.setParameter(SUFFIX, suffix);
     params.setParameter(HANDLE_ORIGINAL, handleOriginal);
+    params.setParameter(SECOND_DIMENSION, false);
+    return params;
+  }
+
+  /**
+   * Creates a parameter set for GCxGC data with second dimension tolerances.
+   */
+  public static @NotNull GcEiGapFillingParameters create(
+      @NotNull final FeatureListsSelection flists, final int numberOfTopSignals,
+      @NotNull final RTTolerance sampleToSampleRtTolerance,
+      @NotNull final RTTolerance intraSampleCoelutionTolerance,
+      @NotNull final RTTolerance sampleToSample2DTolerance,
+      @NotNull final RTTolerance intraSampleCoelution2DTolerance,
+      @NotNull final String suffix, @NotNull final OriginalFeatureListOption handleOriginal) {
+    final GcEiGapFillingParameters params = create(flists, numberOfTopSignals,
+        sampleToSampleRtTolerance, intraSampleCoelutionTolerance, suffix, handleOriginal);
+    params.setParameter(SECOND_DIMENSION, true);
+    final ParameterSet secondDim = params.getParameter(SECOND_DIMENSION).getEmbeddedParameters();
+    secondDim.setParameter(GcEiGapFillingSecondDimensionParameters.SAMPLE_TO_SAMPLE_TOLERANCE,
+        sampleToSample2DTolerance);
+    secondDim.setParameter(
+        GcEiGapFillingSecondDimensionParameters.INTRA_SAMPLE_COELUTION_TOLERANCE,
+        intraSampleCoelution2DTolerance);
     return params;
   }
 }

@@ -35,6 +35,7 @@ import io.github.mzmine.datamodel.impl.SimpleFrame;
 import io.github.mzmine.datamodel.impl.StoredMobilityScan;
 import io.github.mzmine.datamodel.impl.masslist.StoredMobilityScanMassList;
 import io.github.mzmine.modules.io.import_rawdata_all.spectral_processor.MobilitySpectralArrays;
+import io.github.mzmine.datamodel.impl.SimpleModulation;
 import io.github.mzmine.project.impl.IMSRawDataFileImpl;
 import io.github.mzmine.util.MemoryMapStorage;
 import java.lang.foreign.MemorySegment;
@@ -272,6 +273,10 @@ public class BuildingMobilityScanStorage {
 
   public SimpleFrame createFrame(final IMSRawDataFileImpl newImsFile, final int frameNumber) {
     MobilityType mobilityType = mobilityScans.getFirst().mobilityType();
+    if (mobilityType == MobilityType.GCXGC) {
+      return new SimpleModulation(newImsFile, frameNumber, getMsLevel(), getRetentionTime(), null,
+          null, getSpectrumType(), getPolarity(), getScanDefinition(), getScanningMZRange());
+    }
     return new SimpleFrame(newImsFile, frameNumber, getMsLevel(), getRetentionTime(), null, null,
         getSpectrumType(), getPolarity(), getScanDefinition(), getScanningMZRange(), mobilityType,
         null, null);

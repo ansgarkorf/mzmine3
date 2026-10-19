@@ -27,8 +27,10 @@ package io.github.mzmine.modules.visualization.intensitymap;
 
 import com.google.common.collect.Range;
 import io.github.mzmine.datamodel.features.FeatureList;
+import io.github.mzmine.datamodel.features.FeatureListRow;
 import io.github.mzmine.modules.visualization.intensitymap.sampling.IntensityMapLayer;
 import java.util.List;
+import java.util.Set;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -40,7 +42,8 @@ import org.jetbrains.annotations.Nullable;
  * @param frameTimes retention times of the shown mobility frames, null if unknown
  */
 record IntensityMapLabelState(@Nullable FeatureList list, @NotNull List<IntensityMapLayer> layers,
-                              @Nullable Range<Float> frameTimes) {
+                              @Nullable Range<Float> frameTimes,
+                              @Nullable Set<FeatureListRow> labelRows) {
 
   IntensityMapLabelState {
     layers = List.copyOf(layers);

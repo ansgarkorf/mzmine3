@@ -51,8 +51,9 @@ public enum IntensityMapDimensions implements UniqueIdSupplier {
     return switch (this) {
       case AUTOMATIC -> "Automatic";
       case LC_MS -> "LC-MS (retention time, m/z)";
-      case RT_MOBILITY -> "Ion mobility (retention time, mobility)";
-      case MOBILITY_FRAME -> "Ion mobility frame (m/z, mobility)";
+      // GCxGC uses the same dimensions: first and second dimension retention time
+      case RT_MOBILITY -> "Retention time, mobility or GCxGC 2D RT";
+      case MOBILITY_FRAME -> "Ion mobility frame or GCxGC modulation (m/z, 2nd dimension)";
       case IMAGING -> "Imaging (x, y)";
     };
   }

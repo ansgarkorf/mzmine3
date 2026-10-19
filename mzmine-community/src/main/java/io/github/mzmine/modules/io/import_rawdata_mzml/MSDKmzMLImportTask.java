@@ -53,6 +53,7 @@ import io.github.mzmine.modules.io.import_rawdata_mzml.msdk.data.MzMLParser;
 import io.github.mzmine.modules.io.import_rawdata_mzml.msdk.data.MzMLRawDataFile;
 import io.github.mzmine.modules.io.import_rawdata_mzml.msdk.data.header.MzMLFileMetadataMapper;
 import io.github.mzmine.parameters.ParameterSet;
+import io.github.mzmine.project.impl.GCxGCRawDataFileImpl;
 import io.github.mzmine.project.impl.IMSRawDataFileImpl;
 import io.github.mzmine.project.impl.RawDataFileImpl;
 import io.github.mzmine.taskcontrol.AbstractTask;
@@ -316,8 +317,14 @@ public class MSDKmzMLImportTask extends AbstractTask implements RawDataImportTas
   public IMSRawDataFileImpl buildIonMobilityFile(MzMLRawDataFile file) throws IOException {
     String descriptionTemplate = description = "Importing %s, total / parsed is %d / ".formatted(
         this.file.getName(), totalScansAfterFilter);
-    IMSRawDataFileImpl newImsFile = new IMSRawDataFileImpl(this.file.getName(),
-        this.file.getAbsolutePath(), storage);
+    // all this is checked before when building the BuildingMobilityScanStorage
+    final MobilityType mobilityType = file.getMobilityScanData().getFirst().getMobilityScans()
+        .getFirst().mobilityType();
+    // GCxGC uses the IMS data model internally but is its own data type
+    final IMSRawDataFileImpl newImsFile =
+        mobilityType == MobilityType.GCXGC ? new GCxGCRawDataFileImpl(this.file.getName(),
+            this.file.getAbsolutePath(), storage)
+            : new IMSRawDataFileImpl(this.file.getName(), this.file.getAbsolutePath(), storage);
 
     // index ion mobility values first, some manufacturers don't save all scans for all frames if
     // they are empty.
@@ -331,9 +338,6 @@ public class MSDKmzMLImportTask extends AbstractTask implements RawDataImportTas
     List<BuildingMobilityScanStorage> framesMobilityScans = file.getMobilityScanData();
 
     // reverse mobilities for TIMS
-    // all this is checked before when building the BuildingMobilityScanStorage
-    var mobilityType = framesMobilityScans.getFirst().getMobilityScans().getFirst().mobilityType();
-
     // TIMS may have multiple segments but people should just use tdf
     if (mobilityType == MobilityType.TIMS && mobilities[0] - mobilities[1] < 0) {
       // for tims, mobilities must be sorted in descending order, so if [0]-[1] < 0, we must reverse
@@ -467,7 +471,9 @@ public class MSDKmzMLImportTask extends AbstractTask implements RawDataImportTas
           final double mobility = mzMLScan.mobility();
           final Entry<Range<Double>, Integer> entry = mobilityCounts.getEntry(mobility);
           if (entry == null) {
-            final double delta = isTims ? 0.000002 : 0.00002;
+            // GCxGC 2D RT in minutes: scans are 1.7E-5 to 1E-4 min apart
+            final double delta =
+                isTims || mzMLScan.mobilityType() == MobilityType.GCXGC ? 0.000002 : 0.00002;
             final Range<Double> range = SpectraMerging.createNewNonOverlappingRange(mobilityCounts,
                 Range.closed(mobility - delta, mobility + delta));
             mobilityCounts.put(range, 1);

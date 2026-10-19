@@ -31,7 +31,9 @@ import io.github.mzmine.datamodel.RawDataFile;
 import io.github.mzmine.datamodel.Scan;
 import io.github.mzmine.datamodel.features.FeatureListRow;
 import io.github.mzmine.datamodel.features.ModularFeatureList;
+import io.github.mzmine.datamodel.features.compoundlist.CompoundRow;
 import io.github.mzmine.datamodel.features.types.FeatureShapeMobilogramType;
+import io.github.mzmine.datamodel.features.types.FeatureShapeSecondDimensionType;
 import io.github.mzmine.datamodel.identities.iontype.IonIdentity;
 import io.github.mzmine.datamodel.msms.ActivationMethod;
 import io.github.mzmine.datamodel.msms.MsMsInfo;
@@ -39,6 +41,7 @@ import io.github.mzmine.javafx.components.factories.FxComboBox;
 import io.github.mzmine.javafx.components.factories.FxLabels;
 import io.github.mzmine.javafx.components.util.FxLayout;
 import io.github.mzmine.javafx.mvci.FxViewBuilder;
+import io.github.mzmine.javafx.properties.PropertyUtils;
 import io.github.mzmine.javafx.util.FxIconUtil;
 import io.github.mzmine.javafx.util.FxIcons;
 import io.github.mzmine.main.ConfigService;
@@ -48,9 +51,15 @@ import io.github.mzmine.modules.visualization.featurerow4dplot.FeatureRow4DPlotC
 import io.github.mzmine.modules.visualization.featurerow4dplot.FeatureRow4DPlotIcon;
 import io.github.mzmine.modules.visualization.otherdetectors.chromatogramplot.ChromatogramPlotController;
 import io.github.mzmine.modules.visualization.spectra.simplespectrachart.SimpleSpectraChartController;
+import io.github.mzmine.util.GcxGcUtils;
 import io.github.mzmine.util.scans.ScanUtils;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 import javafx.beans.binding.Bindings;
 import javafx.beans.binding.BooleanBinding;
 import javafx.collections.ListChangeListener;
@@ -64,6 +73,8 @@ import javafx.scene.control.ButtonBase;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.control.ScrollPane.ScrollBarPolicy;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.Tooltip;
 import javafx.scene.layout.BorderPane;
@@ -83,6 +94,12 @@ import org.jfree.chart.axis.ValueAxis;
  * sub-controllers' built views; the controller is responsible for wiring data flow.
  */
 public class CompoundDashboardViewBuilder extends FxViewBuilder<CompoundDashboardModel> {
+
+  /// The collapsed member legend shows at most this many rows, e.g. GC-EI compounds may have
+  /// hundreds of fragment ion rows
+  private static final int COLLAPSED_LEGEND_ENTRIES = 12;
+  /// The expanded member legend scrolls above this height to keep space for charts and table
+  private static final double MAX_EXPANDED_LEGEND_HEIGHT = 120;
 
   private final CompoundDashboardController controller;
   private final ChromatogramPlotController eicPlot;
@@ -119,33 +136,53 @@ public class CompoundDashboardViewBuilder extends FxViewBuilder<CompoundDashboar
     final Region spectraColumn = buildSpectraColumn();
 
     final ModularFeatureList flist = model.getFeatureList();
-    boolean hasMobilogram = flist != null && flist.hasRowType(FeatureShapeMobilogramType.class);
+    boolean hasMobilogram = flist != null && (flist.hasRowType(FeatureShapeMobilogramType.class)
+        || flist.hasRowType(FeatureShapeSecondDimensionType.class));
 
     final Region plot4DView = featurePlot4D.buildView();
-    plot4DView.setMinWidth(150);
-    plot4DView.setPadding(new Insets(0, FxLayout.DEFAULT_SPACE, 0, 0));
+    // the side pane shows the 4D feature plot or the 2D / 3D raw data plot of the current file
+    final Label mapMessage = new Label();
+    mapMessage.textProperty().bind(model.sideMapMessageProperty());
+    mapMessage.setWrapText(true);
+    final StackPane sidePane = new StackPane(plot4DView);
+    sidePane.setMinWidth(150);
+    sidePane.setPadding(new Insets(0, FxLayout.DEFAULT_SPACE, 0, 0));
 
-    mainVerticalChartsSplit = new SplitPane(plot4DView, eicWithToolbar, spectraColumn);
+    mainVerticalChartsSplit = new SplitPane(sidePane, eicWithToolbar, spectraColumn);
     mainVerticalChartsSplit.setOrientation(Orientation.HORIZONTAL);
-    // Plot4D | EIC | Spectra. EIC stays the largest column; spectra column reuses the same width
-    // it had before the 4D pane existed.
+    // Side plot | EIC | Spectra. EIC stays the largest column; spectra column reuses the same
+    // width it had before the side pane existed.
     mainVerticalChartsSplit.setDividerPositions(0.25, hasMobilogram ? 0.55 : 0.50);
 
-    // Toggle hides/restores the 4D pane without rebuilding it. Mirrors the chartsSplit pattern
-    // used for the optional mobilogram view.
-    model.featurePlot4DVisibleProperty().subscribe(show -> {
-      final boolean alreadyShown = mainVerticalChartsSplit.getItems().contains(plot4DView);
-      if (Boolean.TRUE.equals(show) && !alreadyShown) {
-        mainVerticalChartsSplit.getItems().addFirst(plot4DView);
-        mainVerticalChartsSplit.setDividerPositions(0.25, hasMobilogram ? 0.55 : 0.50);
-      } else if (!Boolean.TRUE.equals(show) && alreadyShown) {
-        mainVerticalChartsSplit.getItems().remove(plot4DView);
+    // The toolbar button cycles the side plot; hidden removes the pane without rebuilding it.
+    // Mirrors the chartsSplit pattern used for the optional mobilogram view.
+    final Runnable updateSidePane = () -> {
+      final CompoundDashboardSidePlot plot = model.getSidePlot();
+      final boolean alreadyShown = mainVerticalChartsSplit.getItems().contains(sidePane);
+      switch (plot) {
+        case HIDDEN -> {
+          if (alreadyShown) {
+            mainVerticalChartsSplit.getItems().remove(sidePane);
+          }
+          return;
+        }
+        case FEATURE_PLOT -> sidePane.getChildren().setAll(plot4DView);
+        case MAP_2D, MAP_3D -> {
+          final Node map = model.getSideMap();
+          sidePane.getChildren().setAll(map != null ? map : mapMessage);
+        }
       }
-    });
+      if (!alreadyShown) {
+        mainVerticalChartsSplit.getItems().addFirst(sidePane);
+        mainVerticalChartsSplit.setDividerPositions(0.25, hasMobilogram ? 0.55 : 0.50);
+      }
+    };
+    PropertyUtils.onChange(updateSidePane, model.sidePlotProperty(), model.sideMapProperty());
+    updateSidePane.run();
 
     // Legend FlowPane sits directly under the charts SplitPane and lists every member row of the
     // currently selected compound. Labels mirror the plot colors and are clickable to focus a row.
-    final FlowPane legendPane = buildLegendPane();
+    final Region legendPane = buildLegendPane();
     VBox.setVgrow(mainVerticalChartsSplit, Priority.ALWAYS);
     final VBox chartsWithLegend = FxLayout.newVBox(Pos.TOP_LEFT, Insets.EMPTY, true,
         mainVerticalChartsSplit, legendPane);
@@ -161,25 +198,37 @@ public class CompoundDashboardViewBuilder extends FxViewBuilder<CompoundDashboar
   }
 
   private @NotNull Region buildEicWithToolbar() {
-    // Toggle for the optional 4D feature plot pane. The stylised bubble-scatter icon advertises
-    // what the pane contains; opacity drops while the pane is hidden so the button reads as
-    // "currently collapsed — click to show" without changing the icon's identity. The button is
-    // forced to a square size (icon size + symmetric padding) so it lines up cleanly with the
-    // neighbouring icon buttons regardless of platform default insets.
+    // Cycles the side plot: feature plot, 2D plot, 3D plot of the raw data file, hidden. The
+    // stylised bubble-scatter icon stands for the feature plot, "2D" and "3D" for the raw data
+    // plots; the icon is dimmed while the pane is hidden. The button is forced to a square size
+    // (icon size + symmetric padding) so it lines up cleanly with the neighbouring icon buttons
+    // regardless of platform default insets.
     final double iconSize = 24.0;
     final double buttonSize = 28.0;
-    final Button toggle4D = new Button(null, new FeatureRow4DPlotIcon(iconSize));
+    final FeatureRow4DPlotIcon icon4D = new FeatureRow4DPlotIcon(iconSize);
+    final Label icon2D = new Label("2D");
+    final Label icon3D = new Label("3D");
+    icon2D.setStyle("-fx-font-weight: bold;");
+    icon3D.setStyle("-fx-font-weight: bold;");
+    final Button toggle4D = new Button(null, icon4D);
     toggle4D.getStyleClass().add("icon-button");
     toggle4D.setMinSize(buttonSize, buttonSize);
     toggle4D.setPrefSize(buttonSize, buttonSize);
     toggle4D.setMaxSize(buttonSize, buttonSize);
     toggle4D.setPadding(Insets.EMPTY);
-    toggle4D.setOnAction(
-        _ -> model.featurePlot4DVisibleProperty().set(!model.isFeaturePlot4DVisible()));
-    model.featurePlot4DVisibleProperty().subscribe(show -> {
-      toggle4D.getGraphic().setOpacity(Boolean.FALSE.equals(show) ? 1.0 : 0.45);
-      toggle4D.setTooltip(
-          new Tooltip(Boolean.TRUE.equals(show) ? "Hide 4D feature plot" : "Show 4D feature plot"));
+    toggle4D.setOnAction(_ -> model.sidePlotProperty().set(model.getSidePlot().next()));
+    model.sidePlotProperty().subscribe(plot -> {
+      toggle4D.setGraphic(switch (plot) {
+        case FEATURE_PLOT, HIDDEN -> icon4D;
+        case MAP_2D -> icon2D;
+        case MAP_3D -> icon3D;
+      });
+      icon4D.setOpacity(plot == CompoundDashboardSidePlot.HIDDEN ? 0.45 : 1.0);
+      final String shown = plot == CompoundDashboardSidePlot.HIDDEN ? "Side plot hidden"
+          : "Showing the " + plot.label().toLowerCase();
+      toggle4D.setTooltip(new Tooltip(
+          shown + ". Click to show the " + plot.next().label().toLowerCase()
+              + " (2D and 3D plots: raw data of the selected file around the compound)."));
     });
 
     final ButtonBase prev = FxIconUtil.newIconButton(FxIcons.ARROW_LEFT, "Previous raw data file",
@@ -212,16 +261,19 @@ public class CompoundDashboardViewBuilder extends FxViewBuilder<CompoundDashboar
     mobDomainAxis.setLowerMargin(0.15);
     mobDomainAxis.setUpperMargin(0.15);
     final Region mobilogramView = mobilogramPlot.buildView();
-    mobilogramPlot.setTitle("Mobilograms");
     mobilogramPlot.setLegendItemsVisible(false);
 
     final SplitPane chartsSplit = new SplitPane(eicView);
     chartsSplit.setOrientation(Orientation.VERTICAL);
 
+    // GCxGC: the second overlay shows the 2D RT traces of the features, like mobilograms for IMS
     final BooleanBinding hasMobilograms = Bindings.createBooleanBinding(() -> {
       final ModularFeatureList flist = model.getFeatureList();
-      return flist != null && flist.hasRowType(FeatureShapeMobilogramType.class);
+      return flist != null && (flist.hasRowType(FeatureShapeMobilogramType.class)
+          || flist.hasRowType(FeatureShapeSecondDimensionType.class));
     }, model.featureListProperty());
+    model.featureListProperty().subscribe(flist -> mobilogramPlot.setTitle(
+        GcxGcUtils.isGcxGc(flist) ? "2D RT shapes" : "Mobilograms"));
     hasMobilograms.subscribe(show -> {
       final boolean alreadyShown = chartsSplit.getItems().contains(mobilogramView);
       if (Boolean.TRUE.equals(show) && !alreadyShown) {
@@ -250,6 +302,9 @@ public class CompoundDashboardViewBuilder extends FxViewBuilder<CompoundDashboar
     adductCombo.setButtonCell(adductCell());
     HBox.setHgrow(adductCombo, Priority.SOMETIMES);
     final Label ms2OfLabel = FxLabels.newBoldLabel("MS2 of");
+    // GC-EI compounds have a deconvoluted MS1 (EI) pseudo spectrum instead of an MS2
+    ms2OfLabel.textProperty().bind(
+        Bindings.when(model.deconvolutedEiProperty()).then("EI spectrum of").otherwise("MS2 of"));
 
     // Scan selector: first item is the merged MS2 (REPRESENTATIVE across samples), followed by the
     // row's individual fragment scans. Prev/next buttons cycle through the list in the controller.
@@ -270,6 +325,9 @@ public class CompoundDashboardViewBuilder extends FxViewBuilder<CompoundDashboar
     // Overlay a centered bold message when no MS2 dataset is available so the user knows the
     // plot is empty by design, not by glitch.
     final Label noMs2Label = FxLabels.newBoldTitle("No MS2 for selected ion");
+    noMs2Label.textProperty().bind(Bindings.when(model.deconvolutedEiProperty())
+        .then("Deconvoluted EI spectrum only on representative ion")
+        .otherwise("No MS2 for selected ion"));
     noMs2Label.setMouseTransparent(true);
     noMs2Label.visibleProperty().bind(Bindings.isEmpty(model.getMs2Datasets()));
     noMs2Label.managedProperty().bind(noMs2Label.visibleProperty());
@@ -296,7 +354,7 @@ public class CompoundDashboardViewBuilder extends FxViewBuilder<CompoundDashboar
    * bold. Each label is clickable: it sets the selected MS2 row when the row carries an MS2 scan
    * (so the adduct ComboBox stays in sync), otherwise it sets the selected adduct row directly.
    */
-  private @NotNull FlowPane buildLegendPane() {
+  private @NotNull Region buildLegendPane() {
     final FlowPane pane = FxLayout.newFlowPane();
     // Horizontal breathing room so the labels don't touch the left/right edges of the dashboard.
     pane.setPadding(new Insets(0, FxLayout.DEFAULT_SPACE, 0, FxLayout.DEFAULT_SPACE));
@@ -305,15 +363,35 @@ public class CompoundDashboardViewBuilder extends FxViewBuilder<CompoundDashboar
         .addListener((ListChangeListener<CompoundDashboardLegendEntry>) _ -> rebuild.run());
     // Rebuild on selection change to swap the bold marker; cheap because there are few entries.
     model.selectedAdductRowProperty().subscribe(_ -> rebuild.run());
-    return pane;
+    model.legendExpandedProperty().subscribe(_ -> rebuild.run());
+
+    // the expanded legend of large compounds scrolls instead of pushing the feature table down
+    final ScrollPane scroll = FxLayout.newScrollPane(pane, ScrollBarPolicy.NEVER,
+        ScrollBarPolicy.AS_NEEDED);
+    scroll.setFitToHeight(false);
+    scroll.setMaxHeight(MAX_EXPANDED_LEGEND_HEIGHT);
+    // the scroll pane asks the flow pane for its height without a width, which uses the wrap length
+    scroll.viewportBoundsProperty().subscribe(
+        bounds -> pane.setPrefWrapLength(Math.max(bounds.getWidth(), 1d)));
+    scroll.getStyleClass().add("edge-to-edge");
+    return scroll;
   }
 
   private void rebuildLegendPane(@NotNull final FlowPane pane) {
     pane.getChildren().clear();
     final FeatureListRow selected = model.getSelectedAdductRow();
+    final List<CompoundDashboardLegendEntry> allEntries = model.getLegendEntries();
+    final boolean collapsible = allEntries.size() > COLLAPSED_LEGEND_ENTRIES;
+    final boolean collapsed = collapsible && !model.isLegendExpanded();
+    final Set<FeatureListRow> shownRows = collapsed ? selectCollapsedLegendRows(allEntries, selected)
+        : null;
+
     final List<CompoundDashboardLegendEntry> ions = new ArrayList<>();
     final List<CompoundDashboardLegendEntry> unknowns = new ArrayList<>();
-    for (final CompoundDashboardLegendEntry entry : model.getLegendEntries()) {
+    for (final CompoundDashboardLegendEntry entry : allEntries) {
+      if (shownRows != null && !shownRows.contains(entry.row())) {
+        continue;
+      }
       if (entry.row().getBestIonIdentity() != null) {
         ions.add(entry);
       } else {
@@ -329,6 +407,40 @@ public class CompoundDashboardViewBuilder extends FxViewBuilder<CompoundDashboar
         pane.getChildren().add(buildUnknownLegendLabel(entry, selected));
       }
     }
+    if (collapsible) {
+      final int hidden = allEntries.size() - ions.size() - unknowns.size();
+      final String text = collapsed ? "+ %d more".formatted(hidden) : "Show less";
+      pane.getChildren().add(
+          FxLabels.newHyperlink(() -> model.setLegendExpanded(collapsed), text));
+    }
+  }
+
+  /**
+   * @return the rows of the collapsed legend: the selected row, the representative and then the
+   * most intense member rows up to {@link #COLLAPSED_LEGEND_ENTRIES}
+   */
+  private @NotNull Set<FeatureListRow> selectCollapsedLegendRows(
+      @NotNull final List<CompoundDashboardLegendEntry> entries,
+      @Nullable final FeatureListRow selected) {
+    final Set<FeatureListRow> shown = Collections.newSetFromMap(new IdentityHashMap<>());
+    if (selected != null) {
+      shown.add(selected);
+    }
+    final CompoundRow compound = model.getSelectedCompoundRow();
+    if (compound != null) {
+      shown.add(compound.getPreferredRow());
+    }
+    final List<FeatureListRow> byHeight = entries.stream().map(CompoundDashboardLegendEntry::row)
+        .sorted(Comparator.comparingDouble(
+            (FeatureListRow row) -> Objects.requireNonNullElse(row.getMaxHeight(), 0f)).reversed())
+        .toList();
+    for (final FeatureListRow row : byHeight) {
+      if (shown.size() >= COLLAPSED_LEGEND_ENTRIES) {
+        break;
+      }
+      shown.add(row);
+    }
+    return shown;
   }
 
   private @NotNull Label buildIonLegendLabel(@NotNull final CompoundDashboardLegendEntry entry,
@@ -403,14 +515,19 @@ public class CompoundDashboardViewBuilder extends FxViewBuilder<CompoundDashboar
     // PASEF_SINGLE is the per-precursor merged mobility frame: a single fragmentation event with
     // a real energy + method, just averaged across mobility scans. Treat it like a regular MS2 in
     // the dropdown so the user sees its energy/method rather than a generic "Merged MS2".
+    final boolean deconvolutedEi = ScanUtils.isGcEiSpectrum(scan);
     if (scan instanceof MergedMassSpectrum merged
         && merged.getMergingType() != MergingType.PASEF_SINGLE) {
-      return "Merged MS2";
+      return deconvolutedEi ? "Merged EI spectrum" : "Merged MS2";
     }
     // 1-based position within the source-scan section of the list (i.e. the position in the
     // dropdown, where index 0 is the merged scan and the first regular scan reads as "1").
     final int idx = items.indexOf(scan);
     final String itemNumber = idx < 0 ? "?" : String.valueOf(idx);
+    if (deconvolutedEi) {
+      // EI pseudo spectra have no activation method or energy, one spectrum per sample
+      return itemNumber + ", " + scan.getDataFile().getName();
+    }
     final MsMsInfo info = scan.getMsMsInfo();
     final ActivationMethod method = info != null ? info.getActivationMethod() : null;
     final Float energy = ScanUtils.extractCollisionEnergy(scan);

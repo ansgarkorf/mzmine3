@@ -31,7 +31,8 @@ import io.github.mzmine.parameters.Parameter;
 
 public abstract sealed class IonInterfaceWizardParameters extends WizardStepParameters permits
     IonInterfaceHplcWizardParameters, IonInterfaceGcElectronImpactWizardParameters,
-    IonInterfaceImagingWizardParameters, IonInterfaceDirectAndFlowInjectWizardParameters {
+    IonInterfaceGcxGcElectronImpactWizardParameters, IonInterfaceImagingWizardParameters,
+    IonInterfaceDirectAndFlowInjectWizardParameters {
 
   public IonInterfaceWizardParameters(final WizardPart part,
       final IonInterfaceWizardParameterFactory preset, final Parameter<?>... parameters) {

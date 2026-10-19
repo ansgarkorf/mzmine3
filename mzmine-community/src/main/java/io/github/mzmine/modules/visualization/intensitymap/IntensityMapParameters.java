@@ -41,7 +41,7 @@ public class IntensityMapParameters extends SimpleParameterSet {
   public static final RawDataFilesParameter dataFile = new RawDataFilesParameter();
   public static final ComboParameter<IntensityMapDimensions> mode = new ComboParameter<>(
       "Data dimensions",
-      "Imaging files always show images, other files LC-MS. Ion mobility data can also show retention time against mobility, or a single mobility frame, which is picked from a base peak chromatogram in the visualizer.",
+      "Imaging files always show images, GCxGC files first against second dimension retention time, other files LC-MS. Ion mobility data can also show retention time against mobility, or a single mobility frame, which is picked from a base peak chromatogram in the visualizer.",
       FXCollections.observableArrayList(IntensityMapDimensions.values()),
       IntensityMapDimensions.AUTOMATIC);
   public static final ScanSelectionParameter scanSelection = new ScanSelectionParameter(

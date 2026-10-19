@@ -25,6 +25,7 @@
 
 package io.github.mzmine.util.scans;
 
+import io.github.mzmine.util.GcxGcUtils;
 import static io.github.mzmine.util.spectraldb.entry.DBEntryField.MERGED_SPEC_TYPE;
 import static java.util.Comparator.naturalOrder;
 import static java.util.Comparator.nullsLast;
@@ -57,6 +58,7 @@ import io.github.mzmine.datamodel.data_access.ScanDataAccess;
 import io.github.mzmine.datamodel.features.Feature;
 import io.github.mzmine.datamodel.features.FeatureList;
 import io.github.mzmine.datamodel.features.FeatureListRow;
+import io.github.mzmine.datamodel.impl.SecondDimensionSpectrum;
 import io.github.mzmine.datamodel.impl.MSnInfoImpl;
 import io.github.mzmine.datamodel.impl.SimpleDataPoint;
 import io.github.mzmine.datamodel.msms.DDAMsMsInfo;
@@ -172,6 +174,35 @@ public class ScanUtils {
     return scanToString(scan, false);
   }
 
+
+  /**
+   * "Modulation #n @ x min (2D RT a-b min)", "Scan #n @ x min (2D RT y min)" or "2D RT spectrum #n
+   * @ y min"
+   */
+  private static void appendGcxGcScanString(@NotNull final StringBuilder buf,
+      @NotNull final Scan scan, @NotNull final Format rtFormat) {
+    final Format secondDimFormat = GcxGcUtils.createSecondDimensionRTFormat();
+    if (scan instanceof Frame modulation) {
+      buf.append("Modulation #").append(scan.getScanNumber()).append(" @")
+          .append(rtFormat.format(scan.getRetentionTime())).append("min (")
+          .append(GcxGcUtils.SECOND_DIMENSION_RT).append(" ")
+          .append(secondDimFormat.format(modulation.getMobilityRange().lowerEndpoint()))
+          .append("-")
+          .append(secondDimFormat.format(modulation.getMobilityRange().upperEndpoint()))
+          .append(" min)");
+    } else if (scan instanceof MobilityScan single) {
+      buf.append("Scan #").append(single.getMobilityScanNumber()).append(" @")
+          .append(rtFormat.format(scan.getRetentionTime())).append("min (")
+          .append(GcxGcUtils.SECOND_DIMENSION_RT).append(" ")
+          .append(secondDimFormat.format(single.getMobility())).append(" min)");
+    } else if (scan instanceof SecondDimensionSpectrum spectrum) {
+      // signals summed over the modulations, the retention time is the 2D RT
+      buf.append(GcxGcUtils.SECOND_DIMENSION_RT).append(" spectrum #")
+          .append(spectrum.getScanNumber()).append(" @")
+          .append(secondDimFormat.format(spectrum.getSecondDimensionRT())).append(" min");
+    }
+  }
+
   /**
    * Common utility method to be used as Scan.toString() method in various Scan implementations
    *
@@ -191,6 +222,13 @@ public class ScanUtils {
     UnitFormat unitFormat = MZmineCore.getConfiguration().getUnitFormat();
     if (includeFileName) {
       buf.append(scan.getDataFile().getName());
+    }
+    if (GcxGcUtils.isGcxGcScan(scan)) {
+      // GCxGC uses the ion mobility data model, but modulations and scans have retention times
+      appendGcxGcScanString(buf, scan, rtFormat);
+      buf.append(" MS");
+      buf.append(scan.getMSLevel());
+      return buf.toString();
     }
     if (scan instanceof Frame) {
       buf.append("Frame");
@@ -2598,6 +2636,19 @@ public class ScanUtils {
     }
     return scan instanceof PseudoSpectrum pseudo
         && pseudo.getPseudoSpectrumType() == PseudoSpectrumType.GC_EI;
+  }
+
+  /**
+   * @return true if the scan is a GC-EI deconvoluted pseudo spectrum or a merged spectrum of only
+   * such pseudo spectra
+   */
+  public static boolean isGcEiSpectrum(@Nullable Scan scan) {
+    if (scan instanceof MergedMassSpectrum merged) {
+      final List<MassSpectrum> sources = merged.getSourceSpectra();
+      return !sources.isEmpty() && sources.stream()
+          .allMatch(source -> source instanceof Scan s && isGcEiScan(s));
+    }
+    return isGcEiScan(scan);
   }
 
 

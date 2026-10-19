@@ -25,6 +25,7 @@
 
 package io.github.mzmine.modules.visualization.intensitymap;
 
+import io.github.mzmine.util.GcxGcUtils;
 import com.google.common.collect.Range;
 import io.github.mzmine.datamodel.FeatureStatus;
 import io.github.mzmine.datamodel.IsotopePattern;
@@ -77,17 +78,20 @@ final class IntensityMapLabels {
   private final IntensityMapDimensions mode;
   private final @Nullable Range<Float> frameTimes;
   private final NumberFormats formats;
+  // only these rows and compounds get labels, null for all rows
+  private final @Nullable Set<FeatureListRow> onlyRows;
   private final List<IntensityMapLabel> labels = new ArrayList<>();
   // rows with a label, e.g. as ion of a compound
   private final Set<FeatureListRow> labeled = Collections.newSetFromMap(new IdentityHashMap<>());
 
   private IntensityMapLabels(@NotNull final List<IntensityMapLayer> layers,
       @NotNull final IntensityMapDimensions mode, @Nullable final Range<Float> frameTimes,
-      @NotNull final NumberFormats formats) {
+      @NotNull final NumberFormats formats, @Nullable final Set<FeatureListRow> onlyRows) {
     this.layers = layers;
     this.mode = mode;
     this.frameTimes = frameTimes;
     this.formats = formats;
+    this.onlyRows = onlyRows;
   }
 
   /**
@@ -97,11 +101,27 @@ final class IntensityMapLabels {
   static @NotNull List<IntensityMapLabel> of(@NotNull final FeatureList list,
       @NotNull final List<IntensityMapLayer> layers, @NotNull final IntensityMapDimensions mode,
       @Nullable final Range<Float> frameTimes, @NotNull final NumberFormats formats) {
+    return of(list, layers, mode, frameTimes, formats, null);
+  }
+
+  /**
+   * @param onlyRows only these rows get labels: a compound row labels the compound at its
+   *                 representative ion, its other ions only if they are in the set too. Null for
+   *                 all rows.
+   */
+  static @NotNull List<IntensityMapLabel> of(@NotNull final FeatureList list,
+      @NotNull final List<IntensityMapLayer> layers, @NotNull final IntensityMapDimensions mode,
+      @Nullable final Range<Float> frameTimes, @NotNull final NumberFormats formats,
+      @Nullable final Set<FeatureListRow> onlyRows) {
     return switch (mode) {
       case IMAGING -> List.of();
       case LC_MS, AUTOMATIC, RT_MOBILITY, MOBILITY_FRAME ->
-          new IntensityMapLabels(layers, mode, frameTimes, formats).build(list);
+          new IntensityMapLabels(layers, mode, frameTimes, formats, onlyRows).build(list);
     };
+  }
+
+  private boolean isLabeled(@NotNull final FeatureListRow row) {
+    return onlyRows == null || onlyRows.contains(row);
   }
 
   /**
@@ -232,11 +252,13 @@ final class IntensityMapLabels {
     final CompoundList compounds = list.hasCompoundList() ? list.getCompoundList() : null;
     if (compounds != null) {
       for (final ModularCompoundRow compound : compounds.getRows()) {
-        addCompound(compound);
+        if (isLabeled(compound)) {
+          addCompound(compound);
+        }
       }
     }
     for (final FeatureListRow row : list.getRows()) {
-      if (!labeled.contains(row)) {
+      if (!labeled.contains(row) && isLabeled(row)) {
         final String text = text(row.getPreferredAnnotationName(), ion(row),
             formats.mz(row.getAverageMZ()));
         add(row, network(row), row.getPreferredAnnotationName(), text, text,
@@ -257,7 +279,8 @@ final class IntensityMapLabels {
     add(representative, group, name, text, prefix + " · " + ion(representative, "representative"),
         compound.getPreferredAnnotation() != null, false);
     forEachMember(compound, (member, row) -> {
-      if (row != representative && !labeled.contains(row)) {
+      if (row != representative && !labeled.contains(row)
+          && (onlyRows == null || onlyRows.contains(row))) {
         final CompoundMemberRole role = member.role();
         final String ion = ion(row);
         add(row, group, name, ion != null ? ion : role.getLabel(),
@@ -388,26 +411,26 @@ final class IntensityMapLabels {
               deconvoluted.stream().map(ion -> new IntensityMapPeak(rt, ion[0], ion[1])).toList()));
         }
         case RT_MOBILITY -> {
-          final Float mobility = feature.getMobility();
+          final Float mobility = GcxGcUtils.getSecondDimension(feature);
           // decision: no isotope rings, the isotopes of a feature share its retention time and
           // mobility
           if (mobility != null) {
             labels.add(new IntensityMapLabel(layer.id(), rt, mobility,
                 range(feature.getRawDataPointsRTRange(), rt),
-                range(feature.getMobilityRange(), mobility), feature.getHeight(), name, text,
-                details + " · mobility " + formats.mobility(mobility), annotated, secondary, group,
+                range(GcxGcUtils.getSecondDimensionRange(feature), mobility), feature.getHeight(), name, text,
+                details + secondDimensionText(feature, mobility, formats), annotated, secondary, group,
                 List.of(), List.of()));
           }
         }
         case MOBILITY_FRAME -> {
-          final Float mobility = feature.getMobility();
+          final Float mobility = GcxGcUtils.getSecondDimension(feature);
           // only features eluting in the shown frames
           if (mobility != null && frameTimes != null && feature.getRawDataPointsRTRange()
               .isConnected(frameTimes)) {
             labels.add(new IntensityMapLabel(layer.id(), mz, mobility,
                 range(feature.getRawDataPointsMZRange(), mz),
-                range(feature.getMobilityRange(), mobility), feature.getHeight(), name, text,
-                details + " · mobility " + formats.mobility(mobility), annotated, secondary, group,
+                range(GcxGcUtils.getSecondDimensionRange(feature), mobility), feature.getHeight(), name, text,
+                details + secondDimensionText(feature, mobility, formats), annotated, secondary, group,
                 isotopes(feature, row, layer).stream()
                     .map(isotope -> new IntensityMapPeak(isotope[0], mobility, isotope[1]))
                     .toList(), List.of()));
@@ -418,5 +441,17 @@ final class IntensityMapLabels {
         }
       }
     }
+  }
+
+  /**
+   * @return " · 2D RT x min" for GCxGC features, otherwise " · mobility x"
+   */
+  private static @NotNull String secondDimensionText(@NotNull final Feature feature,
+      final float secondDim, @NotNull final NumberFormats formats) {
+    if (GcxGcUtils.isGcxGc(feature.getRawDataFile())) {
+      return " · " + GcxGcUtils.SECOND_DIMENSION_RT + " "
+          + GcxGcUtils.createSecondDimensionRTFormat().format(secondDim) + " min";
+    }
+    return " · mobility " + formats.mobility(secondDim);
   }
 }

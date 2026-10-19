@@ -110,7 +110,11 @@ public class SpectralDeconvolutionPreviewPlot extends EChartViewer {
     }
   }
 
-  public void addDataset(List<ModularFeature> features, XYSeries series, Color color, Shape shape) {
+  /**
+   * @param axis defines the y-value and the height of the feature width boxes
+   */
+  public void addDataset(@NotNull List<ModularFeature> features, @NotNull XYSeries series,
+      @NotNull Color color, @NotNull Shape shape, @NotNull DeconvolutionPreviewAxis axis) {
     XYSeriesCollection dataset = new XYSeriesCollection();
     dataset.addSeries(series);
 
@@ -122,9 +126,11 @@ public class SpectralDeconvolutionPreviewPlot extends EChartViewer {
     // way to slow to add both the dataset and also the XYAnnotations.
     // TODO translate this into the renderer and make it a XYZDataset using Z for RT width
     for (ModularFeature feature : features) {
-
-      // Calculate the RT range (width of the box) based on the feature's RT
-      final XYShapeAnnotation annotation = createRtWidthBoxAnnotation(color, feature);
+      // the box spans the RT range and the y-range (2D RT range for GCxGC)
+      final XYShapeAnnotation annotation = createWidthBoxAnnotation(color, feature, axis);
+      if (annotation == null) {
+        continue;
+      }
       widthAnnotations.add(annotation);
       // Add the annotation to the plot
       if (showRtWidths.get()) {
@@ -133,24 +139,28 @@ public class SpectralDeconvolutionPreviewPlot extends EChartViewer {
     }
   }
 
-  private static @NotNull XYShapeAnnotation createRtWidthBoxAnnotation(Color color,
-      ModularFeature feature) {
+  private static @Nullable XYShapeAnnotation createWidthBoxAnnotation(@NotNull Color color,
+      @NotNull ModularFeature feature, @NotNull DeconvolutionPreviewAxis axis) {
+    final Range<Double> yRange = axis.range(feature);
+    if (yRange == null) {
+      return null;
+    }
     double rtStart = feature.getRawDataPointsRTRange().lowerEndpoint();
     double rtEnd = feature.getRawDataPointsRTRange().upperEndpoint();
-    double mz = feature.getMZ();
 
-    // Calculate box width and height
-    double boxWidth = rtEnd - rtStart;  // Width based on RT range
-    double boxHeight = 0.5;  // Fixed height; adjust as needed
-
-    // Create the rectangle centered at the feature's RT and m/z values
-    Rectangle2D box = new Rectangle2D.Double(rtStart, mz - boxHeight / 2, boxWidth, boxHeight);
-
-    // Create the annotation with the rectangle shape and color
-    XYShapeAnnotation annotation = new XYShapeAnnotation(box, new BasicStroke(1.0f), color, color);
-    return annotation;
+    Rectangle2D box = new Rectangle2D.Double(rtStart, yRange.lowerEndpoint(), rtEnd - rtStart,
+        yRange.upperEndpoint() - yRange.lowerEndpoint());
+    return new XYShapeAnnotation(box, new BasicStroke(1.0f), color, color);
   }
 
+  /**
+   * Changes the label and number format of the y-axis
+   */
+  public void setRangeAxis(@NotNull DeconvolutionPreviewAxis axis) {
+    final NumberAxis rangeAxis = (NumberAxis) plot.getRangeAxis();
+    rangeAxis.setLabel(axis.axisLabel());
+    rangeAxis.setNumberFormatOverride(axis.format());
+  }
 
   public void clearDatasets() {
     plot.clearDatasetsAndRenderers();
@@ -168,6 +178,21 @@ public class SpectralDeconvolutionPreviewPlot extends EChartViewer {
 
     // Add the interval marker to the plot
     plot.addDomainMarker(intervalMarker, Layer.BACKGROUND);
+  }
+
+  /**
+   * Adds an interval marker on the y-axis, e.g., the second dimension tolerance
+   */
+  public void addRangeIntervalMarker(@NotNull Range<Float> range, @NotNull Color color) {
+    IntervalMarker intervalMarker = new IntervalMarker(range.lowerEndpoint(),
+        range.upperEndpoint());
+    intervalMarker.setPaint(color);
+    plot.addRangeMarker(intervalMarker, Layer.BACKGROUND);
+  }
+
+  public void clearMarkers() {
+    plot.clearDomainMarkers();
+    plot.clearRangeMarkers();
   }
 
   public BooleanProperty showRtWidthsProperty() {

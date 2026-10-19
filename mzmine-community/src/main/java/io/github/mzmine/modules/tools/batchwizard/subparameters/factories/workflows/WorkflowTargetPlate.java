@@ -53,7 +53,7 @@ public class WorkflowTargetPlate extends WorkflowWizardParameterFactory {
 
     return switch (ionInterface.group()) {
       case SPATIAL_IMAGING -> new WizardBatchBuilderTargetPlate(steps);
-      case CHROMATOGRAPHY_HARD, CHROMATOGRAPHY_SOFT, DIRECT_AND_FLOW ->
+      case CHROMATOGRAPHY_HARD, CHROMATOGRAPHY_2D_HARD, CHROMATOGRAPHY_SOFT, DIRECT_AND_FLOW ->
           throw new UnsupportedWorkflowException(steps);
     };
   }

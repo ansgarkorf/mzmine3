@@ -25,6 +25,7 @@
 
 package io.github.mzmine.modules.visualization.intensitymap.plot;
 
+import io.github.mzmine.util.GcxGcUtils;
 import io.github.mzmine.gui.preferences.NumberFormats;
 import io.github.mzmine.modules.visualization.intensitymap.data.IntensityMapAxisKind;
 import java.text.NumberFormat;
@@ -57,6 +58,7 @@ final class IntensityMapFormat {
       case RETENTION_TIME -> formats.rtFormat();
       case MZ -> formats.mzFormat();
       case MOBILITY -> formats.mobilityFormat();
+      case SECOND_DIMENSION_RT -> GcxGcUtils.createSecondDimensionRTFormat();
       case LENGTH, OTHER -> null;
     };
     if (base == null) {
@@ -92,6 +94,7 @@ final class IntensityMapFormat {
       case RETENTION_TIME -> formats.rt(value);
       case MZ -> formats.mz(value);
       case MOBILITY -> formats.mobility(value);
+      case SECOND_DIMENSION_RT -> GcxGcUtils.createSecondDimensionRTFormat().format(value);
       case LENGTH, OTHER -> IntensityMapTicks.format(value, Math.abs(value) >= 100 ? 0.01 : 0.0001);
     };
   }

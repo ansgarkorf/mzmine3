@@ -25,6 +25,11 @@
 
 package io.github.mzmine.modules.visualization.pseudospectrumvisualizer;
 
+import javafx.scene.control.SplitPane;
+import io.github.mzmine.util.GcxGcUtils;
+import io.github.mzmine.main.ConfigService;
+import io.github.mzmine.gui.preferences.NumberFormats;
+import io.github.mzmine.gui.chartbasics.simplechart.SimpleXYChart;
 import io.github.mzmine.javafx.components.factories.FxSplitPanes;
 import io.github.mzmine.javafx.mvci.FxViewBuilder;
 import io.github.mzmine.modules.visualization.chromatogram.TICPlot;
@@ -71,6 +76,34 @@ public class PseudoSpectrumVisualizerViewBuilder extends
       });
     });
 
-    return FxSplitPanes.newSplitPane(0.5, Orientation.VERTICAL, spectraPlot, ticPlot);
+    // GCxGC: the same features along the second dimension retention time next to the RT plot
+    final NumberFormats formats = ConfigService.getGuiFormats();
+    final SimpleXYChart<?> secondDimensionPlot = new SimpleXYChart<>("",
+        formats.unit(GcxGcUtils.SECOND_DIMENSION_RT, "min"), formats.unit("Intensity", null));
+    secondDimensionPlot.setDomainAxisNumberFormatOverride(
+        GcxGcUtils.createSecondDimensionRTFormat());
+    secondDimensionPlot.setRangeAxisNumberFormatOverride(formats.intensityFormat());
+    secondDimensionPlot.setLegendItemsVisible(false);
+    secondDimensionPlot.setMinHeight(200);
+
+    final SplitPane chromatograms = FxSplitPanes.newSplitPane(0.5, Orientation.HORIZONTAL,
+        ticPlot);
+    model.secondDimensionDatasetsProperty().subscribe(datasets -> {
+      final boolean show = datasets != null && !datasets.isEmpty();
+      secondDimensionPlot.applyWithNotifyChanges(false, () -> {
+        secondDimensionPlot.removeAllDatasets();
+        if (show) {
+          secondDimensionPlot.setDatasetsAndRenderers(datasets);
+        }
+      });
+      if (show && !chromatograms.getItems().contains(secondDimensionPlot)) {
+        chromatograms.getItems().add(secondDimensionPlot);
+        chromatograms.setDividerPositions(0.5);
+      } else if (!show) {
+        chromatograms.getItems().remove(secondDimensionPlot);
+      }
+    });
+
+    return FxSplitPanes.newSplitPane(0.5, Orientation.VERTICAL, spectraPlot, chromatograms);
   }
 }

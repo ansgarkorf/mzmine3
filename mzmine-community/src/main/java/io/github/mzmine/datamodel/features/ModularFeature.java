@@ -25,6 +25,8 @@
 
 package io.github.mzmine.datamodel.features;
 
+import io.github.mzmine.datamodel.features.types.numbers.SecondDimensionRTRangeType;
+import io.github.mzmine.datamodel.features.types.numbers.SecondDimensionRTType;
 import com.google.common.collect.Range;
 import io.github.mzmine.datamodel.DataPoint;
 import io.github.mzmine.datamodel.FeatureInformation;
@@ -576,6 +578,16 @@ public class ModularFeature extends ColumnarModularDataModelRow implements Featu
   @Override
   public void setMobilityRange(Range<Float> range) {
     set(MobilityRangeType.class, range);
+  }
+
+  @Override
+  public @Nullable Float getSecondDimensionRT() {
+    return get(SecondDimensionRTType.class);
+  }
+
+  @Override
+  public @Nullable Range<Float> getSecondDimensionRTRange() {
+    return get(SecondDimensionRTRangeType.class);
   }
 
   @Override

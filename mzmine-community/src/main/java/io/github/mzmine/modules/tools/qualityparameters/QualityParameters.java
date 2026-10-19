@@ -35,6 +35,8 @@ import io.github.mzmine.datamodel.features.ModularFeatureList;
 import io.github.mzmine.datamodel.features.types.numbers.AsymmetryFactorType;
 import io.github.mzmine.datamodel.features.types.numbers.FwhmType;
 import io.github.mzmine.datamodel.features.types.numbers.MobilityFwhmType;
+import io.github.mzmine.datamodel.features.types.numbers.SecondDimensionFwhmType;
+import io.github.mzmine.util.GcxGcUtils;
 import io.github.mzmine.datamodel.features.types.numbers.TailingFactorType;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -98,14 +100,26 @@ public class QualityParameters {
    */
   public static void calculateAndSetQualityParameters(@NotNull final ModularFeature feature) {
     final PeakQuality quality = calculateQualityParameters(feature);
-    feature.set(FwhmType.class, quality.fwhm());
+    if (GcxGcUtils.isSecondDimensionChromatogram(feature)) {
+      // GCxGC chromatogram along the 2D RT spectra: the width is in the second dimension
+      feature.set(SecondDimensionFwhmType.class, quality.fwhm());
+      feature.set(FwhmType.class, null);
+    } else {
+      feature.set(FwhmType.class, quality.fwhm());
+    }
     feature.set(AsymmetryFactorType.class, quality.asymmetry());
     feature.set(TailingFactorType.class, quality.tailing());
 
     if (feature.getFeatureData() instanceof IonMobilogramTimeSeries imts) {
       final SummedIntensityMobilitySeries summedMobilogram = imts.getSummedMobilogram();
       // since version 4.10, null removes the value of an earlier run
-      feature.set(MobilityFwhmType.class, QualityParameters.calculateFWHM(summedMobilogram));
+      if (GcxGcUtils.isGcxGc(feature.getRawDataFile())) {
+        // GCxGC: the second dimension is a retention time
+        feature.set(SecondDimensionFwhmType.class,
+            QualityParameters.calculateFWHM(summedMobilogram));
+      } else {
+        feature.set(MobilityFwhmType.class, QualityParameters.calculateFWHM(summedMobilogram));
+      }
     }
   }
 
@@ -450,7 +464,10 @@ public class QualityParameters {
   private static IonTimeSeries<? extends Scan> requireInitializedTrace(
       @NotNull final Feature feature) {
     final IonTimeSeries<? extends Scan> series = feature.getFeatureData();
-    if (series == null || feature.getHeight() == null || feature.getRT() == null
+    // GCxGC chromatograms along the 2D RT spectra have no first dimension RT
+    final boolean missingRT =
+        feature.getRT() == null && !GcxGcUtils.isSecondDimensionChromatogram(feature);
+    if (series == null || feature.getHeight() == null || missingRT
         || feature.getRawDataFile() == null || feature.getScanNumbers().isEmpty()) {
       throw new IllegalArgumentException("Modular feature values are not initialized.");
     }

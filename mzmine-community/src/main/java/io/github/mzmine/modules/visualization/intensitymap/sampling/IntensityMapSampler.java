@@ -25,6 +25,7 @@
 
 package io.github.mzmine.modules.visualization.intensitymap.sampling;
 
+import io.github.mzmine.util.GcxGcUtils;
 import com.google.common.collect.Range;
 import io.github.mzmine.datamodel.Frame;
 import io.github.mzmine.datamodel.IMSRawDataFile;
@@ -33,6 +34,7 @@ import io.github.mzmine.datamodel.ImagingScan;
 import io.github.mzmine.datamodel.MassSpectrum;
 import io.github.mzmine.datamodel.MassSpectrumType;
 import io.github.mzmine.datamodel.MobilityScan;
+import io.github.mzmine.datamodel.MobilityType;
 import io.github.mzmine.datamodel.RawDataFile;
 import io.github.mzmine.datamodel.Scan;
 import io.github.mzmine.gui.preferences.ImageNormalization;
@@ -46,8 +48,8 @@ import io.github.mzmine.modules.visualization.intensitymap.data.IntensityMapGrid
 import io.github.mzmine.modules.visualization.intensitymap.data.IntensityMapRegion;
 import io.github.mzmine.parameters.ParameterSet;
 import io.github.mzmine.parameters.parametertypes.selectors.ScanSelection;
-import io.github.mzmine.util.collections.BinarySearch;
 import io.github.mzmine.util.collections.BinarySearch.DefaultTo;
+import io.github.mzmine.util.collections.BinarySearch;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -151,7 +153,10 @@ public final class IntensityMapSampler {
             frame.getMobilityType() == null ? "" : frame.getMobilityType().getUnit();
         // decision: m/z horizontal and mobility in depth, like the usual IMS heatmaps
         yield spectra(frame.getSortedMobilityScans(), scan -> ((MobilityScan) scan).getMobility(),
-            axisLabel("Mobility", unit), IntensityMapAxisKind.MOBILITY, true, mzRanges, region,
+            axisLabel(mobilityAxisLabel(frame.getMobilityType()), unit),
+            frame.getMobilityType() == MobilityType.GCXGC
+                ? IntensityMapAxisKind.SECOND_DIMENSION_RT : IntensityMapAxisKind.MOBILITY, true,
+            mzRanges, region,
             normalization, source, null, detail, progress);
       }
       case IMAGING -> {
@@ -187,11 +192,30 @@ public final class IntensityMapSampler {
       return requested == IntensityMapDimensions.MOBILITY_FRAME && file instanceof IMSRawDataFile
           ? IntensityMapDimensions.MOBILITY_FRAME : IntensityMapDimensions.IMAGING;
     }
+    // decision: GCxGC is shown as first against second dimension retention time by default
+    if (requested == IntensityMapDimensions.AUTOMATIC && isGcxGc(file)) {
+      return IntensityMapDimensions.RT_MOBILITY;
+    }
     // retention time against mobility needs mobility scans, other files show LC-MS
     return
         requested == IntensityMapDimensions.AUTOMATIC || requested == IntensityMapDimensions.IMAGING
             || (requested == IntensityMapDimensions.RT_MOBILITY
             && !(file instanceof IMSRawDataFile)) ? IntensityMapDimensions.LC_MS : requested;
+  }
+
+  /**
+   * @return true for comprehensive two-dimensional GC data, where the mobility dimension is the
+   * second column retention time
+   */
+  public static boolean isGcxGc(@NotNull final RawDataFile file) {
+    return GcxGcUtils.isGcxGc(file);
+  }
+
+  /**
+   * @return the label of the mobility axis: "2D RT" for GCxGC, otherwise "Mobility"
+   */
+  private static @NotNull String mobilityAxisLabel(@Nullable final MobilityType type) {
+    return type != null && type.isChromatographic() ? type.getLabel() : "Mobility";
   }
 
   /**
@@ -215,7 +239,28 @@ public final class IntensityMapSampler {
   public static @NotNull Range<Double> defaultMzRange(@NotNull final RawDataFile file,
       @NotNull final ParameterSet parameters) {
     final Range<Double> selected = parameters.getValue(IntensityMapParameters.mzRange);
-    return selected == null ? file.getDataMZRange() : selected;
+    return selected == null ? dataMzRange(file) : selected;
+  }
+
+  /**
+   * @return the m/z range of the file. Frames imported from mzML (e.g., GCxGC modulations) have no
+   * merged spectrum before the mobility scan merging, then the range of the mobility scans is used.
+   */
+  public static @NotNull Range<Double> dataMzRange(@NotNull final RawDataFile file) {
+    final Range<Double> range = file.getDataMZRange();
+    if (range.upperEndpoint() > range.lowerEndpoint() || !(file instanceof IMSRawDataFile ims)) {
+      return range;
+    }
+    Range<Double> span = null;
+    for (final Frame frame : ims.getFrames()) {
+      for (final MobilityScan scan : frame.getMobilityScans()) {
+        final Range<Double> scanRange = scan.getDataPointMZRange();
+        if (scanRange != null) {
+          span = span == null ? scanRange : span.span(scanRange);
+        }
+      }
+    }
+    return span == null ? range : span;
   }
 
   /**
@@ -483,12 +528,17 @@ public final class IntensityMapSampler {
     final var size = detail.grid(times.length, mobilities.length, false);
     final double[] x = IntensityMapGrid.reduceCoordinates(times, size.x());
     final double[] y = IntensityMapGrid.reduceCoordinates(mobilities, size.y());
-    final String unit = frames.getFirst().getMobilityType() == null ? ""
-        : frames.getFirst().getMobilityType().getUnit();
+    final MobilityType mobilityType = frames.getFirst().getMobilityType();
+    final String unit = mobilityType == null ? "" : mobilityType.getUnit();
+    // GCxGC: first column retention time against second column retention time
+    final String rtLabel =
+        mobilityType == MobilityType.GCXGC ? "1D retention time" : "Retention time";
     for (int i = 0; i < result.length; i++) {
-      result[i] = new IntensityMapGrid(x, y, axisLabel("Retention time", "min"),
-          axisLabel("Mobility", unit), false);
-      result[i].setAxisKinds(IntensityMapAxisKind.RETENTION_TIME, IntensityMapAxisKind.MOBILITY);
+      result[i] = new IntensityMapGrid(x, y, axisLabel(rtLabel, "min"),
+          axisLabel(mobilityAxisLabel(mobilityType), unit), false);
+      result[i].setAxisKinds(IntensityMapAxisKind.RETENTION_TIME,
+          mobilityType == MobilityType.GCXGC ? IntensityMapAxisKind.SECOND_DIMENSION_RT
+              : IntensityMapAxisKind.MOBILITY);
     }
     final ToDoubleFunction<Scan> factors = normalization.scanFactors(frames);
     final SpectrumBuffers buffers = new SpectrumBuffers(source);

@@ -169,7 +169,8 @@ public final class AcademicWorkspace extends AbstractWorkspace {
   private Menu buildFeatureDetectionMenu() {
     final Menu menu = new Menu("Feature detection");
     menu.getItems()
-        .addAll(buildDefaultLcMsSubMenu(), buildDefaultGcMsSubMenu(), buildDefaultImsMsSubMenu(),
+        .addAll(buildDefaultLcMsSubMenu(), buildDefaultGcMsSubMenu(), buildDefaultGcxGcMsSubMenu(),
+            buildDefaultImsMsSubMenu(),
             buildDefaultImagingSubMenu(), buildDefaultMsnSubMenu(), new SeparatorMenuItem(),
             new ModuleMenuItem(SmoothingModule.class),
             new ModuleMenuItem(ChromatogramBlankSubtractionModule.class),

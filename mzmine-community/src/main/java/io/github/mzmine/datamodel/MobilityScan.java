@@ -109,7 +109,10 @@ public interface MobilityScan extends Scan {
   @NotNull
   @Override
   default String getScanDefinition() {
-    return getFrame().getScanDefinition() + " - Mobility scan #" + getMobilityScanNumber();
+    // GCxGC: single scans of a modulation, no mobility
+    final String type = getFrame().getMobilityType() == MobilityType.GCXGC ? " - Scan #"
+        : " - Mobility scan #";
+    return getFrame().getScanDefinition() + type + getMobilityScanNumber();
   }
 
   @Override

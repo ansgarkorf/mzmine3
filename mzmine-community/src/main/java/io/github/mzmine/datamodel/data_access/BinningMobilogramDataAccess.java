@@ -33,8 +33,8 @@ import io.github.mzmine.datamodel.featuredata.IntensitySeries;
 import io.github.mzmine.datamodel.featuredata.IonMobilitySeries;
 import io.github.mzmine.datamodel.featuredata.MobilitySeries;
 import io.github.mzmine.datamodel.featuredata.impl.SummedIntensityMobilitySeries;
-import io.github.mzmine.datamodel.features.FeatureList;
 import io.github.mzmine.datamodel.features.FeatureList.FeatureListAppliedMethod;
+import io.github.mzmine.datamodel.features.FeatureList;
 import io.github.mzmine.main.MZmineCore;
 import io.github.mzmine.modules.dataprocessing.featdet_imsexpander.ImsExpanderModule;
 import io.github.mzmine.modules.dataprocessing.featdet_imsexpander.ImsExpanderParameters;
@@ -198,7 +198,8 @@ public class BinningMobilogramDataAccess implements IntensitySeries, MobilitySer
     // timsTOF data can be empty in the early scans, so we use one from the middle
     final Frame frame = file.getFrame(file.getNumberOfFrames() / 2);
     return switch (frame.getMobilityType()) {
-      case NONE, DRIFT_TUBE, TRAVELING_WAVE, FAIMS, MIXED, OTHER -> 1;
+      // GCxGC: the second dimension is sampled at the acquisition rate, no binning needed
+      case NONE, DRIFT_TUBE, TRAVELING_WAVE, FAIMS, MIXED, OTHER, GCXGC -> 1;
       case SLIM -> 10;
       case TIMS -> {
         final int index = frame.getNumberOfMobilityScans() / 2;
@@ -222,6 +223,10 @@ public class BinningMobilogramDataAccess implements IntensitySeries, MobilitySer
           "Did not find IMS raw data file in feature list. This should not be the case in getPreviousBinningWith");
       return null;
     }
+    // GCxGC is processed by its own modules without binning in the second dimension
+    if (mt == MobilityType.GCXGC) {
+      return getRecommendedBinWidth(imsFile);
+    }
 
     Integer binWidth = null;
     for (int i = methods.size() - 1; i >= 0; i--) {
@@ -233,6 +238,7 @@ public class BinningMobilogramDataAccess implements IntensitySeries, MobilitySer
             IonMobilityTraceBuilderParameters.advancedParameters).getValue();
         binWidth = switch (mt) {
           case NONE, MIXED, OTHER, FAIMS -> null;
+          case GCXGC -> getRecommendedBinWidth(imsFile);
           case TIMS ->
               advancedParam.getParameter(AdvancedImsTraceBuilderParameters.timsBinningWidth)
                   .getValue() ? advancedParam.getParameter(
@@ -259,6 +265,7 @@ public class BinningMobilogramDataAccess implements IntensitySeries, MobilitySer
             RecursiveIMSBuilderParameters.advancedParameters).getValue();
         binWidth = switch (mt) {
           case NONE, MIXED, OTHER, FAIMS -> null;
+          case GCXGC -> getRecommendedBinWidth(imsFile);
           case TIMS ->
               advancedParam.getParameter(RecursiveIMSBuilderAdvancedParameters.timsBinningWidth)
                   .getValue() ? advancedParam.getParameter(
@@ -282,6 +289,7 @@ public class BinningMobilogramDataAccess implements IntensitySeries, MobilitySer
         final ParameterSet parameterSet = method.getParameters();
         binWidth = switch (mt) {
           case NONE, FAIMS, OTHER, MIXED -> null;
+          case GCXGC -> getRecommendedBinWidth(imsFile);
           case TIMS ->
               parameterSet.getParameter(MobilogramBinningParameters.timsBinningWidth).getValue();
           case DRIFT_TUBE ->

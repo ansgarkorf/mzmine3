@@ -615,10 +615,14 @@ public class FeatureUtils {
     return compoundAnnotations;
   }
 
+  /**
+   * @return true for ion mobility features. GCxGC features reuse the ion mobility data model but
+   * are no ion mobility features, see {@link GcxGcUtils#isGcxGcFeature(Feature)}
+   */
   public static boolean isImsFeature(@Nullable Feature f) {
-
     return f != null && f.getRawDataFile() instanceof IMSRawDataFile
-        && f.getFeatureData() instanceof IonMobilogramTimeSeries;
+        && f.getFeatureData() instanceof IonMobilogramTimeSeries && !GcxGcUtils.isGcxGc(
+        f.getRawDataFile());
   }
 
   /**

@@ -96,7 +96,9 @@ public class CCSCalcTask extends AbstractTask {
 
     for (ModularFeatureList featureList : featureLists) {
       for (RawDataFile file : featureList.getRawDataFiles()) {
-        if (!(file instanceof IMSRawDataFile imsFile)) {
+        // GCxGC: the second dimension is a retention time, no CCS
+        if (!(file instanceof IMSRawDataFile imsFile) || imsFile.getMobilityType()
+            .isChromatographic()) {
           continue;
         }
         if (!(imsFile.getCCSCalibration() != null

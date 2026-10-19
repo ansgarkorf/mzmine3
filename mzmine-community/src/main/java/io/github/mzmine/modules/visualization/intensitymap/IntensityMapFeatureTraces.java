@@ -25,6 +25,7 @@
 
 package io.github.mzmine.modules.visualization.intensitymap;
 
+import io.github.mzmine.util.GcxGcUtils;
 import com.google.common.collect.Range;
 import io.github.mzmine.datamodel.Scan;
 import io.github.mzmine.datamodel.featuredata.IonTimeSeries;
@@ -71,7 +72,7 @@ final class IntensityMapFeatureTraces {
               new IntensityMapFeatureTrace(layer.id(), RangeUtils.toDoubleRange(rtRange), mzRange,
                   points(feature)));
           case RT_MOBILITY -> {
-            final Range<Float> mobility = feature.getMobilityRange();
+            final Range<Float> mobility = GcxGcUtils.getSecondDimensionRange(feature);
             // decision: only the outline, the mobilograms of the trace would cover the map
             if (mobility != null) {
               traces.add(new IntensityMapFeatureTrace(layer.id(), RangeUtils.toDoubleRange(rtRange),

@@ -24,6 +24,7 @@
 
 package io.github.mzmine.datamodel.features.types.graphicalnodes;
 
+import io.github.mzmine.util.GcxGcUtils;
 import com.google.common.util.concurrent.AtomicDouble;
 import io.github.mzmine.datamodel.IMSRawDataFile;
 import io.github.mzmine.datamodel.MobilityType;
@@ -58,9 +59,14 @@ public class FeatureShapeIonMobilityRetentionTimeHeatMapChart extends BufferedCh
         new IonMobilogramTimeSeriesToRtMobilityHeatmapProvider(f), RunOption.THIS_THREAD);
     MobilityType mt = ((IMSRawDataFile) f.getRawDataFile()).getMobilityType();
     UnitFormat unitFormat = MZmineCore.getConfiguration().getUnitFormat();
+    // GCxGC: first against second dimension retention time
+    final boolean gcxgc = GcxGcUtils.isGcxGc(f.getRawDataFile());
     chart.setRangeAxisLabel(mt.getAxisLabel());
-    chart.setRangeAxisNumberFormatOverride(MZmineCore.getConfiguration().getMobilityFormat());
-    chart.setDomainAxisLabel(unitFormat.format("Retention time", "min"));
+    chart.setRangeAxisNumberFormatOverride(
+        gcxgc ? GcxGcUtils.createSecondDimensionRTFormat()
+            : MZmineCore.getConfiguration().getMobilityFormat());
+    chart.setDomainAxisLabel(
+        unitFormat.format(gcxgc ? GcxGcUtils.FIRST_DIMENSION_RT : "Retention time", "min"));
     chart.setDomainAxisNumberFormatOverride(MZmineCore.getConfiguration().getRTFormat());
     chart.setLegendNumberFormatOverride(MZmineCore.getConfiguration().getIntensityFormat());
     chart.getXYPlot().setBackgroundPaint(Color.BLACK);

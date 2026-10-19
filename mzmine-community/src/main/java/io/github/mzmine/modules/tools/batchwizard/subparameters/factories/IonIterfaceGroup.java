@@ -26,5 +26,9 @@
 package io.github.mzmine.modules.tools.batchwizard.subparameters.factories;
 
 public enum IonIterfaceGroup {
-  CHROMATOGRAPHY_SOFT, CHROMATOGRAPHY_HARD, SPATIAL_IMAGING, DIRECT_AND_FLOW
+  CHROMATOGRAPHY_SOFT, CHROMATOGRAPHY_HARD,
+  /**
+   * Comprehensive two-dimensional chromatography with hard ionization (GCxGC-EI)
+   */
+  CHROMATOGRAPHY_2D_HARD, SPATIAL_IMAGING, DIRECT_AND_FLOW
 }

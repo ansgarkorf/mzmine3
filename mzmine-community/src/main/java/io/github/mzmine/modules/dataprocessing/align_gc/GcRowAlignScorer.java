@@ -25,6 +25,7 @@
 
 package io.github.mzmine.modules.dataprocessing.align_gc;
 
+import io.github.mzmine.util.GcxGcUtils;
 import com.google.common.collect.Range;
 import io.github.mzmine.datamodel.DataPoint;
 import io.github.mzmine.datamodel.Scan;
@@ -37,6 +38,7 @@ import io.github.mzmine.modules.dataprocessing.align_join.RowVsRowScore;
 import io.github.mzmine.parameters.ParameterSet;
 import io.github.mzmine.parameters.parametertypes.tolerances.MZTolerance;
 import io.github.mzmine.parameters.parametertypes.tolerances.RTTolerance;
+
 import io.github.mzmine.util.FeatureListUtils;
 import io.github.mzmine.util.exceptions.MissingMassListException;
 import io.github.mzmine.util.scans.similarity.SpectralSimilarity;
@@ -44,6 +46,7 @@ import io.github.mzmine.util.scans.similarity.SpectralSimilarityFunction;
 import io.github.mzmine.util.scans.similarity.SpectralSimilarityFunctions;
 import java.util.List;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -55,10 +58,15 @@ public class GcRowAlignScorer implements FeatureRowAlignScorer {
   private final RTTolerance rtTolerance;
   private final SpectralSimilarityFunction similarityFunction;
   private final double rtWeight;
+  // decision: the 2D RT of GCxGC data is a hard filter and not part of the alignment score.
+  // Second dimension of GCxGC data, null if inactive
+  private final @Nullable RTTolerance secondDimTolerance;
 
   public GcRowAlignScorer(final ParameterSet parameters) {
     this.mzTolerance = parameters.getValue(GCAlignerParameters.MZ_TOLERANCE);
     this.rtTolerance = parameters.getValue(GCAlignerParameters.RT_TOLERANCE);
+    this.secondDimTolerance = parameters.getEmbeddedParameterValueIfSelectedOrElse(
+        GCAlignerParameters.SECOND_DIMENSION_TOLERANCE, null);
     rtWeight = parameters.getValue(GCAlignerParameters.RT_WEIGHT);
     var simfuncParams = parameters.getParameter(GCAlignerParameters.SIMILARITY_FUNCTION)
         .getValueWithParameters();
@@ -80,6 +88,9 @@ public class GcRowAlignScorer implements FeatureRowAlignScorer {
     // calculate score for unaligned row against all candidates
     for (FeatureListRow candidateInAligned : candidatesInAligned) {
       // retention time is already checked for candidates
+      if (!isWithinSecondDimension(rowToAdd, candidateInAligned)) {
+        continue;
+      }
       SpectralSimilarity similarity = checkSpectralSimilarity(rowToAdd, candidateInAligned);
       if (similarity != null) {
         final RowVsRowScore score = new RowVsRowScore(rowToAdd, candidateInAligned, rtRange,
@@ -87,6 +98,22 @@ public class GcRowAlignScorer implements FeatureRowAlignScorer {
         scoresList.add(score);
       }
     }
+  }
+
+  /**
+   * @return true if the second dimension tolerance is inactive, or both rows have a second
+   * dimension value within the tolerance
+   */
+  private boolean isWithinSecondDimension(@NotNull final FeatureListRow row,
+      @NotNull final FeatureListRow candidate) {
+    if (secondDimTolerance == null) {
+      return true;
+    }
+    final Float secondDim = row.getAverageSecondDimensionRT();
+    final Float candidateSecondDim = candidate.getAverageSecondDimensionRT();
+    // assumption: rows without second dimension cannot be matched when the tolerance is active
+    return secondDim != null && candidateSecondDim != null
+        && secondDimTolerance.checkWithinTolerance(secondDim, candidateSecondDim);
   }
 
   private SpectralSimilarity checkSpectralSimilarity(FeatureListRow row, FeatureListRow candidate) {
@@ -125,7 +152,8 @@ public class GcRowAlignScorer implements FeatureRowAlignScorer {
 
     // TODO think about best way to calculate an alignment score that also includes spectral similarity
     RowAlignmentScoreCalculator calculator = new RowAlignmentScoreCalculator(originalFeatureLists,
-        mzTolerance, rtTolerance, null, 0, rtWeight, 0);
+        mzTolerance, rtTolerance, null, 0, rtWeight, 0,
+        GcxGcUtils.isGcxGc(alignedFeatureList));
     FeatureListUtils.addAlignmentScores(alignedFeatureList, calculator, false);
   }
 }

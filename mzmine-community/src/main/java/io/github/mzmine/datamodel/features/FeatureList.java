@@ -25,6 +25,7 @@
 
 package io.github.mzmine.datamodel.features;
 
+import io.github.mzmine.util.GcxGcUtils;
 import com.google.common.collect.Range;
 import io.github.mzmine.datamodel.ImagingRawDataFile;
 import io.github.mzmine.datamodel.RawDataFile;
@@ -546,7 +547,17 @@ public interface FeatureList {
 
     if (newFeature != null) {
       boolean isImagingFile = raw instanceof ImagingRawDataFile;
-      if (newFeature.getFeatureData() instanceof IonMobilogramTimeSeries) {
+      if (GcxGcUtils.isGcxGc(raw)) {
+        // GCxGC reuses the ion mobility data model but has its own graphical types
+        DataTypeUtils.DEFAULT_GCXGC_COLUMNS_ROW.stream()
+            .filter(type -> type instanceof LinkedGraphicalType)
+            .forEach(type -> row.set(type, true));
+        if (GcxGcUtils.isGcxGcFeature(newFeature)) {
+          DataTypeUtils.DEFAULT_GCXGC_COLUMNS_FEATURE.stream()
+              .filter(type -> type instanceof LinkedGraphicalType)
+              .forEach(type -> row.set(type, true));
+        }
+      } else if (newFeature.getFeatureData() instanceof IonMobilogramTimeSeries) {
         DataTypeUtils.DEFAULT_ION_MOBILITY_COLUMNS_ROW.stream()
             .filter(type -> type instanceof LinkedGraphicalType)
             .forEach(type -> row.set(type, true));
@@ -554,7 +565,9 @@ public interface FeatureList {
             .filter(type -> type instanceof LinkedGraphicalType)
             .forEach(type -> row.set(type, true));
       }
-      if (hasRowType(RTType.class) && !isImagingFile) {
+      // chromatograms along the GCxGC 2D RT spectra have no first dimension RT shape
+      if (hasRowType(RTType.class) && !isImagingFile
+          && !GcxGcUtils.isSecondDimensionChromatogram(newFeature)) {
         // activate shape for this row
         DataTypeUtils.DEFAULT_CHROMATOGRAPHIC_ROW.stream()
             .filter(type -> type instanceof LinkedGraphicalType)

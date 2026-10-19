@@ -25,6 +25,7 @@
 
 package io.github.mzmine.modules.dataprocessing.filter_duplicatefilter_gc_ei;
 
+import io.github.mzmine.util.GcxGcUtils;
 import io.github.mzmine.parameters.Parameter;
 import io.github.mzmine.parameters.ParameterSet;
 import io.github.mzmine.parameters.impl.SimpleParameterSet;
@@ -45,7 +46,10 @@ import io.github.mzmine.util.scans.similarity.HandleUnmatchedSignalOptions;
 import io.github.mzmine.util.scans.similarity.SpectralSimilarityFunctions;
 import io.github.mzmine.util.scans.similarity.Weights;
 import io.github.mzmine.util.scans.similarity.impl.cosine.WeightedCosineSpectralSimilarityParameters;
+import io.github.mzmine.parameters.parametertypes.OptionalParameter;
+
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 public class GcEiDuplicateFilterParameters extends SimpleParameterSet {
 
@@ -57,6 +61,13 @@ public class GcEiDuplicateFilterParameters extends SimpleParameterSet {
       After gap filling, duplicates of the same compound have almost the same retention time. \
       Usually the same tolerance as used for the GC-EI spectral deconvolution.""",
       new RTTolerance(0.04f, Unit.MINUTES));
+
+  public static final OptionalParameter<RTToleranceParameter> SECOND_DIMENSION_TOLERANCE = new OptionalParameter<>(
+      GcxGcUtils.secondDimensionRTToleranceParameter("2D RT tolerance", """
+          Maximum difference of the second dimension retention time between duplicate rows \
+          (GCxGC second column). Activate for GCxGC data, otherwise compounds that are separated \
+          in the second dimension are merged.""", new RTTolerance(0.1f, Unit.SECONDS)),
+      false);
 
   public static final MZToleranceParameter MZ_TOLERANCE = new MZToleranceParameter(
       ToleranceType.SCAN_TO_SCAN, """
@@ -100,23 +111,41 @@ public class GcEiDuplicateFilterParameters extends SimpleParameterSet {
       true);
 
   public GcEiDuplicateFilterParameters() {
-    super(new Parameter[]{FEATURE_LISTS, RT_TOLERANCE, MZ_TOLERANCE, MZ_CHECK, SIMILARITY_FUNCTION,
-            HANDLING, SUFFIX, HANDLE_ORIGINAL},
+    super(new Parameter[]{FEATURE_LISTS, RT_TOLERANCE, SECOND_DIMENSION_TOLERANCE, MZ_TOLERANCE,
+            MZ_CHECK, SIMILARITY_FUNCTION, HANDLING, SUFFIX, HANDLE_ORIGINAL},
         "https://mzmine.github.io/mzmine_documentation/module_docs/filter_duplicate_features_gc_ei/gc-ei-duplicate-filter.html");
   }
 
   /**
    * Creates a parameter set for programmatic use, e.g., in the processing wizard. Uses the weighted
-   * cosine similarity with NIST (GC) weights.
+   * cosine similarity with NIST (GC) weights and no second dimension check.
    */
   public static @NotNull GcEiDuplicateFilterParameters create(
       @NotNull final FeatureListsSelection flists, @NotNull final RTTolerance rtTolerance,
       @NotNull final MZTolerance mzTolerance, @NotNull final GcEiDuplicateMzCheck mzCheck,
       final double minCosine, @NotNull final GcEiDuplicateHandling handling,
       @NotNull final String suffix, @NotNull final OriginalFeatureListOption handleOriginal) {
+    return create(flists, rtTolerance, null, mzTolerance, mzCheck, minCosine, handling, suffix,
+        handleOriginal);
+  }
+
+  /**
+   * Creates a parameter set for programmatic use, e.g., in the processing wizard. Uses the weighted
+   * cosine similarity with NIST (GC) weights.
+   *
+   * @param secondDimTolerance tolerance of the second dimension (GCxGC) or null to deactivate
+   */
+  public static @NotNull GcEiDuplicateFilterParameters create(
+      @NotNull final FeatureListsSelection flists, @NotNull final RTTolerance rtTolerance,
+      @Nullable final RTTolerance secondDimTolerance, @NotNull final MZTolerance mzTolerance,
+      @NotNull final GcEiDuplicateMzCheck mzCheck, final double minCosine,
+      @NotNull final GcEiDuplicateHandling handling, @NotNull final String suffix,
+      @NotNull final OriginalFeatureListOption handleOriginal) {
     final GcEiDuplicateFilterParameters params = (GcEiDuplicateFilterParameters) new GcEiDuplicateFilterParameters().cloneParameterSet();
     params.setParameter(FEATURE_LISTS, flists);
     params.setParameter(RT_TOLERANCE, rtTolerance);
+    params.setParameter(SECOND_DIMENSION_TOLERANCE, secondDimTolerance != null,
+        secondDimTolerance != null ? secondDimTolerance : new RTTolerance(0.1f, Unit.SECONDS));
     params.setParameter(MZ_TOLERANCE, mzTolerance);
     params.setParameter(MZ_CHECK, mzCheck);
     params.setParameter(HANDLING, handling);

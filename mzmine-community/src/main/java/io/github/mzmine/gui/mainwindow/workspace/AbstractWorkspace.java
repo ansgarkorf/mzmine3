@@ -25,6 +25,9 @@
 
 package io.github.mzmine.gui.mainwindow.workspace;
 
+import io.github.mzmine.modules.dataprocessing.featdet_gcxgc.GcxGcSecondDimensionSpectraModule;
+import io.github.mzmine.modules.dataprocessing.featdet_gcxgc.GcxGc2DFeatureBuilderModule;
+import io.github.mzmine.modules.dataprocessing.featdet_gcxgc.GcxGc2DFeatureFinderModule;
 import static io.github.mzmine.util.javafx.FxMenuUtil.addMenuItem;
 import static io.github.mzmine.util.javafx.FxMenuUtil.addModuleMenuItem;
 import static io.github.mzmine.util.javafx.FxMenuUtil.addModuleMenuItems;
@@ -68,6 +71,7 @@ import io.github.mzmine.modules.dataprocessing.group_spectral_networking.MainSpe
 import io.github.mzmine.modules.dataprocessing.id_biotransformer.BioTransformerModule;
 import io.github.mzmine.modules.dataprocessing.id_ecmscalcpotential.CalcEcmsPotentialModule;
 import io.github.mzmine.modules.dataprocessing.id_formulapredictionfeaturelist.FormulaPredictionFeatureListModule;
+import io.github.mzmine.modules.dataprocessing.id_gc_ei_ion_notation.GcEiIonNotationModule;
 import io.github.mzmine.modules.dataprocessing.id_ion_identity_networking.addionannotations.AddIonNetworkingModule;
 import io.github.mzmine.modules.dataprocessing.id_ion_identity_networking.checkmsms.IonNetworkMSMSCheckModule;
 import io.github.mzmine.modules.dataprocessing.id_ion_identity_networking.clearionids.ClearIonIdentitiesModule;
@@ -257,6 +261,13 @@ public abstract class AbstractWorkspace implements Workspace {
         SpectralDeconvolutionGCModule.class*/);
   }
 
+  protected Menu buildDefaultGcxGcMsSubMenu() {
+    return addModuleMenuItems("GCxGC-MS", GcxGc2DFeatureFinderModule.class,
+        GcxGcSecondDimensionSpectraModule.class,
+        ModularADAPChromatogramBuilderModule.class, GcxGc2DFeatureBuilderModule.class,
+        MinimumSearchFeatureResolverModule.class);
+  }
+
   protected Menu buildDefaultImsMsSubMenu() {
     return addModuleMenuItems("LC-IMS-MS", ModularADAPChromatogramBuilderModule.class,
         ImsExpanderModule.class);
@@ -304,7 +315,7 @@ public abstract class AbstractWorkspace implements Workspace {
         IonNetworkingModule.class, MainSpectralNetworkingModule.class, AddIonNetworkingModule.class,
         IonNetworkRefinementModule.class, FormulaPredictionIonNetworkModule.class,
         CreateAvgNetworkFormulasModule.class, IonNetworkMSMSCheckModule.class,
-        ClearIonIdentitiesModule.class);
+        GcEiIonNotationModule.class, ClearIonIdentitiesModule.class);
     groupingMenu.getItems().add(new SeparatorMenuItem());
     addModuleMenuItems(groupingMenu, CompoundGrouperModule.class,
         ConfigCompoundRepresentationModule.class);

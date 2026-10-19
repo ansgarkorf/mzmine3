@@ -25,6 +25,11 @@
 
 package io.github.mzmine.util;
 
+import io.github.mzmine.datamodel.features.types.FeatureShapeSecondDimensionType;
+import io.github.mzmine.datamodel.features.types.numbers.SecondDimensionFwhmType;
+import io.github.mzmine.datamodel.features.types.numbers.SecondDimensionRTRangeType;
+import io.github.mzmine.datamodel.features.types.numbers.SecondDimensionRTType;
+import io.github.mzmine.datamodel.features.types.FeatureShapeGcxGc2DType;
 import io.github.mzmine.datamodel.ImagingRawDataFile;
 import io.github.mzmine.datamodel.RawDataFile;
 import io.github.mzmine.datamodel.featuredata.IonMobilogramTimeSeries;
@@ -101,6 +106,15 @@ public class DataTypeUtils {
   public static final List<DataType> DEFAULT_ION_MOBILITY_COLUMNS_FEATURE = List.of(
       new MobilityType(), new MobilityRangeType());
 
+  @NotNull
+  public static final List<DataType> DEFAULT_GCXGC_COLUMNS_ROW = List.of(
+      new SecondDimensionRTType(), new SecondDimensionRTRangeType(),
+      new FeatureShapeSecondDimensionType());
+
+  @NotNull
+  public static final List<DataType> DEFAULT_GCXGC_COLUMNS_FEATURE = List.of(
+      new SecondDimensionRTType(), new SecondDimensionRTRangeType(), new FeatureShapeGcxGc2DType());
+
   public static final List<DataType> DEFAULT_IMAGING_COLUMNS_FEATURE = List.of(new ImageType());
 
   /**
@@ -122,9 +136,36 @@ public class DataTypeUtils {
     flist.addFeatureType(DEFAULT_CHROMATOGRAPHIC_FEATURE);
   }
 
+  /**
+   * Adds the ion mobility columns, or the second dimension retention time columns for GCxGC data,
+   * which reuses the ion mobility processing.
+   */
   public static void addDefaultIonMobilityTypeColumns(ModularFeatureList flist) {
+    if (GcxGcUtils.isGcxGc(flist)) {
+      addDefaultGcxGcTypeColumns(flist);
+      return;
+    }
     flist.addRowType(DEFAULT_ION_MOBILITY_COLUMNS_ROW);
     flist.addFeatureType(DEFAULT_ION_MOBILITY_COLUMNS_FEATURE);
+  }
+
+  /**
+   * Adds the second dimension retention time columns of GCxGC data
+   */
+  public static void addDefaultGcxGcTypeColumns(@NotNull final ModularFeatureList flist) {
+    flist.addRowType(DEFAULT_GCXGC_COLUMNS_ROW);
+    flist.addFeatureType(DEFAULT_GCXGC_COLUMNS_FEATURE);
+  }
+
+  /**
+   * Adds the columns of GCxGC chromatograms along the 2D RT spectra: 2D RT and 2D RT shapes, no 2D
+   * feature plot, as these chromatograms are not expanded into the modulations yet
+   */
+  public static void addDefaultSecondDimensionChromatogramColumns(
+      @NotNull final ModularFeatureList flist) {
+    flist.addRowType(DEFAULT_GCXGC_COLUMNS_ROW);
+    flist.addFeatureType(new SecondDimensionRTType(), new SecondDimensionRTRangeType(),
+        new SecondDimensionFwhmType());
   }
 
   /**
@@ -136,6 +177,8 @@ public class DataTypeUtils {
     final RawDataFile raw = feature.getRawDataFile();
     if (raw instanceof ImagingRawDataFile) {
       feature.set(ImageType.class, true);
+    } else if (GcxGcUtils.isGcxGcFeature(feature)) {
+      feature.set(FeatureShapeGcxGc2DType.class, true);
     } else if (feature.getFeatureData() instanceof IonMobilogramTimeSeries) {
       feature.set(FeatureShapeIonMobilityRetentionTimeHeatMapType.class, true);
     }

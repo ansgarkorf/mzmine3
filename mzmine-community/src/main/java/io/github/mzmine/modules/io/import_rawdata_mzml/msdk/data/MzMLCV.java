@@ -54,6 +54,16 @@ public class MzMLCV {
   public static final String MS_RT_RETENTION_TIME_NORMALIZED = "MS:1000896"; // "normalized
   // retention time"
 
+  // comprehensive two-dimensional chromatography (GCxGC)
+  /**
+   * Start of the modulation, retention time on the first column
+   */
+  public static final String cvFirstColumnElutionTime = "MS:1002082";
+  /**
+   * Retention time within the modulation on the second column
+   */
+  public static final String cvSecondColumnElutionTime = "MS:1002083";
+
   // MS level
   /**
    * Constant <code>cvMSLevel="MS:1000511"</code>

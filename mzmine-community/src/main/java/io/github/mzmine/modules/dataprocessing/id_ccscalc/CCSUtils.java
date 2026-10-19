@@ -80,6 +80,8 @@ public class CCSUtils {
       case TIMS ->
           file.getCCSCalibration() != null ? file.getCCSCalibration().getCCS(mz, charge, mobility)
               : calcCCSFromTimsMobility(mobility.doubleValue(), charge, mz);
+      // no ion mobility, the second dimension is a chromatographic retention time
+      case GCXGC -> null;
       case NONE, FAIMS, MIXED, OTHER, SLIM -> logUnsupportedMobilityUnit();
     };
   }

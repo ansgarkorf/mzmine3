@@ -26,6 +26,7 @@
 package io.github.mzmine.datamodel.impl;
 
 import io.github.mzmine.datamodel.Frame;
+import io.github.mzmine.datamodel.MobilityType;
 import io.github.mzmine.datamodel.MassList;
 import io.github.mzmine.datamodel.MassSpectrumType;
 import io.github.mzmine.datamodel.MobilityScan;
@@ -321,6 +322,17 @@ public class MobilityScanStorage {
     return (int) StorageUtils.numDoubles(rawMzValues);
   }
 
+  /**
+   * @return the message for missing mass lists, GCxGC data uses its own wording
+   */
+  private @NotNull String missingMassListMessage() {
+    if (frame.getMobilityType() == MobilityType.GCXGC) {
+      return "No mass list present for the single scans of GCxGC modulations. Run mass detection "
+          + "on all scan types prior.";
+    }
+    return "No mass list present for mobility scans. Run mass detection for scan type \"Mobility scans\" prior.";
+  }
+
   public Frame getFrame() {
     return frame;
   }
@@ -377,7 +389,7 @@ public class MobilityScanStorage {
   public int getNumberOfMassListDatapoints(int index) {
     if (massListStorageOffsets == null) {
       throw new MissingMassListException(
-          "No mass list present for mobility scans. Run mass detection for scan type \"Mobility scans\" prior.",
+          missingMassListMessage(),
           frame);
     }
     assert index < getNumberOfMobilityScans();
@@ -396,7 +408,7 @@ public class MobilityScanStorage {
   public int getMassListStorageOffset(int index) {
     if (massListStorageOffsets == null) {
       throw new MissingMassListException(
-          "No mass list present for mobility scans. Run mass detection for scan type \"Mobility scans\" prior.",
+          missingMassListMessage(),
           frame);
     }
     return massListStorageOffsets.getAtIndex(ValueLayout.JAVA_INT, index);
@@ -409,7 +421,7 @@ public class MobilityScanStorage {
   public int getMassListBasePeakIndex(int index) {
     if (massListBasePeakIndices == null) {
       throw new MissingMassListException(
-          "No mass list present for mobility scans. Run mass detection for scan type \"Mobility scans\" prior.",
+          missingMassListMessage(),
           frame);
     }
     return massListBasePeakIndices.getAtIndex(ValueLayout.JAVA_INT, index);
@@ -421,7 +433,7 @@ public class MobilityScanStorage {
   public int getMassListMaxNumPoints() {
     if (massListMaxNumPoints == -1) {
       throw new MissingMassListException(
-          "No mass list present for mobility scans. Run mass detection for scan type \"Mobility scans\" prior.",
+          missingMassListMessage(),
           frame);
     }
     return massListMaxNumPoints;
@@ -433,7 +445,7 @@ public class MobilityScanStorage {
   public int getMassListTotalNumPoints() {
     if (massListIntensityValues == null) {
       throw new MissingMassListException(
-          "No mass list present for mobility scans. Run mass detection for scan type \"Mobility scans\" prior.",
+          missingMassListMessage(),
           frame);
     }
     return (int) StorageUtils.numDoubles(massListIntensityValues);
@@ -442,7 +454,7 @@ public class MobilityScanStorage {
   public void getMassListMzValues(int mobilityScanIndex, double[] dst) {
     if (massListMzValues == null) {
       throw new MissingMassListException(
-          "No mass list present for mobility scans. Run mass detection for scan type \"Mobility scans\" prior.",
+          missingMassListMessage(),
           frame);
     }
     final int numMassListDp = getNumberOfMassListDatapoints(mobilityScanIndex);
@@ -457,7 +469,7 @@ public class MobilityScanStorage {
   public void getAllMassListMzValues(double[] dst) {
     if (massListMzValues == null) {
       throw new MissingMassListException(
-          "No mass list present for mobility scans. Run mass detection for scan type \"Mobility scans\" prior.",
+          missingMassListMessage(),
           frame);
     }
     assert dst.length >= getMassListTotalNumPoints();
@@ -467,7 +479,7 @@ public class MobilityScanStorage {
   public void getMassListIntensityValues(int mobilityScanIndex, double[] dst) {
     if (massListIntensityValues == null) {
       throw new MissingMassListException(
-          "No mass list present for mobility scans. Run mass detection for scan type \"Mobility scans\" prior.",
+          missingMassListMessage(),
           frame);
     }
     final int numMassListDp = getNumberOfMassListDatapoints(mobilityScanIndex);
@@ -482,7 +494,7 @@ public class MobilityScanStorage {
   public void getAllMassListIntensityValues(double[] dst) {
     if (massListIntensityValues == null) {
       throw new MissingMassListException(
-          "No mass list present for mobility scans. Run mass detection for scan type \"Mobility scans\" prior.",
+          missingMassListMessage(),
           frame);
     }
     assert dst.length >= getMassListTotalNumPoints();
@@ -492,7 +504,7 @@ public class MobilityScanStorage {
   public double getMassListMzValue(int mobilityScanIndex, int index) {
     if (massListMzValues == null) {
       throw new MissingMassListException(
-          "No mass list present for mobility scans. Run mass detection for scan type \"Mobility scans\" prior.",
+          missingMassListMessage(),
           frame);
     }
     return massListMzValues.getAtIndex(ValueLayout.JAVA_DOUBLE,
@@ -502,7 +514,7 @@ public class MobilityScanStorage {
   public double getMassListIntensityValue(int mobilityScanIndex, int index) {
     if (massListIntensityValues == null) {
       throw new MissingMassListException(
-          "No mass list present for mobility scans. Run mass detection for scan type \"Mobility scans\" prior.",
+          missingMassListMessage(),
           frame);
     }
     return massListIntensityValues.getAtIndex(ValueLayout.JAVA_DOUBLE,

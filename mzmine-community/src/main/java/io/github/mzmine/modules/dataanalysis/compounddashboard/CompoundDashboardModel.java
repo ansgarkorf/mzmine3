@@ -47,6 +47,7 @@ import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.scene.Node;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jfree.data.xy.XYDataset;
@@ -121,14 +122,26 @@ public class CompoundDashboardModel {
   // actually rendered.
   private final StringProperty ms1Title = new SimpleStringProperty("");
   private final StringProperty ms2Title = new SimpleStringProperty("");
+  // true when the selected compound is a GC-EI deconvoluted compound. Its spectrum is a
+  // deconvoluted MS1 (EI) pseudo spectrum and not an MS2
+  private final BooleanProperty deconvolutedEi = new SimpleBooleanProperty(false);
 
   // Domain axis label for the mobilogram plot; the mobilogram task overrides this per IMS file so
   // the unit follows the actual mobility type (e.g. "1/K0", "drift time (ms)").
   private final StringProperty mobilogramDomainAxisLabel = new SimpleStringProperty("Mobility");
 
-  // Visibility of the optional 4D feature plot pane. Defaults to true so users can immediately see
-  // the bubble plot when opening the dashboard; the toggle button in the EIC toolbar collapses it.
-  private final BooleanProperty featurePlot4DVisible = new SimpleBooleanProperty(true);
+  // The plot left of the chromatograms: the 4D feature plot by default so users immediately see the
+  // bubble plot; the toolbar button cycles to the 2D and 3D raw data plots and hides the pane.
+  private final ObjectProperty<CompoundDashboardSidePlot> sidePlot = new SimpleObjectProperty<>(
+      CompoundDashboardSidePlot.FEATURE_PLOT);
+  // The 2D or 3D raw data plot of the current file around the selected compound, null if none
+  private final ObjectProperty<@Nullable Node> sideMap = new SimpleObjectProperty<>();
+  // Shown instead of the raw data plot when there is none
+  private final StringProperty sideMapMessage = new SimpleStringProperty("Select a compound");
+
+  // The member legend below the charts shows only the most intense rows until it is expanded.
+  // Stays expanded across compound changes until the user collapses it again.
+  private final BooleanProperty legendExpanded = new SimpleBooleanProperty(false);
 
   // --- accessors -------------------------------------------------------------
 
@@ -305,6 +318,18 @@ public class CompoundDashboardModel {
     return ms2Title;
   }
 
+  public boolean isDeconvolutedEi() {
+    return deconvolutedEi.get();
+  }
+
+  public void setDeconvolutedEi(boolean deconvolutedEi) {
+    this.deconvolutedEi.set(deconvolutedEi);
+  }
+
+  public BooleanProperty deconvolutedEiProperty() {
+    return deconvolutedEi;
+  }
+
   public @Nullable String getMobilogramDomainAxisLabel() {
     return mobilogramDomainAxisLabel.get();
   }
@@ -317,11 +342,43 @@ public class CompoundDashboardModel {
     return mobilogramDomainAxisLabel;
   }
 
-  public boolean isFeaturePlot4DVisible() {
-    return featurePlot4DVisible.get();
+  public @NotNull CompoundDashboardSidePlot getSidePlot() {
+    return sidePlot.get();
   }
 
-  public BooleanProperty featurePlot4DVisibleProperty() {
-    return featurePlot4DVisible;
+  public ObjectProperty<CompoundDashboardSidePlot> sidePlotProperty() {
+    return sidePlot;
+  }
+
+  public @Nullable Node getSideMap() {
+    return sideMap.get();
+  }
+
+  public void setSideMap(@Nullable final Node map) {
+    sideMap.set(map);
+  }
+
+  public ObjectProperty<@Nullable Node> sideMapProperty() {
+    return sideMap;
+  }
+
+  public void setSideMapMessage(@NotNull final String message) {
+    sideMapMessage.set(message);
+  }
+
+  public StringProperty sideMapMessageProperty() {
+    return sideMapMessage;
+  }
+
+  public boolean isLegendExpanded() {
+    return legendExpanded.get();
+  }
+
+  public void setLegendExpanded(boolean expanded) {
+    legendExpanded.set(expanded);
+  }
+
+  public BooleanProperty legendExpandedProperty() {
+    return legendExpanded;
   }
 }

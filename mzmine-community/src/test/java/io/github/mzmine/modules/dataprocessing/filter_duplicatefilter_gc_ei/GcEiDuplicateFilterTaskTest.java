@@ -25,6 +25,7 @@
 
 package io.github.mzmine.modules.dataprocessing.filter_duplicatefilter_gc_ei;
 
+import io.github.mzmine.datamodel.features.types.numbers.SecondDimensionRTType;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -63,6 +64,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -195,12 +197,75 @@ class GcEiDuplicateFilterTaskTest {
     assertEquals(2, flist.getNumberOfRows());
   }
 
+  @Test
+  void keepsRowsSeparatedInSecondDimension() {
+    // GCxGC: same first dimension RT and spectrum, but different second column RT
+    addRow(1, MZ_A, RT, SPECTRUM_X,
+        features(fileA, FeatureStatus.DETECTED, fileB, FeatureStatus.DETECTED));
+    addRow(2, MZ_A, RT, SPECTRUM_X, features(fileC, FeatureStatus.DETECTED));
+    // 2D RT in minutes, 0.3 s apart
+    setSecondDimension(1, 0.02f);
+    setSecondDimension(2, 0.025f);
+
+    run(GcEiDuplicateMzCheck.SAME_QUANTIFIER, GcEiDuplicateHandling.MERGE,
+        new RTTolerance(0.1f, Unit.SECONDS));
+
+    assertEquals(2, flist.getNumberOfRows());
+  }
+
+  @Test
+  void mergesRowsWithinSecondDimensionTolerance() {
+    addRow(1, MZ_A, RT, SPECTRUM_X,
+        features(fileA, FeatureStatus.DETECTED, fileB, FeatureStatus.DETECTED));
+    addRow(2, MZ_A, RT, SPECTRUM_X, features(fileC, FeatureStatus.DETECTED));
+    // 2D RT in minutes, 0.03 s apart
+    setSecondDimension(1, 0.02f);
+    setSecondDimension(2, 0.0205f);
+
+    run(GcEiDuplicateMzCheck.SAME_QUANTIFIER, GcEiDuplicateHandling.MERGE,
+        new RTTolerance(0.1f, Unit.SECONDS));
+
+    assertEquals(1, flist.getNumberOfRows());
+    assertEquals(3, flist.getRow(0).getNumberOfFeatures());
+  }
+
+  @Test
+  void secondDimensionIsIgnoredWithoutTolerance() {
+    addRow(1, MZ_A, RT, SPECTRUM_X,
+        features(fileA, FeatureStatus.DETECTED, fileB, FeatureStatus.DETECTED));
+    addRow(2, MZ_A, RT, SPECTRUM_X, features(fileC, FeatureStatus.DETECTED));
+    // 2D RT in minutes, 0.3 s apart
+    setSecondDimension(1, 0.02f);
+    setSecondDimension(2, 0.025f);
+
+    run(GcEiDuplicateMzCheck.SAME_QUANTIFIER, GcEiDuplicateHandling.MERGE);
+
+    assertEquals(1, flist.getNumberOfRows());
+  }
+
+  /**
+   * Sets the second dimension retention time (GCxGC 2D RT in minutes) on all features of the row
+   */
+  private void setSecondDimension(final int rowId, final float secondDim) {
+    final FeatureListRow row = flist.findRowByID(rowId);
+    for (final ModularFeature feature : row.getFeatures()) {
+      feature.set(SecondDimensionRTType.class, secondDim);
+    }
+    flist.applyRowBindings(row);
+  }
+
   private void run(@NotNull final GcEiDuplicateMzCheck mzCheck,
       @NotNull final GcEiDuplicateHandling handling) {
+    run(mzCheck, handling, null);
+  }
+
+  private void run(@NotNull final GcEiDuplicateMzCheck mzCheck,
+      @NotNull final GcEiDuplicateHandling handling,
+      @Nullable final RTTolerance secondDimTolerance) {
     project.addFeatureList(flist);
     final ParameterSet params = GcEiDuplicateFilterParameters.create(
         new FeatureListsSelection(FeatureListsSelectionType.ALL_FEATURELISTS),
-        new RTTolerance(0.04f, Unit.MINUTES), MZ_TOLERANCE, mzCheck,
+        new RTTolerance(0.04f, Unit.MINUTES), secondDimTolerance, MZ_TOLERANCE, mzCheck,
         GcEiDuplicateFilterParameters.DEFAULT_MIN_COSINE, handling, "dup",
         OriginalFeatureListOption.PROCESS_IN_PLACE);
     final GcEiDuplicateFilterTask task = new GcEiDuplicateFilterTask(project, flist, null,

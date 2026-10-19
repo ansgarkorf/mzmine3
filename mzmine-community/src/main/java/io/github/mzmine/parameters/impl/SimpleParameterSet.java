@@ -25,6 +25,7 @@
 
 package io.github.mzmine.parameters.impl;
 
+import io.github.mzmine.util.GcxGcUtils;
 import io.github.mzmine.datamodel.IMSRawDataFile;
 import io.github.mzmine.datamodel.RawDataFile;
 import io.github.mzmine.datamodel.features.FeatureList;
@@ -293,7 +294,11 @@ public class SimpleParameterSet implements ParameterSet {
     List<String> nonImsFilesList = new ArrayList<>();
 
     for (RawDataFile file : rawDataFiles) {
-      if (!(file instanceof IMSRawDataFile)) {
+      if (GcxGcUtils.isGcxGc(file)) {
+        // GCxGC reuses the ion mobility data model internally but is no ion mobility data
+        onlyImsFiles = false;
+        nonImsFilesList.add("GCxGC files (no ion mobility): " + file.getName());
+      } else if (!(file instanceof IMSRawDataFile)) {
         onlyImsFiles = false;
         nonImsFilesList.add("Non-ion mobility spectrometry files: " + file.getName());
       } else {

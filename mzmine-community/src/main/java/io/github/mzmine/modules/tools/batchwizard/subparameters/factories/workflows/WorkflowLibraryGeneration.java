@@ -109,7 +109,8 @@ public class WorkflowLibraryGeneration extends WorkflowWizardParameterFactory {
     return switch (ionInterface.group()) {
       case CHROMATOGRAPHY_SOFT -> new WizardBatchBuilderLcLibraryGen(steps);
       case DIRECT_AND_FLOW -> new WizardBatchBuilderFlowInjectLibraryGen(steps);
-      case CHROMATOGRAPHY_HARD, SPATIAL_IMAGING -> throw new UnsupportedWorkflowException(steps);
+      case CHROMATOGRAPHY_HARD, CHROMATOGRAPHY_2D_HARD, SPATIAL_IMAGING ->
+          throw new UnsupportedWorkflowException(steps);
     };
   }
 

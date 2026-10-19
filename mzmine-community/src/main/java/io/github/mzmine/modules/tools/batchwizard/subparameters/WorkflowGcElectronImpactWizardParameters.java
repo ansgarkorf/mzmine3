@@ -25,12 +25,14 @@
 
 package io.github.mzmine.modules.tools.batchwizard.subparameters;
 
+import io.github.mzmine.modules.tools.batchwizard.subparameters.factories.WorkflowWizardParameterFactory;
 import io.github.mzmine.modules.tools.batchwizard.subparameters.factories.workflows.WorkflowDeconvolution;
 import io.github.mzmine.parameters.parametertypes.BooleanParameter;
 import io.github.mzmine.parameters.parametertypes.IntegerParameter;
 import io.github.mzmine.parameters.parametertypes.OptionalParameter;
 import io.github.mzmine.parameters.parametertypes.filenames.FileNameSuffixExportParameter;
 import java.io.File;
+import org.jetbrains.annotations.NotNull;
 
 public final class WorkflowGcElectronImpactWizardParameters extends WorkflowWizardParameters {
 
@@ -62,7 +64,16 @@ public final class WorkflowGcElectronImpactWizardParameters extends WorkflowWiza
 
 
   public WorkflowGcElectronImpactWizardParameters() {
-    super(new WorkflowDeconvolution(),
+    this(new WorkflowDeconvolution());
+  }
+
+  /**
+   * @param workflow the workflow of these parameters, e.g., the GCxGC 2D feature finder workflow
+   *                 that shares the GC-EI deconvolution parameters
+   */
+  public WorkflowGcElectronImpactWizardParameters(
+      @NotNull final WorkflowWizardParameterFactory workflow) {
+    super(workflow,
         // actual parameters
         MIN_NUMBER_OF_SIGNALS_IN_DECON_SPECTRA, applySpectralNetworking, exportPath, exportGnps,
         exportMsp, exportAnnotationGraphics);
@@ -73,7 +84,16 @@ public final class WorkflowGcElectronImpactWizardParameters extends WorkflowWiza
       final boolean applyNetworking, final boolean exportActive, final File exportBasePath,
       final boolean exportGnpsActive, final boolean exportMspActive,
       final boolean exportAnnotationGraphicsActive) {
-    this();
+    this(new WorkflowDeconvolution(), numberOfSignals, applyNetworking, exportActive,
+        exportBasePath, exportGnpsActive, exportMspActive, exportAnnotationGraphicsActive);
+  }
+
+  public WorkflowGcElectronImpactWizardParameters(
+      @NotNull final WorkflowWizardParameterFactory workflow, final int numberOfSignals,
+      final boolean applyNetworking, final boolean exportActive, final File exportBasePath,
+      final boolean exportGnpsActive, final boolean exportMspActive,
+      final boolean exportAnnotationGraphicsActive) {
+    this(workflow);
     setParameter(exportPath, exportActive, exportBasePath);
     setParameter(MIN_NUMBER_OF_SIGNALS_IN_DECON_SPECTRA, numberOfSignals);
     setParameter(applySpectralNetworking, applyNetworking);

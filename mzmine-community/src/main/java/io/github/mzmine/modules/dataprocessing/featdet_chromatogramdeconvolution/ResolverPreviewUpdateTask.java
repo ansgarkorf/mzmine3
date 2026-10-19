@@ -19,6 +19,8 @@
 
 package io.github.mzmine.modules.dataprocessing.featdet_chromatogramdeconvolution;
 
+import java.text.NumberFormat;
+import io.github.mzmine.util.GcxGcUtils;
 import io.github.mzmine.datamodel.Frame;
 import io.github.mzmine.datamodel.IMSRawDataFile;
 import io.github.mzmine.datamodel.Scan;
@@ -101,7 +103,8 @@ class ResolverPreviewUpdateTask extends FxUpdateTask<Object> {
     }
 
     if (!isValidDataset()) {
-      final String msg = "Cannot resolve for mobility in a feature that has no mobility dimension.";
+      final String msg = "Cannot resolve in the %s dimension, the feature has no such dimension.".formatted(
+          dimension);
       logger.warning(msg);
       DesktopService.getDesktop().displayErrorMessage(msg);
       setStatus(TaskStatus.ERROR);
@@ -118,6 +121,9 @@ class ResolverPreviewUpdateTask extends FxUpdateTask<Object> {
           resolvedFeatures = switch (dimension) {
             case RETENTION_TIME -> resolveInRtDimension();
             case MOBILITY -> resolveInMobilityDimension();
+            // chromatograms along the GCxGC 2D RT spectra are resolved along their retention times
+            case SECOND_DIMENSION_RT -> GcxGcUtils.isSecondDimensionChromatogram(feature)
+                ? resolveInRtDimension() : resolveInMobilityDimension();
           };
         }
       } else {
@@ -147,8 +153,11 @@ class ResolverPreviewUpdateTask extends FxUpdateTask<Object> {
       } else if (isValidDataset()) {
         final IMSRawDataFile file = (IMSRawDataFile) feature.getRawDataFile();
         chart.setDomainAxisLabel(
-            formats.unit(file.getMobilityType().getAxisLabel(), file.getMobilityType().getUnit()));
-        chart.setDomainAxisNumberFormatOverride(formats.mobilityFormat());
+            formats.unit(file.getMobilityType().getLabel(), file.getMobilityType().getUnit()));
+        // GCxGC: 2D RT in minutes needs more decimals than mobility values
+        chart.setDomainAxisNumberFormatOverride(
+            dimension == ResolvingDimension.SECOND_DIMENSION_RT
+                ? GcxGcUtils.createSecondDimensionRTFormat() : formats.mobilityFormat());
       }
 
       if (unresolvedDataset != null) {
@@ -170,8 +179,10 @@ class ResolverPreviewUpdateTask extends FxUpdateTask<Object> {
         null);
     for (IonTimeSeries<? extends Scan> series : resolved) {
       final SummedIntensityMobilitySeries mobilogram = ((IonMobilogramTimeSeries) series).getSummedMobilogram();
-      final String name = "%s - %s %s".formatted(formats.mobility(mobilogram.getMobility(0)),
-          formats.mobility(mobilogram.getMobility(mobilogram.getNumberOfValues() - 1)),
+      final NumberFormat format = dimension == ResolvingDimension.SECOND_DIMENSION_RT
+          ? GcxGcUtils.createSecondDimensionRTFormat() : formats.mobilityFormat();
+      final String name = "%s - %s %s".formatted(format.format(mobilogram.getMobility(0)),
+          format.format(mobilogram.getMobility(mobilogram.getNumberOfValues() - 1)),
           ((Frame) series.getSpectrum(0)).getMobilityType().getUnit());
       ColoredXYDataset ds = new ColoredXYDataset(new SummedMobilogramXYProvider(mobilogram,
           new SimpleObjectProperty<>(palette.get(resolvedFeatureCounter++)), name),
@@ -191,9 +202,11 @@ class ResolverPreviewUpdateTask extends FxUpdateTask<Object> {
         IonTimeSeriesUtils.remapRtAxis(feature.getFeatureData(),
             feature.getFeatureList().getSeletedScans(feature.getRawDataFile())), null);
 
+    final NumberFormat format = dimension == ResolvingDimension.SECOND_DIMENSION_RT
+        ? GcxGcUtils.createSecondDimensionRTFormat() : formats.rtFormat();
     for (IonTimeSeries<? extends Scan> series : resolved) {
       final String seriesKey =
-          formats.rt(series.getSpectra().get(0).getRetentionTime()) + " - " + formats.rt(
+          format.format(series.getSpectra().get(0).getRetentionTime()) + " - " + format.format(
               series.getSpectra().get(series.getNumberOfValues() - 1).getRetentionTime()) + " min";
       ColoredXYDataset ds = new ColoredXYDataset(new IonTimeSeriesToXYProvider(series, seriesKey,
           new SimpleObjectProperty<>(palette.get(resolvedFeatureCounter++))),
@@ -208,15 +221,21 @@ class ResolverPreviewUpdateTask extends FxUpdateTask<Object> {
    * mobility data.
    */
   private boolean isValidDataset() {
-    return dimension == ResolvingDimension.RETENTION_TIME || (
-        dimension == ResolvingDimension.MOBILITY
-            && feature.getFeatureData() instanceof IonMobilogramTimeSeries);
+    final boolean gcxgc = GcxGcUtils.isGcxGc(feature.getRawDataFile());
+    return switch (dimension) {
+      // GCxGC chromatograms along the 2D RT spectra have no first dimension RT
+      case RETENTION_TIME -> !GcxGcUtils.isSecondDimensionChromatogram(feature);
+      case MOBILITY -> !gcxgc && feature.getFeatureData() instanceof IonMobilogramTimeSeries;
+      case SECOND_DIMENSION_RT ->
+          GcxGcUtils.isGcxGcFeature(feature) || GcxGcUtils.isSecondDimensionChromatogram(feature);
+    };
   }
 
   public ColoredXYDataset createMainDataset() {
-    if (dimension == ResolvingDimension.RETENTION_TIME) {
+    if (dimension == ResolvingDimension.RETENTION_TIME || GcxGcUtils.isSecondDimensionChromatogram(
+        feature)) {
       return new ColoredXYDataset(new IonTimeSeriesToXYProvider(feature), RunOption.THIS_THREAD);
-    } else if (dimension == ResolvingDimension.MOBILITY
+    } else if (isValidDataset()
         && feature.getFeatureData() instanceof IonMobilogramTimeSeries data) {
       return new ColoredXYDataset(new SummedMobilogramXYProvider(data.getSummedMobilogram(),
           new SimpleObjectProperty<>(feature.getRawDataFile().getColor()), ""),

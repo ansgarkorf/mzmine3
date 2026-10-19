@@ -25,6 +25,8 @@
 
 package io.github.mzmine.datamodel.features.types;
 
+import io.github.mzmine.datamodel.features.types.numbers.SecondDimensionRTRangeType;
+import io.github.mzmine.datamodel.features.types.numbers.SecondDimensionRTType;
 import com.google.common.reflect.ClassPath;
 import io.github.mzmine.datamodel.MobilityType;
 import io.github.mzmine.datamodel.features.types.alignment.AlignmentMainType;
@@ -236,7 +238,8 @@ public class DataTypes {
     List<Class> priority = List.of(CompoundIdType.class, CompoundMembersJsonType.class,
         CompoundMembersType.class, IDType.class, TagDataType.class, DetectionType.class,
         MZType.class, MZRangeType.class, PrecursorMZType.class, NeutralMassType.class, RTType.class,
-        RTRangeType.class, FwhmType.class, MobilityType.class, MobilityRangeType.class,
+        RTRangeType.class, SecondDimensionRTType.class, SecondDimensionRTRangeType.class,
+        FwhmType.class, MobilityType.class, MobilityRangeType.class,
         RIType.class, RIRangeType.class, CCSType.class, CCSRelativeErrorType.class,
         MobilityUnitType.class, AreaType.class, HeightType.class, NormalizedAreaType.class,
         NormalizedHeightType.class,
@@ -256,7 +259,8 @@ public class DataTypes {
         CompoundDatabaseMatchesType.class, LipidMatchListType.class, ConsensusFormulaListType.class,
         SimpleFormulaListType.class, FormulaListType.class, ManualAnnotationType.class,
         // graphical columns
-        FeatureShapeType.class, FeatureShapeMobilogramType.class,
+        FeatureShapeType.class, FeatureShapeSecondDimensionType.class,
+        FeatureShapeMobilogramType.class,
         FeatureShapeIonMobilityRetentionTimeHeatMapType.class, ImageType.class);
 
     Map<DataType, Integer> prioMap = new HashMap<>(priority.size());

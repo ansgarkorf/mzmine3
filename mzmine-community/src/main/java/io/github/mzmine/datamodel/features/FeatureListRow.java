@@ -25,6 +25,8 @@
 
 package io.github.mzmine.datamodel.features;
 
+import io.github.mzmine.datamodel.features.types.numbers.SecondDimensionRTRangeType;
+import io.github.mzmine.datamodel.features.types.numbers.SecondDimensionRTType;
 import com.google.common.collect.Range;
 import io.github.mzmine.datamodel.FeatureIdentity;
 import io.github.mzmine.datamodel.FeatureInformation;
@@ -553,6 +555,21 @@ public interface FeatureListRow extends ModularDataModel {
   void setAnalogSpectralLibraryMatch(@Nullable List<SpectralDBAnnotation> matches);
 
   @Nullable Range<Float> getMobilityRange();
+
+  /**
+   * @return the average second dimension retention time (2D RT) of GCxGC features in minutes or
+   * null
+   */
+  default @Nullable Float getAverageSecondDimensionRT() {
+    return get(SecondDimensionRTType.class);
+  }
+
+  /**
+   * @return the second dimension retention time range of GCxGC features in minutes or null
+   */
+  default @Nullable Range<Float> getSecondDimensionRTRange() {
+    return get(SecondDimensionRTRangeType.class);
+  }
 
   /**
    * Checks for an isotope pattern with >1 data points (main signal plus 1)

@@ -569,6 +569,7 @@ final class IntensityMapControls {
       case MZ -> "spectrum along " + axis;
       case RETENTION_TIME -> "chromatogram along " + axis;
       case MOBILITY -> "mobilogram along " + axis;
+      case SECOND_DIMENSION_RT -> "2D RT trace along " + axis;
       case LENGTH, OTHER -> "profile along " + axis;
     };
   }

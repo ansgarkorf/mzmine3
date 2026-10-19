@@ -31,6 +31,10 @@ package io.github.mzmine.modules.visualization.intensitymap.data;
 public enum IntensityMapAxisKind {
   RETENTION_TIME, MZ, MOBILITY,
   /**
+   * Second dimension retention time of GCxGC data in minutes
+   */
+  SECOND_DIMENSION_RT,
+  /**
    * Physical distance in µm, e.g. image coordinates with a known pixel size.
    */
   LENGTH, OTHER

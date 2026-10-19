@@ -59,7 +59,8 @@ public class WorkflowDDA extends WorkflowWizardParameterFactory {
       case CHROMATOGRAPHY_SOFT -> new WizardBatchBuilderLcDDA(steps);
       case DIRECT_AND_FLOW -> new WizardBatchBuilderFlowInjectDDA(steps);
       case SPATIAL_IMAGING -> new WizardBatchBuilderImagingDda(steps);
-      case CHROMATOGRAPHY_HARD -> throw new UnsupportedWorkflowException(steps);
+      case CHROMATOGRAPHY_HARD, CHROMATOGRAPHY_2D_HARD ->
+          throw new UnsupportedWorkflowException(steps);
     };
   }
 

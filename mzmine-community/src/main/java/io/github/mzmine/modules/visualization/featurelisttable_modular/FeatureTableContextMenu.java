@@ -25,6 +25,7 @@
 
 package io.github.mzmine.modules.visualization.featurelisttable_modular;
 
+import io.github.mzmine.util.GcxGcUtils;
 import static java.util.Objects.requireNonNullElse;
 
 import com.google.common.collect.Range;
@@ -101,6 +102,7 @@ import io.github.mzmine.modules.visualization.intensitymap.data.IntensityMapProj
 import io.github.mzmine.modules.visualization.intensityplot.IntensityPlotModule;
 import io.github.mzmine.modules.visualization.network_overview.NetworkOverviewFlavor;
 import io.github.mzmine.modules.visualization.network_overview.NetworkOverviewWindow;
+import io.github.mzmine.modules.visualization.pseudospectrumvisualizer.PseudoSpectrumVisualizerController;
 import io.github.mzmine.modules.visualization.pseudospectrumvisualizer.PseudoSpectrumVisualizerTab;
 import io.github.mzmine.modules.visualization.rawdataoverviewims.IMSRawDataOverviewModule;
 import io.github.mzmine.modules.visualization.spectra.matchedlipid.LipidAnnotationMatchTab;
@@ -208,8 +210,9 @@ public class FeatureTableContextMenu extends ContextMenu {
     if (featureList == null) {
       return;
     }
-    hasIonMobilityData.set(
-        featureList.getRawDataFiles().stream().anyMatch(IMSRawDataFile.class::isInstance));
+    // GCxGC reuses the ion mobility data model but has no ion mobility
+    hasIonMobilityData.set(featureList.getRawDataFiles().stream()
+        .anyMatch(raw -> raw instanceof IMSRawDataFile && !GcxGcUtils.isGcxGc(raw)));
     hasImagingData.set(
         featureList.getRawDataFiles().stream().anyMatch(ImagingRawDataFile.class::isInstance));
     hasPseudoSpectra.set(
@@ -775,8 +778,7 @@ public class FeatureTableContextMenu extends ContextMenu {
     });
 
     final MenuItem showPseudoSpectrumItem = new ConditionalMenuItem("Show Pseudo Spectrum",
-        () -> selectedOrBestFeature != null
-            && selectedOrBestFeature.getMostIntenseFragmentScan() instanceof PseudoSpectrum);
+        () -> PseudoSpectrumVisualizerController.hasPseudoSpectrum(selectedOrBestFeature));
     showPseudoSpectrumItem.visibleProperty().bind(hasPseudoSpectra);
     showPseudoSpectrumItem.setOnAction(_ -> showPseudoSpectrum());
 

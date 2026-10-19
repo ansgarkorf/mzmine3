@@ -25,6 +25,18 @@
 
 package io.github.mzmine.modules.dataprocessing.gapfill_gc_ei;
 
+import io.github.mzmine.datamodel.Frame;
+import io.github.mzmine.datamodel.IMSRawDataFile;
+import io.github.mzmine.datamodel.MobilityScan;
+import io.github.mzmine.datamodel.data_access.BinningMobilogramDataAccess;
+import io.github.mzmine.datamodel.data_access.EfficientDataAccess.MobilityScanDataType;
+import io.github.mzmine.datamodel.data_access.MobilityScanDataAccess;
+import io.github.mzmine.datamodel.featuredata.IonMobilitySeries;
+import io.github.mzmine.datamodel.featuredata.IonMobilogramTimeSeries;
+import io.github.mzmine.datamodel.featuredata.IonTimeSeriesUtils;
+
+import it.unimi.dsi.fastutil.ints.Int2DoubleOpenHashMap;
+import it.unimi.dsi.fastutil.ints.Int2DoubleRBTreeMap;
 import com.google.common.collect.Range;
 import io.github.mzmine.datamodel.FeatureStatus;
 import io.github.mzmine.datamodel.RawDataFile;
@@ -58,6 +70,10 @@ import org.jetbrains.annotations.Nullable;
  * signals of the row are extracted in the retention time window of the row. The quantifier feature
  * is added to the row if all signals have a peak apex that co-elutes with the quantifier apex, which
  * itself needs to be within the retention time tolerance of the row.
+ * <p>
+ * GCxGC rows (with second dimension tolerances) are extracted from the mobility scans within the
+ * second dimension window of the row. The co-elution is checked in both dimensions and the
+ * gap-filled feature keeps the second dimension.
  */
 class GcEiRawFileGapFillingTask extends AbstractTask {
 
@@ -65,6 +81,8 @@ class GcEiRawFileGapFillingTask extends AbstractTask {
 
   // decision: additional scans around the window so that smoothing has data at the window edges
   private static final int PADDING_SCANS = 10;
+  // decision: a confirmed 2D apex needs a few consecutive data points in the second dimension
+  private static final int MIN_2D_DATA_POINTS = 3;
 
   private final @NotNull ModularFeatureList flist;
   private final @NotNull RawDataFile file;
@@ -72,6 +90,8 @@ class GcEiRawFileGapFillingTask extends AbstractTask {
   private final @NotNull GcEiFeatureFindingSettings settings;
   private final @NotNull RTTolerance sampleToSampleRtTolerance;
   private final @NotNull RTTolerance intraSampleCoelutionTolerance;
+  private final @Nullable RTTolerance sampleToSample2DTolerance;
+  private final @Nullable RTTolerance intraSampleCoelution2DTolerance;
   private final @NotNull MZTolerance mzTolerance;
   private final int minConsecutiveScans;
   private final @Nullable SmoothingAlgorithm smoother;
@@ -87,14 +107,20 @@ class GcEiRawFileGapFillingTask extends AbstractTask {
    * @param sampleToSampleRtTolerance     maximum distance of the quantifier apex to the row RT
    * @param intraSampleCoelutionTolerance maximum distance of the top signal apices to the
    *                                      quantifier apex
+   * @param sampleToSample2DTolerance     maximum distance of the quantifier 2D apex to the row 2D
+   *                                      RT, null for one-dimensional gap filling
+   * @param intraSampleCoelution2DTolerance maximum distance of the top signal 2D apices to the
+   *                                      quantifier 2D apex
    * @param onFinished                    called once all gaps were processed
    */
   GcEiRawFileGapFillingTask(@NotNull final ModularFeatureList flist,
       @NotNull final RawDataFile file, @NotNull final List<GcEiGapFillTarget> gaps,
       @NotNull final GcEiFeatureFindingSettings settings,
       @NotNull final RTTolerance sampleToSampleRtTolerance,
-      @NotNull final RTTolerance intraSampleCoelutionTolerance, @NotNull final Runnable onFinished,
-      @NotNull final Instant moduleCallDate) {
+      @NotNull final RTTolerance intraSampleCoelutionTolerance,
+      @Nullable final RTTolerance sampleToSample2DTolerance,
+      @Nullable final RTTolerance intraSampleCoelution2DTolerance,
+      @NotNull final Runnable onFinished, @NotNull final Instant moduleCallDate) {
     // final features are stored in the storage of the feature list
     super(null, moduleCallDate);
     this.flist = flist;
@@ -103,6 +129,8 @@ class GcEiRawFileGapFillingTask extends AbstractTask {
     this.settings = settings;
     this.sampleToSampleRtTolerance = sampleToSampleRtTolerance;
     this.intraSampleCoelutionTolerance = intraSampleCoelutionTolerance;
+    this.sampleToSample2DTolerance = sampleToSample2DTolerance;
+    this.intraSampleCoelution2DTolerance = intraSampleCoelution2DTolerance;
     this.onFinished = onFinished;
     mzTolerance = settings.mzTolerance();
     minConsecutiveScans = settings.minConsecutiveScans();
@@ -167,6 +195,13 @@ class GcEiRawFileGapFillingTask extends AbstractTask {
         Math.max(0, window.min() - PADDING_SCANS),
         Math.min(allScans.size(), window.maxExclusive() + PADDING_SCANS));
 
+    final GcEiGapFillSecondDimension secondDim = gap.secondDimension();
+    if (secondDim != null && sampleToSample2DTolerance != null
+        && intraSampleCoelution2DTolerance != null && file instanceof IMSRawDataFile ims) {
+      return fillGap2D(gap, secondDim, ims, (List<Frame>) scans, quantifierRange,
+          sampleToSample2DTolerance, intraSampleCoelution2DTolerance);
+    }
+
     // first signal is the quantifier
     final double[] mzs = gap.signalsToConfirm(mzTolerance);
     final List<IonTimeSeries<? extends Scan>> chromatograms = extractChromatograms(mzs, scans);
@@ -199,6 +234,137 @@ class GcEiRawFileGapFillingTask extends AbstractTask {
     // row bindings are applied once after all files were processed
     gap.row().addFeature(file, feature, false);
     return true;
+  }
+
+  /**
+   * Gap filling of a GCxGC row. All signals are extracted from the mobility scans within the second
+   * dimension window of the row, so that compounds of the same modulations are not summed. The
+   * first dimension apex is searched in the summed traces of each frame (modulation), the second
+   * dimension apex in the summed 2D trace of the frames around the first dimension apex.
+   *
+   * @return true if the quantifier feature was added to the row
+   */
+  private boolean fillGap2D(@NotNull final GcEiGapFillTarget gap,
+      @NotNull final GcEiGapFillSecondDimension secondDim, @NotNull final IMSRawDataFile ims,
+      @NotNull final List<Frame> frames, @NotNull final Range<Float> quantifierRange,
+      @NotNull final RTTolerance sampleToSample2D,
+      @NotNull final RTTolerance intraSample2D) {
+    final Range<Float> quantifier2DRange = sampleToSample2D.getToleranceRange(
+        secondDim.secondDim());
+    // other signals may peak within the 2D co-elution tolerance around the quantifier 2D apex
+    final Range<Float> searchRange2D = Range.closed(
+        quantifier2DRange.lowerEndpoint() - intraSample2D.getToleranceInMinutes(),
+        quantifier2DRange.upperEndpoint() + intraSample2D.getToleranceInMinutes());
+
+    final BinningMobilogramDataAccess binning = BinningMobilogramDataAccess.createWithPreviousParameters(
+        ims, flist);
+    final double[] mzs = gap.signalsToConfirm(mzTolerance);
+    final List<IonMobilogramTimeSeries> traces = new ArrayList<>(mzs.length);
+    for (final double mz : mzs) {
+      if (isCanceled()) {
+        return false;
+      }
+      traces.add(IonTimeSeriesUtils.extractIonMobilogramTimeSeries(
+          new MobilityScanDataAccess(ims, MobilityScanDataType.MASS_LIST, frames),
+          mzTolerance.getToleranceRange(mz), null, searchRange2D, null, binning));
+    }
+
+    // first dimension: frame sums within the 2D window
+    final IonMobilogramTimeSeries quantifier = traces.getFirst();
+    final GcEiSignalApex quantifierApex = findApex(quantifier, quantifierRange);
+    if (quantifierApex == null) {
+      return false;
+    }
+    final Range<Float> coelutionRange = intraSampleCoelutionTolerance.getToleranceRange(
+        quantifierApex.rt());
+    // second dimension: summed over the peak width around the first dimension apex
+    final Range<Float> peakRtRange = Range.closed(quantifierApex.rt() - gap.leftWidth(),
+        quantifierApex.rt() + gap.rightWidth());
+    final Float quantifier2DApex = find2DApex(quantifier, peakRtRange, quantifier2DRange);
+    if (quantifier2DApex == null) {
+      return false;
+    }
+    final Range<Float> coelution2DRange = intraSample2D.getToleranceRange(quantifier2DApex);
+    for (int i = 1; i < traces.size(); i++) {
+      if (findApex(traces.get(i), coelutionRange) == null
+          || find2DApex(traces.get(i), peakRtRange, coelution2DRange) == null) {
+        return false;
+      }
+    }
+
+    // decision: integrate the typical peak width of the row in both dimensions around the apex
+    final IonMobilogramTimeSeries featureData = IonTimeSeriesUtils.extractIonMobilogramTimeSeries(
+        new MobilityScanDataAccess(ims, MobilityScanDataType.MASS_LIST, frames),
+        mzTolerance.getToleranceRange(gap.quantifierMz()), peakRtRange,
+        Range.closed(quantifier2DApex - secondDim.leftWidth(),
+            quantifier2DApex + secondDim.rightWidth()), flist.getMemoryMapStorage(), binning);
+    if (featureData.getNumberOfValues() == 0 || featureData.getMobilograms().isEmpty()) {
+      return false;
+    }
+    final ModularFeature feature = new ModularFeature(flist, file, featureData,
+        FeatureStatus.ESTIMATED);
+    if (feature.getHeight() <= 0) {
+      return false;
+    }
+    // row bindings are applied once after all files were processed
+    gap.row().addFeature(file, feature, false);
+    return true;
+  }
+
+  /**
+   * The second dimension apex is the highest local maximum of the summed 2D trace of all frames in
+   * the retention time range. The 2D trace is summed per mobility scan number.
+   *
+   * @return the second dimension of the apex or null if there is no apex in the range
+   */
+  private static @Nullable Float find2DApex(@NotNull final IonMobilogramTimeSeries series,
+      @NotNull final Range<Float> rtRange, @NotNull final Range<Float> range2D) {
+    final Int2DoubleRBTreeMap summed = new Int2DoubleRBTreeMap();
+    final Int2DoubleOpenHashMap secondDims = new Int2DoubleOpenHashMap();
+    for (final IonMobilitySeries mobilogram : series.getMobilograms()) {
+      if (mobilogram.getNumberOfValues() == 0 || !rtRange.contains(
+          mobilogram.getSpectrum(0).getRetentionTime())) {
+        continue;
+      }
+      for (int i = 0; i < mobilogram.getNumberOfValues(); i++) {
+        final MobilityScan scan = mobilogram.getSpectrum(i);
+        summed.addTo(scan.getMobilityScanNumber(), mobilogram.getIntensity(i));
+        secondDims.put(scan.getMobilityScanNumber(), scan.getMobility());
+      }
+    }
+    // order of the 2D values, scan numbers are ascending with the 2D RT for GCxGC
+    final int[] scanNumbers = summed.keySet().toIntArray();
+    Float best = null;
+    double bestIntensity = 0;
+    for (int i = 1; i < scanNumbers.length - 1; i++) {
+      final double intensity = summed.get(scanNumbers[i]);
+      final float secondDim = (float) secondDims.get(scanNumbers[i]);
+      if (!range2D.contains(secondDim) || intensity <= bestIntensity
+          || intensity <= summed.get(scanNumbers[i - 1])
+          || intensity < summed.get(scanNumbers[i + 1])
+          || countConsecutive(summed, scanNumbers, i) < MIN_2D_DATA_POINTS) {
+        continue;
+      }
+      best = secondDim;
+      bestIntensity = intensity;
+    }
+    return best;
+  }
+
+  /**
+   * @return the number of consecutive data points with an intensity above zero around the index
+   */
+  private static int countConsecutive(@NotNull final Int2DoubleRBTreeMap intensities,
+      final int @NotNull [] keys, final int index) {
+    int start = index;
+    while (start > 0 && intensities.get(keys[start - 1]) > 0) {
+      start--;
+    }
+    int end = index;
+    while (end < keys.length - 1 && intensities.get(keys[end + 1]) > 0) {
+      end++;
+    }
+    return end - start + 1;
   }
 
   /**

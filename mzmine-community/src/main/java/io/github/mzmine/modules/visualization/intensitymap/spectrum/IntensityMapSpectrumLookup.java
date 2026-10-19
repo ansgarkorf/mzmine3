@@ -25,6 +25,7 @@
 
 package io.github.mzmine.modules.visualization.intensitymap.spectrum;
 
+import io.github.mzmine.util.GcxGcUtils;
 import com.google.common.collect.Range;
 import io.github.mzmine.datamodel.DataPoint;
 import io.github.mzmine.datamodel.ImagingRawDataFile;
@@ -98,10 +99,12 @@ public final class IntensityMapSpectrumLookup {
     return switch (mode) {
       case AUTOMATIC, LC_MS ->
           "RT " + formats.rt(scan.getRetentionTime()) + " min · scan #" + scan.getScanNumber();
-      case RT_MOBILITY ->
-          scan instanceof MobilityScan mobilityScan ? "RT " + formats.rt(scan.getRetentionTime())
-              + " min · mobility " + formats.mobility(mobilityScan.getMobility())
-              : "Scan #" + scan.getScanNumber();
+      case RT_MOBILITY -> scan instanceof MobilityScan mobilityScan ?
+          "RT " + formats.rt(scan.getRetentionTime()) + " min · " + (GcxGcUtils.isGcxGcScan(scan)
+              ? GcxGcUtils.SECOND_DIMENSION_RT + " " + GcxGcUtils.createSecondDimensionRTFormat()
+              .format(mobilityScan.getMobility()) + " min"
+              : "mobility " + formats.mobility(mobilityScan.getMobility()))
+          : "Scan #" + scan.getScanNumber();
       case MOBILITY_FRAME -> throw unsupported();
       case IMAGING -> scan instanceof ImagingScan pixel && pixel.getCoordinates() != null ? "Pixel "
           + pixel.getCoordinates().getX() + ", " + pixel.getCoordinates().getY()

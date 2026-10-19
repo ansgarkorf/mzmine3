@@ -57,6 +57,9 @@ public class PseudoSpectrumVisualizerModel {
   // the final data to be shown
   private final Property<Scan> pseudoSpec = new SimpleObjectProperty<>();
   private final ObjectProperty<List<DatasetAndRenderer>> ticDatasets = new SimpleObjectProperty<>();
+  // GCxGC: second dimension retention time traces, empty for other data
+  private final ObjectProperty<List<DatasetAndRenderer>> secondDimensionDatasets = new SimpleObjectProperty<>(
+      List.of());
 
 
   public PseudoSpectrumVisualizerModel() {
@@ -119,6 +122,18 @@ public class PseudoSpectrumVisualizerModel {
 
   public void setTicDatasets(List<DatasetAndRenderer> datasets) {
     ticDatasets.set(datasets);
+  }
+
+  public List<DatasetAndRenderer> getSecondDimensionDatasets() {
+    return secondDimensionDatasets.get();
+  }
+
+  public ObjectProperty<List<DatasetAndRenderer>> secondDimensionDatasetsProperty() {
+    return secondDimensionDatasets;
+  }
+
+  public void setSecondDimensionDatasets(List<DatasetAndRenderer> datasets) {
+    secondDimensionDatasets.set(datasets);
   }
 
   public void setPseudoSpec(Scan scan) {

@@ -1,12 +1,18 @@
 package io.github.mzmine.modules.dataprocessing.align_gc;
 
+import io.github.mzmine.util.GcxGcUtils;
 import com.google.common.collect.Range;
 import com.google.common.collect.RangeMap;
 import com.google.common.collect.TreeRangeMap;
 import io.github.mzmine.datamodel.DataPoint;
+import io.github.mzmine.datamodel.Frame;
+import io.github.mzmine.datamodel.IMSRawDataFile;
 import io.github.mzmine.datamodel.PseudoSpectrum;
 import io.github.mzmine.datamodel.RawDataFile;
 import io.github.mzmine.datamodel.Scan;
+import io.github.mzmine.datamodel.data_access.BinningMobilogramDataAccess;
+import io.github.mzmine.datamodel.data_access.EfficientDataAccess.MobilityScanDataType;
+import io.github.mzmine.datamodel.data_access.MobilityScanDataAccess;
 import io.github.mzmine.datamodel.featuredata.FeatureDataUtils;
 import io.github.mzmine.datamodel.featuredata.IonTimeSeries;
 import io.github.mzmine.datamodel.featuredata.IonTimeSeriesUtils;
@@ -19,6 +25,7 @@ import io.github.mzmine.datamodel.features.types.numbers.GcAlignMissingNumFeatur
 import io.github.mzmine.datamodel.features.types.numbers.GcAlignShiftedNumFeaturesType;
 import io.github.mzmine.modules.dataprocessing.align_common.FeatureAlignmentPostProcessor;
 import io.github.mzmine.parameters.parametertypes.tolerances.MZTolerance;
+import io.github.mzmine.util.FeatureUtils;
 import io.github.mzmine.util.RangeUtils;
 import io.github.mzmine.util.collections.BinarySearch;
 import io.github.mzmine.util.collections.BinarySearch.DefaultTo;
@@ -93,7 +100,8 @@ public class GCConsensusAlignerPostProcessor implements FeatureAlignmentPostProc
       if (newFeature == null) {
         // No data found for this signal in this raw data file - maybe range was too narrow?
         // try to shift to the closest signal in max scan and then use a range around this
-        newFeature = tryRecenterMzToClosestSignal(flist, oldFeature, meanMz, mzTolRangeLength);
+        newFeature = tryRecenterMzToClosestSignal(flist, oldFeature, meanMz, mzTolRangeLength,
+            mzTol);
         if (newFeature != null) {
           shifted++;
         }
@@ -124,7 +132,9 @@ public class GCConsensusAlignerPostProcessor implements FeatureAlignmentPostProc
   }
 
   /**
-   * Extract a new feature within an mzTolRange and with the same scans as an old feature
+   * Extract a new feature within an mzTolRange and with the same scans as an old feature. Features
+   * with a second dimension (GCxGC or IMS) are extracted from the mobility scans within the
+   * mobility range of the old feature.
    *
    * @return the new feature or null if there is no signal in the m/z range
    */
@@ -137,9 +147,20 @@ public class GCConsensusAlignerPostProcessor implements FeatureAlignmentPostProc
     List<? extends Scan> seletedScans = flist.getSeletedScans(feature.getRawDataFile());
     seletedScans = BinarySearch.indexRange(feature.getRawDataPointsRTRange(), seletedScans,
         Scan::getRetentionTime).sublist(seletedScans);
-    IonTimeSeries<Scan> ionTimeSeries = IonTimeSeriesUtils.extractIonTimeSeries(dataFile,
-        seletedScans, mzTolRange, feature.getRawDataPointsRTRange(),
-        dataFile.getMemoryMapStorage());
+    final IonTimeSeries<? extends Scan> ionTimeSeries;
+    if ((FeatureUtils.isImsFeature(feature) || GcxGcUtils.isGcxGcFeature(feature))
+        && dataFile instanceof IMSRawDataFile ims) {
+      // decision: GCxGC (and IMS) features keep their second dimension. The summed spectra of the
+      // modulation would merge all compounds of the modulation that share the m/z.
+      ionTimeSeries = IonTimeSeriesUtils.extractIonMobilogramTimeSeries(
+          new MobilityScanDataAccess(ims, MobilityScanDataType.MASS_LIST,
+              (List<Frame>) seletedScans), mzTolRange, feature.getRawDataPointsRTRange(),
+          GcxGcUtils.getSecondDimensionRange(feature), dataFile.getMemoryMapStorage(),
+          BinningMobilogramDataAccess.createWithPreviousParameters(ims, flist));
+    } else {
+      ionTimeSeries = IonTimeSeriesUtils.extractIonTimeSeries(dataFile, seletedScans, mzTolRange,
+          feature.getRawDataPointsRTRange(), dataFile.getMemoryMapStorage());
+    }
 
     final ModularFeature newFeature;
     newFeature = new ModularFeature(flist, feature);
@@ -207,8 +228,15 @@ public class GCConsensusAlignerPostProcessor implements FeatureAlignmentPostProc
     }).toList();
   }
 
-  private ModularFeature tryRecenterMzToClosestSignal(final ModularFeatureList flist,
-      final ModularFeature oldFeature, final double meanMz, final double maxAllowedMzDistance) {
+  /**
+   * Extract a new feature at the closest signal to meanMz in the representative scan of the old
+   * feature, if this signal is within the maximum allowed distance.
+   *
+   * @return the new feature or null if no signal was found
+   */
+  static @Nullable ModularFeature tryRecenterMzToClosestSignal(
+      final @NotNull ModularFeatureList flist, final @NotNull ModularFeature oldFeature,
+      final double meanMz, final double maxAllowedMzDistance, final @NotNull MZTolerance mzTol) {
     ModularFeature newFeature;
     var scan = oldFeature.getRepresentativeScan();
     int index = scan.binarySearch(meanMz, DefaultTo.CLOSEST_VALUE);

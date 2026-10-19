@@ -463,6 +463,17 @@ public abstract class BaseWizardBatchBuilder extends WizardBatchBuilder {
   }
 
   public static void makeAndAddCsvModularExportStep(final BatchQueue q, final File exportPath) {
+    makeAndAddCsvModularExportStep(q, exportPath, CompoundRowSelection.ALL_MAJOR_IONS,
+        "_full_feature_table.csv");
+  }
+
+  /**
+   * @param rowSelection   export compounds, their major ions or all feature rows
+   * @param fileNameSuffix appended to the export base file name
+   */
+  public static void makeAndAddCsvModularExportStep(@NotNull final BatchQueue q,
+      @NotNull final File exportPath, @NotNull final CompoundRowSelection rowSelection,
+      @NotNull final String fileNameSuffix) {
     final ParameterSet param = new CSVExportModularParameters().cloneParameterSet();
 
     param.setParameter(CSVExportModularParameters.featureLists,
@@ -471,11 +482,10 @@ public abstract class BaseWizardBatchBuilder extends WizardBatchBuilder {
     param.setParameter(CSVExportModularParameters.idSeparator, ";");
     param.setParameter(CSVExportModularParameters.omitEmptyColumns, true);
     param.setParameter(CSVExportModularParameters.filter, FeatureListRowsFilter.ALL);
-    param.setParameter(CSVExportModularParameters.compoundRowSelection,
-        CompoundRowSelection.ALL_MAJOR_IONS);
+    param.setParameter(CSVExportModularParameters.compoundRowSelection, rowSelection);
 
     File fileName = FileAndPathUtil.eraseFormat(exportPath);
-    fileName = new File(fileName.getParentFile(), fileName.getName() + "_full_feature_table.csv");
+    fileName = new File(fileName.getParentFile(), fileName.getName() + fileNameSuffix);
     param.setParameter(CSVExportModularParameters.filename, fileName);
 
     q.add(new MZmineProcessingStepImpl<>(MZmineCore.getModuleInstance(CSVExportModularModule.class),
@@ -523,10 +533,17 @@ public abstract class BaseWizardBatchBuilder extends WizardBatchBuilder {
 
   protected static void makeAndAddIimnGnpsExportStep(final BatchQueue q, final File exportPath,
       final MZTolerance mzTolScans, final String fileNameSuffix) {
+    makeAndAddIimnGnpsExportStep(q, exportPath, mzTolScans, fileNameSuffix,
+        FeatureListRowsFilter.MS2_OR_ION_IDENTITY);
+  }
+
+  protected static void makeAndAddIimnGnpsExportStep(@NotNull final BatchQueue q,
+      @NotNull final File exportPath, @NotNull final MZTolerance mzTolScans,
+      @NotNull final String fileNameSuffix, @NotNull final FeatureListRowsFilter rowsFilter) {
 
     final ParameterSet param = GnpsFbmnExportAndSubmitParameters.create(exportPath, fileNameSuffix,
         mzTolScans, new FeatureListsSelection(FeatureListsSelectionType.BATCH_LAST_FEATURELISTS),
-        false, FeatureListRowsFilter.MS2_OR_ION_IDENTITY, false,
+        false, rowsFilter, false,
         IntensityNormalizer.createDefault(), FeatureTableExportType.SIMPLE, AbundanceMeasure.Area);
 
     q.add(new MZmineProcessingStepImpl<>(
@@ -1084,11 +1101,19 @@ public abstract class BaseWizardBatchBuilder extends WizardBatchBuilder {
    */
   protected void makeAndAddMassDetectionStep(final BatchQueue q, int msLevel,
       SelectedScanTypes scanTypes) {
+    makeAndAddMassDetectionStep(q, msLevel, scanTypes, getNoiseLevelForMsLevel(msLevel, scanTypes));
+  }
+
+  /**
+   * @param msLevel    use 0 to apply without MS level filter
+   * @param noiseLevel noise level of the mass detector
+   */
+  protected void makeAndAddMassDetectionStep(final BatchQueue q, int msLevel,
+      SelectedScanTypes scanTypes, final double noiseLevel) {
 
     // use factor of lowest or auto mass detector
     // factor of lowest only works on centroid for now
-    var mdParams = massDetectorOption.getValueType()
-        .createMassDetectorParameters(getNoiseLevelForMsLevel(msLevel, scanTypes));
+    var mdParams = massDetectorOption.getValueType().createMassDetectorParameters(noiseLevel);
 
     // set the main parameters
     final ParameterSet param = MZmineCore.getConfiguration()

@@ -14,6 +14,8 @@ public class WizardWorkflows {
   private static final Set<WorkflowWizardParameterFactory> values = new LinkedHashSet<>(
       // default workflows
       List.of(new WorkflowDDA(), new WorkflowDIA(), new WorkflowDeconvolution(),
+          new WorkflowGcxGc2DFeatureFinder(),
+          new WorkflowGcxGc2DTemplateDeconvolution(),
           new WorkflowLibraryGeneration(), new WorkflowImaging(), new WorkflowTargetPlate()));
 
   public static synchronized WorkflowWizardParameterFactory[] values() {

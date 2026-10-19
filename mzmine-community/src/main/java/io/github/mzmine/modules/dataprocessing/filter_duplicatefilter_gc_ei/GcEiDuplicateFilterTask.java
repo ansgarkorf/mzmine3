@@ -39,6 +39,7 @@ import io.github.mzmine.parameters.ParameterSet;
 import io.github.mzmine.parameters.parametertypes.OriginalFeatureListHandlingParameter.OriginalFeatureListOption;
 import io.github.mzmine.parameters.parametertypes.tolerances.MZTolerance;
 import io.github.mzmine.parameters.parametertypes.tolerances.RTTolerance;
+
 import io.github.mzmine.taskcontrol.AbstractFeatureListTask;
 import io.github.mzmine.util.FeatureListUtils;
 import io.github.mzmine.util.MemoryMapStorage;
@@ -69,6 +70,8 @@ public class GcEiDuplicateFilterTask extends AbstractFeatureListTask {
   private final @NotNull OriginalFeatureListOption handleOriginal;
   private final @NotNull String suffix;
   private final @NotNull RTTolerance rtTolerance;
+  // second dimension of GCxGC data, null if inactive
+  private final @Nullable RTTolerance secondDimTolerance;
   private final @NotNull MZTolerance mzTolerance;
   private final @NotNull GcEiDuplicateHandling handling;
   private final @NotNull GcEiDuplicateMatcher matcher;
@@ -84,6 +87,8 @@ public class GcEiDuplicateFilterTask extends AbstractFeatureListTask {
     handleOriginal = parameters.getValue(GcEiDuplicateFilterParameters.HANDLE_ORIGINAL);
     suffix = parameters.getValue(GcEiDuplicateFilterParameters.SUFFIX);
     rtTolerance = parameters.getValue(GcEiDuplicateFilterParameters.RT_TOLERANCE);
+    secondDimTolerance = parameters.getEmbeddedParameterValueIfSelectedOrElse(
+        GcEiDuplicateFilterParameters.SECOND_DIMENSION_TOLERANCE, null);
     mzTolerance = parameters.getValue(GcEiDuplicateFilterParameters.MZ_TOLERANCE);
     handling = parameters.getValue(GcEiDuplicateFilterParameters.HANDLING);
     matcher = new GcEiDuplicateMatcher(mzTolerance,
@@ -145,6 +150,7 @@ public class GcEiDuplicateFilterTask extends AbstractFeatureListTask {
       for (final GcEiDuplicateCandidate other : withinRt) {
         // better rows were already compared to this row
         if (processed.contains(other.row()) || duplicates.contains(other.row())
+            || !best.isWithinSecondDimension(other, secondDimTolerance)
             || !matcher.isDuplicate(best, other)) {
           continue;
         }

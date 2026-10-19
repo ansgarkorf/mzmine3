@@ -197,6 +197,12 @@ public final class IntensityMapPlot extends BorderPane implements AutoCloseable 
   // decision: without preferences, units follow the mzmine default style, e.g. "Intensity / %"
   private UnitFormat unitFormat = UnitFormat.DIVIDE;
   private @Nullable Node detailPane;
+  // the controls around the plot, removed in the compact view
+  private @Nullable Node toolbar;
+  private @Nullable Node sideDrawer;
+  private @Nullable Node footer;
+  // only the plot, e.g. embedded in a dashboard
+  private boolean compact;
   private boolean closed;
   private boolean dark;
   private double dragX;
@@ -297,12 +303,14 @@ public final class IntensityMapPlot extends BorderPane implements AutoCloseable 
     viewport.heightProperty().addListener((_, _, _) -> requestDetail());
     setCenter(viewport);
 
-    setTop(controls.toolbar(
+    toolbar = controls.toolbar(
         new IntensityMapViewActions(this::resetView, this::topView, this::frontView, this::sideView,
-            this::saveImage, this::setPlotBackground)));
+            this::saveImage, this::setPlotBackground));
+    setTop(toolbar);
     bindControls();
     updateDisplayControls();
-    setRight(new IntensityMapSideDrawer("Overlays", panel));
+    sideDrawer = new IntensityMapSideDrawer("Overlays", panel);
+    setRight(sideDrawer);
     detailSection.expandedProperty().addListener((_, _, _) -> layoutDetail());
 
     legend.setFitWidth(160);
@@ -313,9 +321,10 @@ public final class IntensityMapPlot extends BorderPane implements AutoCloseable 
     FxLayout.bindManagedToVisible(legendBox);
     status.setMaxWidth(Double.MAX_VALUE);
     HBox.setHgrow(status, Priority.ALWAYS);
-    final HBox footer = FxLayout.newHBox(Pos.CENTER_LEFT, new Insets(6, 12, 6, 12), status,
+    final HBox footerBox = FxLayout.newHBox(Pos.CENTER_LEFT, new Insets(6, 12, 6, 12), status,
         legendBox);
-    footer.setSpacing(18);
+    footerBox.setSpacing(18);
+    footer = footerBox;
     setBottom(footer);
     setDarkMode(false);
     showEmpty("Loading data…");
@@ -785,6 +794,22 @@ public final class IntensityMapPlot extends BorderPane implements AutoCloseable 
   }
 
   /**
+   * The compact view shows only the plot without the toolbar, the overlay panel, the detail pane
+   * (spectrum or chromatogram), and the status and legend footer. Mouse interaction (zoom, pan,
+   * rotate in 3D) stays available.
+   */
+  public void setCompact(final boolean compact) {
+    this.compact = compact;
+    setTop(compact ? null : toolbar);
+    setRight(compact ? null : sideDrawer);
+    setBottom(compact ? null : footer);
+    // decision: a compact plot fits narrow side panes
+    viewport.setMinSize(compact ? 100 : 260, compact ? 100 : 260);
+    viewport.setPrefSize(compact ? 400 : 1050, compact ? 400 : 740);
+    layoutDetail();
+  }
+
+  /**
    * Expanded, the section shares a split pane with the 3D view. Collapsed, only its header remains
    * below the 3D view, which gets the full height.
    */
@@ -795,7 +820,7 @@ public final class IntensityMapPlot extends BorderPane implements AutoCloseable 
     split.getItems().clear();
     collapsedDetail.setCenter(null);
     collapsedDetail.setBottom(null);
-    if (detailPane == null) {
+    if (detailPane == null || compact) {
       setCenter(viewport);
       return;
     }

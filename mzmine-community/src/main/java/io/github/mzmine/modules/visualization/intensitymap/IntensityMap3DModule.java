@@ -25,14 +25,13 @@
 
 package io.github.mzmine.modules.visualization.intensitymap;
 
+import io.github.mzmine.util.GcxGcUtils;
 import com.google.common.collect.Range;
 import io.github.mzmine.datamodel.FeatureStatus;
-import io.github.mzmine.datamodel.ImagingRawDataFile;
-import io.github.mzmine.parameters.parametertypes.combowithinput.MsLevelFilter;
-import io.github.mzmine.util.RangeUtils;
-import io.github.mzmine.datamodel.MassSpectrumType;
 import io.github.mzmine.datamodel.IMSRawDataFile;
+import io.github.mzmine.datamodel.ImagingRawDataFile;
 import io.github.mzmine.datamodel.MZmineProject;
+import io.github.mzmine.datamodel.MassSpectrumType;
 import io.github.mzmine.datamodel.PolarityType;
 import io.github.mzmine.datamodel.RawDataFile;
 import io.github.mzmine.datamodel.features.Feature;
@@ -48,12 +47,14 @@ import io.github.mzmine.modules.visualization.intensitymap.data.IntensityMapTopV
 import io.github.mzmine.modules.visualization.intensitymap.sampling.IntensityMapLayer;
 import io.github.mzmine.modules.visualization.intensitymap.sampling.IntensityMapSampler;
 import io.github.mzmine.parameters.ParameterSet;
+import io.github.mzmine.parameters.parametertypes.combowithinput.MsLevelFilter;
 import io.github.mzmine.parameters.parametertypes.selectors.RawDataFilesParameter;
 import io.github.mzmine.parameters.parametertypes.selectors.RawDataFilesSelection;
 import io.github.mzmine.parameters.parametertypes.selectors.RawDataFilesSelectionType;
 import io.github.mzmine.parameters.parametertypes.selectors.ScanSelection;
 import io.github.mzmine.taskcontrol.Task;
 import io.github.mzmine.util.ExitCode;
+import io.github.mzmine.util.RangeUtils;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -218,6 +219,28 @@ public class IntensityMap3DModule implements MZmineRunnableModule {
   }
 
   /**
+   * Opens a GCxGC file in the 2D visualizer as first against second dimension retention time,
+   * without the module dialog.
+   *
+   * @param file GCxGC data with modulations as frames and the second column retention time as
+   *             mobility
+   */
+  public static void showGcxGcRetentionTimes(@NotNull final IMSRawDataFile file) {
+    final ParameterSet parameters = ConfigService.getConfiguration()
+        .getModuleParameters(IntensityMap2DModule.class).cloneParameterSet();
+    parameters.getParameter(IntensityMapParameters.dataFile)
+        .setValue(RawDataFilesSelectionType.SPECIFIC_FILES, new RawDataFile[]{file});
+    parameters.getParameter(IntensityMapParameters.mode)
+        .setValue(IntensityMapDimensions.RT_MOBILITY);
+    parameters.getParameter(IntensityMapParameters.scanSelection).setValue(new ScanSelection(1));
+    // the stored m/z range may be from another file, show the whole file
+    parameters.getParameter(IntensityMapParameters.mzRange)
+        .setValue(IntensityMapSampler.dataMzRange(file));
+    open(parameters, List.of(), IntensityMapProjection.TOP_VIEW, null);
+  }
+
+
+  /**
    * Adds a range, or merges it into an overlapping one at its position, so that the order of the
    * first appearance is kept.
    */
@@ -269,7 +292,7 @@ public class IntensityMap3DModule implements MZmineRunnableModule {
     final PolarityType polarity = polarities.size() == 1 ? polarities.getFirst() : PolarityType.ANY;
     final boolean mobilityData = Arrays.stream(files).allMatch(IMSRawDataFile.class::isInstance);
     final Range<Double> mobilityRange = !mobilityData ? null
-        : rowFeatures.stream().map(Feature::getMobilityRange).filter(Objects::nonNull)
+        : rowFeatures.stream().map(GcxGcUtils::getSecondDimensionRange).filter(Objects::nonNull)
             .map(RangeUtils::toDoubleRange).reduce(Range::span).orElse(null);
     // decision: a copy of the settings of the module of this view, so feature ranges do not
     // become the defaults of the module dialog

@@ -25,6 +25,7 @@
 
 package io.github.mzmine.modules.dataprocessing.filter_duplicatefilter_gc_ei;
 
+import io.github.mzmine.parameters.parametertypes.tolerances.RTTolerance;
 import static java.util.Objects.requireNonNullElse;
 
 import io.github.mzmine.datamodel.DataPoint;
@@ -34,6 +35,7 @@ import io.github.mzmine.datamodel.features.FeatureListRow;
 import io.github.mzmine.datamodel.impl.SimpleDataPoint;
 import io.github.mzmine.modules.dataprocessing.featdet_spectraldeconvolutiongc.SpectralDeconvolutionUtils;
 import io.github.mzmine.parameters.parametertypes.tolerances.MZTolerance;
+
 import java.util.Comparator;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -44,12 +46,14 @@ import org.jetbrains.annotations.Nullable;
  * @param row          the row
  * @param quantifierMz the m/z of the row
  * @param rt           the retention time of the row
+ * @param secondDim    the second dimension retention time (GCxGC 2D RT) of the row or null
  * @param spectrum     the merged pseudo spectra of all features, sorted by m/z
  * @param numDetected  number of detected or manually integrated features
  * @param maxHeight    the highest feature of the row
  */
 record GcEiDuplicateCandidate(@NotNull FeatureListRow row, double quantifierMz, float rt,
-                              @NotNull DataPoint[] spectrum, int numDetected, float maxHeight) {
+                              @Nullable Float secondDim, @NotNull DataPoint[] spectrum,
+                              int numDetected, float maxHeight) {
 
   /**
    * The best row of a group of duplicates is kept: most detected features, then most features in
@@ -82,8 +86,9 @@ record GcEiDuplicateCandidate(@NotNull FeatureListRow row, double quantifierMz, 
         numDetected++;
       }
     }
-    return new GcEiDuplicateCandidate(row, row.getAverageMZ(), row.getAverageRT(), spectrum,
-        numDetected, requireNonNullElse(row.getMaxHeight(), 0f));
+    return new GcEiDuplicateCandidate(row, row.getAverageMZ(), row.getAverageRT(),
+        row.getAverageSecondDimensionRT(), spectrum, numDetected,
+        requireNonNullElse(row.getMaxHeight(), 0f));
   }
 
   static boolean isDetected(@NotNull final FeatureStatus status) {
@@ -91,6 +96,21 @@ record GcEiDuplicateCandidate(@NotNull FeatureListRow row, double quantifierMz, 
       case DETECTED, MANUAL -> true;
       case UNKNOWN, ESTIMATED, COMPOUND_AGGREGATED -> false;
     };
+  }
+
+  /**
+   * @param tolerance the second dimension tolerance or null to skip the check
+   * @return true if the tolerance is null or both rows have a second dimension within the
+   * tolerance
+   */
+  boolean isWithinSecondDimension(@NotNull final GcEiDuplicateCandidate other,
+      @Nullable final RTTolerance tolerance) {
+    if (tolerance == null) {
+      return true;
+    }
+    // assumption: rows without second dimension cannot be duplicates of 2D rows
+    return secondDim != null && other.secondDim != null && tolerance.checkWithinTolerance(
+        secondDim, other.secondDim);
   }
 
   /**

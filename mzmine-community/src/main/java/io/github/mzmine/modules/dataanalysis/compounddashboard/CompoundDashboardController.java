@@ -25,8 +25,10 @@
 
 package io.github.mzmine.modules.dataanalysis.compounddashboard;
 
+import com.google.common.collect.Range;
 import io.github.mzmine.datamodel.RawDataFile;
 import io.github.mzmine.datamodel.Scan;
+import io.github.mzmine.datamodel.features.Feature;
 import io.github.mzmine.datamodel.features.FeatureList;
 import io.github.mzmine.datamodel.features.FeatureListRow;
 import io.github.mzmine.datamodel.features.ModularFeatureList;
@@ -66,14 +68,21 @@ import io.github.mzmine.modules.visualization.featurelisttable_modular.FeatureTa
 import io.github.mzmine.modules.visualization.featurelisttable_modular.FeatureTableOwner;
 import io.github.mzmine.modules.visualization.featurelisttable_modular.FxFeatureTableController;
 import io.github.mzmine.modules.visualization.featurerow4dplot.FeatureRow4DPlotController;
+import io.github.mzmine.modules.visualization.intensitymap.EmbeddedIntensityMap;
+import io.github.mzmine.modules.visualization.intensitymap.data.IntensityMapProjection;
 import io.github.mzmine.modules.visualization.network_overview.NetworkOverviewFlavor;
 import io.github.mzmine.modules.visualization.network_overview.NetworkOverviewWindow;
 import io.github.mzmine.modules.visualization.otherdetectors.chromatogramplot.ChromatogramPlotController;
 import io.github.mzmine.modules.visualization.spectra.simplespectrachart.SimpleSpectraChartController;
+import io.github.mzmine.util.GcxGcUtils;
 import io.github.mzmine.util.scans.ScanUtils;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import javafx.beans.binding.Bindings;
 import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.Property;
 import javafx.collections.ListChangeListener;
@@ -110,6 +119,8 @@ public class CompoundDashboardController extends FxController<CompoundDashboardM
   private final FxFeatureTableController tableCtrl = new FxFeatureTableController(
       FeatureTableOwner.COMPOUND_DASHBOARD);
   private final FeatureRow4DPlotController featurePlot4D = new FeatureRow4DPlotController();
+  // 2D or 3D raw data plot of the side pane, null if not shown
+  private @Nullable EmbeddedIntensityMap sideMap;
 
   // Guards both directions of the selectedAdductRow <-> plot-selection bridge (selectedDataset and
   // cursor-position dataset) so we don't bounce events back and forth when one side updates the
@@ -206,6 +217,22 @@ public class CompoundDashboardController extends FxController<CompoundDashboardM
     PropertyUtils.onChangeDelayedSubscription(this::scheduleEic, DEBOUNCE,
         model.selectedCompoundRowProperty(), model.currentRawDataFileProperty(),
         model.colorPaletteProperty());
+    // The 2D and 3D raw data plots show the current file around the selected compound
+    PropertyUtils.onChangeDelayedSubscription(this::updateSideMap, DEBOUNCE,
+        model.sidePlotProperty(), model.selectedCompoundRowProperty(),
+        model.currentRawDataFileProperty());
+    // the selected ion changes the m/z and labels of the raw data plot, not its window
+    model.selectedAdductRowProperty().subscribe(_ -> {
+      final EmbeddedIntensityMap map = sideMap;
+      if (map != null) {
+        map.setLabelRows(sideMapLabelRows());
+        map.setIonMzRange(sideMapIonMzRange());
+      }
+    });
+    // GCxGC: the second overlay shows the 2D RT traces instead of mobilograms
+    model.featureListProperty().subscribe(flist -> mobilogramPlot.setDomainAxisFormat(
+        GcxGcUtils.isGcxGc(flist) ? GcxGcUtils.createSecondDimensionRTFormat()
+            : ConfigService.getGuiFormats().mobilityFormat()));
     // Heavy debounced recompute of mobilograms. Shares triggers with the EIC task.
     PropertyUtils.onChangeDelayedSubscription(this::scheduleMobilogram, DEBOUNCE,
         model.selectedCompoundRowProperty(), model.currentRawDataFileProperty(),
@@ -243,6 +270,14 @@ public class CompoundDashboardController extends FxController<CompoundDashboardM
     // The renderer maps are updated in the task's updateGuiModel before the dataset list setAll,
     // so by the time these listeners fire the maps already reflect the new datasets.
     model.selectedAdductRowProperty().subscribe(_ -> applySelectionHighlight());
+    // large compounds only draw the most intense rows, redraw to include a newly selected row
+    model.selectedAdductRowProperty().subscribe(_ -> {
+      if (interactor.isSelectedRowHidden()) {
+        scheduleEic();
+        scheduleMobilogram();
+        scheduleSpectra();
+      }
+    });
     model.getEicDatasets()
         .addListener((ListChangeListener<XYDatasetAndRenderer>) _ -> applySelectionHighlight());
     model.getMobilogramDatasets()
@@ -282,7 +317,9 @@ public class CompoundDashboardController extends FxController<CompoundDashboardM
     mobilogramPlot.setRangeAxisLabel("Intensity");
     mobilogramPlot.setShowSeriesLabel(true);
     ms1Chart.rangeAxisLabelProperty().set("Intensity (MS1)");
-    ms2Chart.rangeAxisLabelProperty().set("Intensity (MS2)");
+    ms2Chart.rangeAxisLabelProperty().bind(
+        Bindings.when(model.deconvolutedEiProperty()).then("Intensity (EI)")
+            .otherwise("Intensity (MS2)"));
   }
 
   // --- FxController overrides -----------------------------------------------
@@ -303,6 +340,87 @@ public class CompoundDashboardController extends FxController<CompoundDashboardM
     qualityCtrl.close();
     tableCtrl.close();
     featurePlot4D.close();
+    closeSideMap();
+  }
+
+  /**
+   * Replaces the 2D or 3D raw data plot of the side pane with one of the current raw data file
+   * around the selected compound
+   */
+  private void updateSideMap() {
+    closeSideMap();
+    final CompoundDashboardSidePlot plot = model.getSidePlot();
+    final IntensityMapProjection projection = plot.projection();
+    if (projection == null) {
+      return;
+    }
+    final CompoundRow compound = model.getSelectedCompoundRow();
+    final RawDataFile file = model.getCurrentRawDataFile();
+    if (compound == null || file == null) {
+      model.setSideMapMessage("Select a compound to show the raw data around it.");
+      return;
+    }
+    if (!EmbeddedIntensityMap.isSupported()) {
+      model.setSideMapMessage("The platform does not provide 3D support.");
+      return;
+    }
+    final List<Feature> features = CompoundDashboardColoring.flattenAllMemberRows(compound)
+        .stream().map(row -> row.getFeature(file)).filter(Objects::nonNull)
+        .map(Feature.class::cast).toList();
+    sideMap = EmbeddedIntensityMap.forFeatures(file, features, projection,
+        model.getFeatureList(), sideMapLabelRows(), sideMapIonMzRange());
+    if (sideMap == null) {
+      model.setSideMapMessage("The compound has no features in " + file.getName() + ".");
+      return;
+    }
+    model.setSideMap(sideMap.view());
+  }
+
+  /**
+   * decision (user): the raw data plot labels only the selected compound and the selected ion
+   *
+   * @return the rows that get labels in the raw data plot
+   */
+  private @NotNull Set<FeatureListRow> sideMapLabelRows() {
+    final Set<FeatureListRow> rows = Collections.newSetFromMap(new IdentityHashMap<>());
+    final CompoundRow compound = model.getSelectedCompoundRow();
+    if (compound != null) {
+      rows.add(compound);
+    }
+    final FeatureListRow selected = model.getSelectedAdductRow();
+    if (selected != null) {
+      rows.add(selected);
+    }
+    return rows;
+  }
+
+  /**
+   * decision (user): retention time against 2D RT or mobility shows the m/z of the selected ion,
+   * the representative ion of the compound if no ion of it is selected
+   *
+   * @return the m/z range of the selected ion in the current raw data file, null if none
+   */
+  private @Nullable Range<Double> sideMapIonMzRange() {
+    final RawDataFile file = model.getCurrentRawDataFile();
+    final CompoundRow compound = model.getSelectedCompoundRow();
+    if (file == null) {
+      return null;
+    }
+    FeatureListRow row = model.getSelectedAdductRow();
+    if ((row == null || row.getFeature(file) == null) && compound != null) {
+      row = compound.getPreferredRow();
+    }
+    final Feature feature = row == null ? null : row.getFeature(file);
+    return feature == null ? null : EmbeddedIntensityMap.ionMzRange(feature);
+  }
+
+  private void closeSideMap() {
+    model.setSideMap(null);
+    final EmbeddedIntensityMap map = sideMap;
+    sideMap = null;
+    if (map != null) {
+      map.close();
+    }
   }
 
   // --- public API ------------------------------------------------------------

@@ -462,6 +462,12 @@ public class BuildingMzMLMsScan extends MetadataOnlyScan {
                   MobilityType.TIMS);
             }
           }
+          // GCxGC: the second column retention time is the second separation dimension of the
+          // frame (modulation), equivalent to the mobility dimension in IMS
+          case MzMLCV.cvSecondColumnElutionTime -> {
+            // decision: 2D RT in minutes like all retention times
+            return new MzMLMobility(parseTimeInSeconds(param) / 60d, MobilityType.GCXGC);
+          }
         }
       }
     }
@@ -477,40 +483,64 @@ public class BuildingMzMLMsScan extends MetadataOnlyScan {
 
     if (!getScanList().getScans().isEmpty()) {
       for (MzMLCVParam param : getScanList().getScans().get(0).getCVParamsList()) {
-        String accession = param.getAccession();
-        Optional<String> unitAccession = param.getUnitAccession();
-        Optional<String> value = param.getValue();
-
         // check accession
-        switch (accession) {
-          case MzMLCV.MS_RT_SCAN_START, MzMLCV.MS_RT_RETENTION_TIME,
-               MzMLCV.MS_RT_RETENTION_TIME_LOCAL, MzMLCV.MS_RT_RETENTION_TIME_NORMALIZED -> {
-            if (value.isEmpty()) {
-              throw new IllegalStateException(
-                  "For retention time cvParam the `value` must have been specified");
-            }
-            if (unitAccession.isPresent()) {
-              // there was a time unit defined
-              switch (param.getUnitAccession().orElse("")) {
-                case MzMLCV.cvUnitsMin1, MzMLCV.cvUnitsMin2 ->
-                    retentionTime = Float.parseFloat(value.get());
-                case MzMLCV.cvUnitsSec -> retentionTime = Float.parseFloat(value.get()) / 60f;
-                default -> throw new IllegalStateException(
-                    "Unknown time unit encountered: [" + unitAccession + "]");
-              }
-            } else {
-              // no time units defined, should be seconds
-              retentionTime = Float.parseFloat(value.get()) / 60f;
-            }
+        switch (param.getAccession()) {
+          case MzMLCV.cvFirstColumnElutionTime -> {
+            // decision: GCxGC scans are grouped into frames (modulations) by the first column
+            // elution time. The scan start time may be offset or include the second dimension.
+            retentionTime = parseTimeInMinutes(param);
+            return retentionTime;
           }
+          case MzMLCV.MS_RT_SCAN_START, MzMLCV.MS_RT_RETENTION_TIME,
+               MzMLCV.MS_RT_RETENTION_TIME_LOCAL, MzMLCV.MS_RT_RETENTION_TIME_NORMALIZED ->
+              retentionTime = parseTimeInMinutes(param);
           default -> {
-            continue; // not a retention time parameter
+            // not a retention time parameter
           }
         }
       }
     }
 
     return retentionTime == null ? -1 : retentionTime;
+  }
+
+  /**
+   * Float arithmetic like all retention times parsed before, so that results stay reproducible.
+   *
+   * @param param a time cvParam
+   * @return the time in minutes. Values without a unit are interpreted as seconds.
+   */
+  private static float parseTimeInMinutes(@NotNull final MzMLCVParam param) {
+    final Optional<String> value = param.getValue();
+    if (value.isEmpty()) {
+      throw new IllegalStateException(
+          "For retention time cvParam the `value` must have been specified");
+    }
+    return switch (param.getUnitAccession().orElse(MzMLCV.cvUnitsSec)) {
+      case MzMLCV.cvUnitsMin1, MzMLCV.cvUnitsMin2 -> Float.parseFloat(value.get());
+      case MzMLCV.cvUnitsSec -> Float.parseFloat(value.get()) / 60f;
+      default -> throw new IllegalStateException(
+          "Unknown time unit encountered: [" + param.getUnitAccession() + "]");
+    };
+  }
+
+  /**
+   * @param param a time cvParam
+   * @return the time in seconds. Values without a unit are interpreted as seconds.
+   */
+  private static double parseTimeInSeconds(@NotNull final MzMLCVParam param) {
+    final Optional<String> value = param.getValue();
+    if (value.isEmpty()) {
+      throw new IllegalStateException(
+          "For retention time cvParam the `value` must have been specified");
+    }
+    final double time = Double.parseDouble(value.get());
+    return switch (param.getUnitAccession().orElse(MzMLCV.cvUnitsSec)) {
+      case MzMLCV.cvUnitsMin1, MzMLCV.cvUnitsMin2 -> time * 60d;
+      case MzMLCV.cvUnitsSec -> time;
+      default -> throw new IllegalStateException(
+          "Unknown time unit encountered: [" + param.getUnitAccession() + "]");
+    };
   }
 
   @Override

@@ -116,7 +116,8 @@ public class MobilogramBinningTask extends AbstractTask {
       final int binWidth = switch (((IMSRawDataFile) file).getMobilityType()) {
         case TIMS -> timsBinningWidth;
         case TRAVELING_WAVE -> twimsBinningWidth;
-        case DRIFT_TUBE -> dtimsBinningWidth;
+        // GCxGC is sampled at a constant rate like drift tube data
+        case DRIFT_TUBE, GCXGC -> dtimsBinningWidth;
         default -> throw new UnsupportedOperationException(
             "Summing of the mobility type in raw data file " + file.getName() + " is unsupported.");
       };

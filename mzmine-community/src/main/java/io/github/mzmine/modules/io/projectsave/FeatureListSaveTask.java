@@ -48,7 +48,6 @@ import io.github.mzmine.datamodel.identities.iontype.project_io.IonNetworksSaver
 import io.github.mzmine.modules.io.projectload.version_3_0.CONST;
 import io.github.mzmine.taskcontrol.AbstractTask;
 import io.github.mzmine.taskcontrol.TaskStatus;
-import io.github.mzmine.util.GcxGcUtils;
 import io.github.mzmine.util.ParsingUtils;
 import io.github.mzmine.util.StreamCopy;
 import io.github.mzmine.util.StringUtils;
@@ -273,8 +272,7 @@ public class FeatureListSaveTask extends AbstractTask {
 
       Element selectedScansElement = document.createElement(CONST.XML_FLIST_SELECTED_SCANS_ELEMENT);
       int[] indices = ParsingUtils.getIndicesOfSubListElements(
-          (List<Scan>) flist.getSeletedScans(rawDataFile),
-          GcxGcUtils.getScansForIndexing(rawDataFile));
+          (List<Scan>) flist.getSeletedScans(rawDataFile), rawDataFile.getScans());
       selectedScansElement.setTextContent(ParsingUtils.intArrayToString(indices, indices.length));
 
       fileElement.appendChild(selectedScansElement);

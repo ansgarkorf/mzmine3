@@ -29,9 +29,9 @@ import io.github.mzmine.datamodel.MZmineProject;
 import io.github.mzmine.datamodel.features.FeatureList;
 import io.github.mzmine.modules.MZmineModuleCategory;
 import io.github.mzmine.modules.batchmode.order.ModuleCategoryOrderCondition;
+import io.github.mzmine.modules.batchmode.order.GcEiDeconvolutionCondition;
 import io.github.mzmine.modules.batchmode.order.ModuleOrderRecommendation;
 import io.github.mzmine.modules.batchmode.order.ModuleOrderRule;
-import io.github.mzmine.modules.dataprocessing.featdet_spectraldeconvolutiongc.SpectralDeconvolutionGCModule;
 import io.github.mzmine.modules.impl.TaskPerFeatureListModule;
 import io.github.mzmine.parameters.ParameterSet;
 import io.github.mzmine.taskcontrol.Task;
@@ -73,6 +73,6 @@ public class GcEiGapFillingModule extends TaskPerFeatureListModule {
                 ModuleCategoryOrderCondition.of(MZmineModuleCategory.ALIGNMENT))),
         ModuleOrderRecommendation.of(
             "GC-EI gap filling uses the pseudo spectra of the GC-EI spectral deconvolution.",
-            ModuleOrderRule.mustRunAfter(SpectralDeconvolutionGCModule.class)));
+            ModuleOrderRule.mustRunAfter(GcEiDeconvolutionCondition.INSTANCE)));
   }
 }

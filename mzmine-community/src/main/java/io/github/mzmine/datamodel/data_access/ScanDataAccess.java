@@ -68,19 +68,13 @@ public abstract class ScanDataAccess implements Scan {
    * @param type     processed or raw data
    */
   protected ScanDataAccess(RawDataFile dataFile, ScanDataType type) {
-    // might even use the maximum number of data points in the selected scans
-    // but seems unnecessary
-    this(dataFile, type, getMaxNumberOfDataPoints(dataFile, type));
-  }
-
-  /**
-   * @param maxDataPoints the maximum number of data points of all accessed scans
-   */
-  protected ScanDataAccess(RawDataFile dataFile, ScanDataType type, int maxDataPoints) {
     this.dataFile = dataFile;
     this.type = type;
-    mzs = new double[maxDataPoints];
-    intensities = new double[maxDataPoints];
+    // might even use the maximum number of data points in the selected scans
+    // but seems unnecessary
+    int length = getMaxNumberOfDataPoints();
+    mzs = new double[length];
+    intensities = new double[length];
   }
 
   /**
@@ -256,7 +250,7 @@ public abstract class ScanDataAccess implements Scan {
    *
    * @return the maximum number of data points
    */
-  private static int getMaxNumberOfDataPoints(RawDataFile dataFile, ScanDataType type) {
+  private int getMaxNumberOfDataPoints() {
     return switch (type) {
       case MASS_LIST -> dataFile.getMaxCentroidDataPoints();
       case RAW -> dataFile.getMaxRawDataPoints();

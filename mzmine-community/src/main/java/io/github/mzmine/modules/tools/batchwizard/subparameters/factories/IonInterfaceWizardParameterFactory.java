@@ -28,6 +28,7 @@ package io.github.mzmine.modules.tools.batchwizard.subparameters.factories;
 import com.google.common.collect.Range;
 import io.github.mzmine.modules.tools.batchwizard.subparameters.IonInterfaceDirectAndFlowInjectWizardParameters;
 import io.github.mzmine.modules.tools.batchwizard.subparameters.IonInterfaceGcElectronImpactWizardParameters;
+import io.github.mzmine.modules.tools.batchwizard.subparameters.IonInterfaceGcxGcElectronImpactWizardParameters;
 import io.github.mzmine.modules.tools.batchwizard.subparameters.IonInterfaceHplcWizardParameters;
 import io.github.mzmine.modules.tools.batchwizard.subparameters.IonInterfaceImagingWizardParameters;
 import io.github.mzmine.modules.tools.batchwizard.subparameters.WizardStepParameters;
@@ -118,9 +119,8 @@ public enum IonInterfaceWizardParameterFactory implements WizardParameterFactory
           Range.closed(0.001, 0.06));
       // assumption: modulation periods of 2-8 s, the first dimension peaks span 3-6 modulations
       case GCXGC_EI -> new IonInterfaceGcxGcElectronImpactWizardParameters(this,
-          Range.closed(0.5, 120d), 3, new RTTolerance(0.15f, Unit.MINUTES),
-          new RTTolerance(0.06f, Unit.MINUTES), new RTTolerance(0.1f, Unit.MINUTES), 3,
-          new RTTolerance(0.1f, Unit.SECONDS), new RTTolerance(0.1f, Unit.SECONDS),
+          Range.closed(0.5, 120d), 3, new RTTolerance(0.06f, Unit.MINUTES),
+          new RTTolerance(0.1f, Unit.MINUTES), 3, new RTTolerance(0.1f, Unit.SECONDS),
           new RTTolerance(0.1f, Unit.SECONDS));
       // parameters for imaging
       case MALDI, LDI, DESI, SIMS -> new IonInterfaceImagingWizardParameters(this, 25, false);

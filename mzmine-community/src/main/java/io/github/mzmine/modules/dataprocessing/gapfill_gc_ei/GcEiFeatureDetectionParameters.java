@@ -23,29 +23,27 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package io.github.mzmine.modules.dataprocessing.featdet_gcxgc;
+package io.github.mzmine.modules.dataprocessing.gapfill_gc_ei;
 
-import io.github.mzmine.parameters.Parameter;
-import io.github.mzmine.parameters.impl.SimpleParameterSet;
-import io.github.mzmine.parameters.parametertypes.OriginalFeatureListHandlingParameter;
-import io.github.mzmine.parameters.parametertypes.selectors.FeatureListsParameter;
-import io.github.mzmine.parameters.parametertypes.tolerances.MZToleranceParameter;
+import io.github.mzmine.parameters.ParameterSet;
+import io.github.mzmine.parameters.parametertypes.tolerances.MZTolerance;
+import org.jetbrains.annotations.NotNull;
 
 /**
- * Builds 2D features of GCxGC data from features resolved in the first dimension
+ * Parameters of a feature detection module that finds features in both dimensions at once without
+ * a chromatogram builder, e.g., the GCxGC 2D feature finder. GC-EI gap filling re-detects signals
+ * with the same settings. The implementations may live outside of mzmine community.
  */
-public class GcxGc2DFeatureBuilderParameters extends SimpleParameterSet {
+public interface GcEiFeatureDetectionParameters extends ParameterSet {
 
-  public static final FeatureListsParameter FEATURE_LISTS = new FeatureListsParameter();
+  /**
+   * @return the m/z tolerance of the feature detection
+   */
+  @NotNull MZTolerance getFeatureDetectionMzTolerance();
 
-  public static final MZToleranceParameter MZ_TOLERANCE = new MZToleranceParameter("m/z tolerance",
-      "Signals of the single scans within this tolerance around the chromatogram m/z are extracted.",
-      0.005, 15);
-
-  public static final OriginalFeatureListHandlingParameter HANDLE_ORIGINAL = new OriginalFeatureListHandlingParameter(
-      false);
-
-  public GcxGc2DFeatureBuilderParameters() {
-    super(new Parameter[]{FEATURE_LISTS, MZ_TOLERANCE, HANDLE_ORIGINAL});
-  }
+  /**
+   * @return the minimum number of consecutive data points (scans or GCxGC modulations) of a
+   * feature
+   */
+  int getMinConsecutiveDataPoints();
 }

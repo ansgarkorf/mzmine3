@@ -48,8 +48,7 @@ public class SpectralDeconvolutionGCParameters extends SimpleParameterSet {
   public static final ModuleOptionsEnumComboParameter<SpectralDeconvolutionAlgorithms> SPECTRAL_DECONVOLUTION_ALGORITHM = new ModuleOptionsEnumComboParameter<>(
       "Deconvolution algorithm", "Algorithm to use for spectral deconvolution and its parameters.",
       new SpectralDeconvolutionAlgorithms[]{
-          SpectralDeconvolutionAlgorithms.RT_GROUPING_AND_SHAPE_CORRELATION,
-          SpectralDeconvolutionAlgorithms.TWO_D_GROUPING_AND_SHAPE_CORRELATION},
+          SpectralDeconvolutionAlgorithms.RT_GROUPING_AND_SHAPE_CORRELATION},
       SpectralDeconvolutionAlgorithms.RT_GROUPING_AND_SHAPE_CORRELATION);
 
   public static final StringParameter SUFFIX = new StringParameter("Name suffix",

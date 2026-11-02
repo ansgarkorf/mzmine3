@@ -28,9 +28,9 @@ package io.github.mzmine.modules.dataprocessing.align_gc;
 import io.github.mzmine.datamodel.MZmineProject;
 import io.github.mzmine.datamodel.features.FeatureList;
 import io.github.mzmine.modules.MZmineModuleCategory;
+import io.github.mzmine.modules.batchmode.order.GcEiDeconvolutionCondition;
 import io.github.mzmine.modules.batchmode.order.ModuleOrderRecommendation;
 import io.github.mzmine.modules.batchmode.order.ModuleOrderRule;
-import io.github.mzmine.modules.dataprocessing.featdet_spectraldeconvolutiongc.SpectralDeconvolutionGCModule;
 import io.github.mzmine.modules.impl.SingleTaskFeatureListsModule;
 import io.github.mzmine.parameters.ParameterSet;
 import io.github.mzmine.taskcontrol.Task;
@@ -52,7 +52,7 @@ public class GCAlignerModule extends SingleTaskFeatureListsModule {
   public @NotNull List<@NotNull ModuleOrderRecommendation> getModuleOrderRecommendations() {
     return List.of(ModuleOrderRecommendation.of(
         "GC alignment requires the pseudo-MS2 spectra created by spectral deconvolution",
-        ModuleOrderRule.mustRunAfter(SpectralDeconvolutionGCModule.class)));
+        ModuleOrderRule.mustRunAfter(GcEiDeconvolutionCondition.INSTANCE)));
   }
 
   @Override

@@ -26,11 +26,7 @@
 package io.github.mzmine.modules.dataprocessing.featdet_chromatogramdeconvolution;
 
 public enum ResolvingDimension {
-  RETENTION_TIME("Retention time"), MOBILITY("Mobility"),
-  /**
-   * Second dimension retention time of GCxGC features (2D RT in minutes)
-   */
-  SECOND_DIMENSION_RT("2D RT (GCxGC)");
+  RETENTION_TIME("Retention time"), MOBILITY("Mobility");
 
   private final String name;
   ResolvingDimension(String name) {

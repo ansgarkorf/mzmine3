@@ -25,7 +25,6 @@
 
 package io.github.mzmine.modules.dataprocessing.featdet_chromatogramdeconvolution;
 
-import io.github.mzmine.util.GcxGcUtils;
 import com.google.common.collect.Range;
 import io.github.mzmine.datamodel.Frame;
 import io.github.mzmine.datamodel.IMSRawDataFile;
@@ -101,20 +100,8 @@ public abstract class AbstractResolver implements Resolver {
     final IonTimeSeries<? extends Scan> originalSeries =
         series instanceof FeatureDataAccess acc ? acc.getFeature().getFeatureData() : series;
 
-    // GCxGC chromatograms along the 2D RT spectra: their retention times are 2D RTs
-    final boolean secondDimensionChromatogram = GcxGcUtils.isSecondDimensionChromatogram(
-        originalSeries);
-    if (dimension == ResolvingDimension.RETENTION_TIME && secondDimensionChromatogram) {
-      throw new IllegalStateException("""
-          Cannot resolve the GCxGC chromatograms of feature list %s in the retention time \
-          dimension. They were built along the 2D RT: resolve them in the 2D RT dimension, expand \
-          them into the modulations with the GCxGC 2D feature builder and then resolve in the \
-          retention time dimension.""".formatted(flist.getName()));
-    }
-
     final List<T> resolved = new ArrayList<>();
-    if (dimension == ResolvingDimension.RETENTION_TIME || (
-        dimension == ResolvingDimension.SECOND_DIMENSION_RT && secondDimensionChromatogram)) {
+    if (dimension == ResolvingDimension.RETENTION_TIME) {
       final List<Range<Double>> resolvedRanges = resolveRt(series);
 
       // make a new subseries for each resolved range.
@@ -125,9 +112,8 @@ public abstract class AbstractResolver implements Resolver {
             mobilogramDataAccess);
         resolved.add(subSeries);
       }
-    } else if (isSecondDimension(originalSeries)
+    } else if (dimension == ResolvingDimension.MOBILITY
                && originalSeries instanceof IonMobilogramTimeSeries originalTrace) {
-      // mobility of IMS data and 2D RT of GCxGC data use the same data model
       setSeriesToMobilogramDataAccess(series);
       final List<Range<Double>> resolvedRanges = resolveMobility(mobilogramDataAccess);
 
@@ -164,28 +150,11 @@ public abstract class AbstractResolver implements Resolver {
             getMobilogramDataAccess(), unifiedFrames));
       }
     } else {
-      throw new IllegalStateException(switch (dimension) {
-        case SECOND_DIMENSION_RT -> "Cannot resolve in the 2D RT dimension, the feature list "
-            + flist.getName() + " has no GCxGC 2D features.";
-        case MOBILITY -> "Cannot resolve in the mobility dimension, the feature list "
-            + flist.getName() + " has no ion mobility features.";
-        case RETENTION_TIME -> "Cannot resolve " + originalSeries.getClass().getName();
-      });
+      throw new IllegalStateException(
+          "Cannot resolve " + originalSeries.getClass().getName() + " in " + dimension
+          + " mobility dimension.");
     }
     return resolved;
-  }
-
-  /**
-   * @return true if the dimension is the second dimension of the data: mobility for IMS data, 2D RT
-   * for GCxGC data
-   */
-  private boolean isSecondDimension(@NotNull final IonTimeSeries<? extends Scan> series) {
-    final boolean gcxgc = GcxGcUtils.isGcxGc(file);
-    return switch (dimension) {
-      case RETENTION_TIME -> false;
-      case MOBILITY -> !gcxgc;
-      case SECOND_DIMENSION_RT -> gcxgc;
-    };
   }
 
   protected <T extends IonTimeSeries<? extends Scan>> void setSeriesToMobilogramDataAccess(

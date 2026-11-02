@@ -58,7 +58,7 @@ public class MinimumSearchFeatureResolverParameters extends GeneralResolverParam
 
   public static final DoubleParameter SEARCH_RT_RANGE = new DoubleParameter(
       "Minimum search range RT/Mobility (absolute)",
-      "If a local minimum is minimal in this range of retention time, mobility, or 2D RT (GCxGC, in minutes), it will be considered a border between two peaks.\n"
+      "If a local minimum is minimal in this range of retention time or mobility, it will be considered a border between two peaks.\n"
           + "Start optimizing with a value close to the FWHM of a peak.",
       new DecimalFormat("0.000"), 0.05);
 
@@ -76,8 +76,7 @@ public class MinimumSearchFeatureResolverParameters extends GeneralResolverParam
       new DecimalFormat("0.00"), 1.7d);
 
   public static final DoubleRangeParameter PEAK_DURATION = new DoubleRangeParameter(
-      "Peak duration range (min/mobility)",
-      "Range of acceptable peak lengths in the resolving dimension (minutes for retention time and 2D RT)",
+      "Peak duration range (min/mobility)", "Range of acceptable peak lengths",
       MZmineCore.getConfiguration().getRTFormat(), Range.closed(0.0, 10.0));
 
   public MinimumSearchFeatureResolverParameters() {

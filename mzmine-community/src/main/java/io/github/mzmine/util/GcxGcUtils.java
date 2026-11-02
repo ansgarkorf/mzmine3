@@ -34,18 +34,14 @@ import io.github.mzmine.datamodel.MobilityType;
 import io.github.mzmine.datamodel.RawDataFile;
 import io.github.mzmine.datamodel.Scan;
 import io.github.mzmine.datamodel.featuredata.IonMobilogramTimeSeries;
-import io.github.mzmine.datamodel.featuredata.IonTimeSeries;
 import io.github.mzmine.datamodel.features.Feature;
 import io.github.mzmine.datamodel.features.FeatureList;
-import io.github.mzmine.datamodel.impl.SecondDimensionSpectrum;
 import io.github.mzmine.modules.io.projectload.CachedIMSRawDataFile;
 import io.github.mzmine.parameters.parametertypes.tolerances.RTTolerance;
 import io.github.mzmine.parameters.parametertypes.tolerances.RTTolerance.Unit;
 import io.github.mzmine.parameters.parametertypes.tolerances.RTToleranceParameter;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
-import java.util.AbstractList;
-import java.util.List;
 import javafx.collections.FXCollections;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -107,10 +103,10 @@ public class GcxGcUtils {
   }
 
   /**
-   * @return true for modulations, single scans and 2D RT spectra of GCxGC data
+   * @return true for modulations and single scans of GCxGC data
    */
   public static boolean isGcxGcScan(@Nullable final Scan scan) {
-    return isModulation(scan) || scan instanceof SecondDimensionSpectrum || (
+    return isModulation(scan) || (
         scan instanceof MobilityScan ms && ms.getFrame().getMobilityType() == MobilityType.GCXGC);
   }
 
@@ -122,60 +118,6 @@ public class GcxGcUtils {
     final RawDataFile original =
         file instanceof CachedIMSRawDataFile cached ? cached.getOriginalFile() : file;
     return original instanceof GCxGCRawDataFile gcxgc ? gcxgc : null;
-  }
-
-  /**
-   * @return the 2D RT spectra of a GCxGC file (signals of each scan index summed over the
-   * modulations) or an empty list
-   */
-  public static @NotNull List<SecondDimensionSpectrum> getSecondDimensionSpectra(
-      @Nullable final RawDataFile file) {
-    final GCxGCRawDataFile gcxgc = asGcxGcFile(file);
-    return gcxgc == null ? List.of() : gcxgc.getSecondDimensionSpectra();
-  }
-
-  /**
-   * Scans are saved as indices into this list. The 2D RT spectra of GCxGC files are not part of
-   * {@link RawDataFile#getScans()} and get the indices after all scans, so the indices of the scans
-   * do not change.
-   *
-   * @return the scans of the file followed by the 2D RT spectra for GCxGC files
-   */
-  public static @NotNull List<Scan> getScansForIndexing(@NotNull final RawDataFile file) {
-    final List<Scan> scans = file.getScans();
-    final List<SecondDimensionSpectrum> spectra = getSecondDimensionSpectra(file);
-    if (spectra.isEmpty()) {
-      return scans;
-    }
-    return new AbstractList<>() {
-      @Override
-      public Scan get(final int index) {
-        return index < scans.size() ? scans.get(index) : spectra.get(index - scans.size());
-      }
-
-      @Override
-      public int size() {
-        return scans.size() + spectra.size();
-      }
-    };
-  }
-
-  /**
-   * @return true if the series was built along the 2D RT spectra (2D RT chromatogram before the
-   * expansion into the modulations)
-   */
-  public static boolean isSecondDimensionChromatogram(@Nullable final IonTimeSeries<?> series) {
-    return series != null && !(series instanceof IonMobilogramTimeSeries)
-        && series.getNumberOfValues() > 0
-        && series.getSpectrum(0) instanceof SecondDimensionSpectrum;
-  }
-
-  /**
-   * @return true if the feature is a chromatogram along the GCxGC 2D RT spectra (before the
-   * expansion into the modulations). Its {@link IonTimeSeries} retention times are 2D RTs.
-   */
-  public static boolean isSecondDimensionChromatogram(@Nullable final Feature feature) {
-    return feature != null && isSecondDimensionChromatogram(feature.getFeatureData());
   }
 
   /**

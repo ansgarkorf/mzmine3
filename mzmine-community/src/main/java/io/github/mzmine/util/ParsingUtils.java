@@ -357,9 +357,8 @@ public class ParsingUtils {
           // must be sorted for ParsingUtils.getIndicesOfSubListElements
           final List<Scan> scansFromFile = fileScansEntry.getValue().stream()
               .sorted(Comparator.comparing(Scan::getScanNumber)).toList();
-          // GCxGC: the 2D RT spectra are indexed after all scans
           final int[] indices = ParsingUtils.getIndicesOfSubListElements(scansFromFile,
-              GcxGcUtils.getScansForIndexing(file));
+              file.getScans());
           StringBuilder b2 = new StringBuilder();
           for (int i = 0; i < indices.length; i++) {
             int index = indices[i];
@@ -400,7 +399,7 @@ public class ParsingUtils {
 
         if (mobilityScansString == null || mobilityScansString.isBlank()
             || !(file instanceof IMSRawDataFile)) {
-          scans.add(GcxGcUtils.getScansForIndexing(file).get(scanIndex));
+          scans.add(file.getScan(scanIndex));
         } else if ((mobilityScansString != null // i know this is currently always true, but keep
             // it for safety in case we change something in the future
             && !mobilityScansString.isBlank()) && file instanceof IMSRawDataFile ims) {

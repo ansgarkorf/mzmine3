@@ -25,11 +25,8 @@
 
 package io.github.mzmine.project.impl;
 
-import com.google.common.collect.Range;
 import io.github.mzmine.datamodel.GCxGCRawDataFile;
-import io.github.mzmine.datamodel.impl.SecondDimensionSpectrum;
 import io.github.mzmine.util.MemoryMapStorage;
-import java.util.List;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -38,28 +35,8 @@ import org.jetbrains.annotations.Nullable;
  */
 public class GCxGCRawDataFileImpl extends IMSRawDataFileImpl implements GCxGCRawDataFile {
 
-  private volatile @NotNull List<SecondDimensionSpectrum> secondDimensionSpectra = List.of();
-  private volatile @Nullable Range<Float> secondDimensionSpectraRTRange;
-
   public GCxGCRawDataFileImpl(@NotNull final String dataFileName,
       @Nullable final String absolutePath, @Nullable final MemoryMapStorage storage) {
     super(dataFileName, absolutePath, storage);
-  }
-
-  @Override
-  public @NotNull List<SecondDimensionSpectrum> getSecondDimensionSpectra() {
-    return secondDimensionSpectra;
-  }
-
-  @Override
-  public @Nullable Range<Float> getSecondDimensionSpectraRTRange() {
-    return secondDimensionSpectraRTRange;
-  }
-
-  @Override
-  public synchronized void setSecondDimensionSpectra(
-      @NotNull final List<SecondDimensionSpectrum> spectra, @Nullable final Range<Float> rtRange) {
-    secondDimensionSpectraRTRange = spectra.isEmpty() ? null : rtRange;
-    secondDimensionSpectra = List.copyOf(spectra);
   }
 }

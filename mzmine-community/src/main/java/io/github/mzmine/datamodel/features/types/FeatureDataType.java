@@ -25,7 +25,6 @@
 
 package io.github.mzmine.datamodel.features.types;
 
-import io.github.mzmine.util.GcxGcUtils;
 import io.github.mzmine.datamodel.IMSRawDataFile;
 import io.github.mzmine.datamodel.MZmineProject;
 import io.github.mzmine.datamodel.RawDataFile;
@@ -106,8 +105,7 @@ public class FeatureDataType extends
     }
 
     writer.writeStartElement(getUniqueID());
-    // use ALL scans of the given raw data file, for GCxGC followed by the 2D RT spectra
-    series.saveValueToXML(writer, GcxGcUtils.getScansForIndexing(file));
+    series.saveValueToXML(writer, file.getScans()); // use ALL scans of the given raw data file.
     writer.writeEndElement();
   }
 

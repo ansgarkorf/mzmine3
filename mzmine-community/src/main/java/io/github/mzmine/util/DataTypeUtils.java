@@ -26,7 +26,6 @@
 package io.github.mzmine.util;
 
 import io.github.mzmine.datamodel.features.types.FeatureShapeSecondDimensionType;
-import io.github.mzmine.datamodel.features.types.numbers.SecondDimensionFwhmType;
 import io.github.mzmine.datamodel.features.types.numbers.SecondDimensionRTRangeType;
 import io.github.mzmine.datamodel.features.types.numbers.SecondDimensionRTType;
 import io.github.mzmine.datamodel.features.types.FeatureShapeGcxGc2DType;
@@ -155,17 +154,6 @@ public class DataTypeUtils {
   public static void addDefaultGcxGcTypeColumns(@NotNull final ModularFeatureList flist) {
     flist.addRowType(DEFAULT_GCXGC_COLUMNS_ROW);
     flist.addFeatureType(DEFAULT_GCXGC_COLUMNS_FEATURE);
-  }
-
-  /**
-   * Adds the columns of GCxGC chromatograms along the 2D RT spectra: 2D RT and 2D RT shapes, no 2D
-   * feature plot, as these chromatograms are not expanded into the modulations yet
-   */
-  public static void addDefaultSecondDimensionChromatogramColumns(
-      @NotNull final ModularFeatureList flist) {
-    flist.addRowType(DEFAULT_GCXGC_COLUMNS_ROW);
-    flist.addFeatureType(new SecondDimensionRTType(), new SecondDimensionRTRangeType(),
-        new SecondDimensionFwhmType());
   }
 
   /**

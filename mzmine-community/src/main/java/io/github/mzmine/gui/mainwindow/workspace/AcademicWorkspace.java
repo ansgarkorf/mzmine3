@@ -186,12 +186,16 @@ public final class AcademicWorkspace extends AbstractWorkspace {
   private Menu buildFeatureDetectionMenu() {
     final Menu menu = new Menu("Feature detection");
     menu.getItems()
-        .addAll(buildDefaultLcMsSubMenu(), buildDefaultGcMsSubMenu(), buildDefaultGcxGcMsSubMenu(),
-            buildDefaultImsMsSubMenu(),
+        .addAll(buildDefaultLcMsSubMenu(), buildDefaultGcMsSubMenu(), buildDefaultImsMsSubMenu(),
             buildDefaultImagingSubMenu(), buildDefaultMsnSubMenu(), new SeparatorMenuItem(),
             new ModuleMenuItem(SmoothingModule.class),
             new ModuleMenuItem(ChromatogramBlankSubtractionModule.class),
             buildDefaultResolvingSubMenu());
+    final Menu gcxgc = buildDefaultGcxGcMsSubMenu();
+    if (gcxgc != null) {
+      // after the GC-MS menu
+      menu.getItems().add(2, gcxgc);
+    }
 
     return menu;
   }

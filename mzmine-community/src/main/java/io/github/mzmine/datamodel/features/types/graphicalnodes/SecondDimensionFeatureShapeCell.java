@@ -26,9 +26,7 @@
 package io.github.mzmine.datamodel.features.types.graphicalnodes;
 
 import io.github.mzmine.datamodel.IMSRawDataFile;
-import io.github.mzmine.datamodel.Scan;
 import io.github.mzmine.datamodel.featuredata.IonMobilogramTimeSeries;
-import io.github.mzmine.datamodel.featuredata.IonTimeSeries;
 import io.github.mzmine.datamodel.features.ModularFeature;
 import io.github.mzmine.datamodel.features.ModularFeatureListRow;
 import io.github.mzmine.datamodel.features.types.modifiers.GraphicalColumType;
@@ -36,7 +34,6 @@ import io.github.mzmine.gui.chartbasics.simplechart.SimpleXYChart;
 import io.github.mzmine.gui.chartbasics.simplechart.datasets.ColoredXYDataset;
 import io.github.mzmine.gui.chartbasics.simplechart.datasets.DatasetAndRenderer;
 import io.github.mzmine.gui.chartbasics.simplechart.datasets.RunOption;
-import io.github.mzmine.gui.chartbasics.simplechart.providers.impl.series.IonTimeSeriesToXYProvider;
 import io.github.mzmine.gui.chartbasics.simplechart.providers.impl.series.SummedMobilogramXYProvider;
 import io.github.mzmine.gui.chartbasics.simplechart.renderers.ColoredXYLineRenderer;
 import io.github.mzmine.gui.preferences.UnitFormat;
@@ -94,15 +91,6 @@ public class SecondDimensionFeatureShapeCell extends ChartCell<SimpleXYChart<?>>
             new ColoredXYDataset(new SummedMobilogramXYProvider(f), RunOption.THIS_THREAD),
             new ColoredXYLineRenderer()));
         for (int i = 0; i < trace.getNumberOfDataPoints(); i++) {
-          maxIntensity = Math.max(trace.getIntensity(i), maxIntensity);
-        }
-      } else if (GcxGcUtils.isSecondDimensionChromatogram(f)) {
-        // chromatogram along the 2D RT spectra, its retention times are 2D RTs
-        final IonTimeSeries<? extends Scan> trace = f.getFeatureData();
-        datasets.add(new DatasetAndRenderer(
-            new ColoredXYDataset(new IonTimeSeriesToXYProvider(f), RunOption.THIS_THREAD),
-            new ColoredXYLineRenderer()));
-        for (int i = 0; i < trace.getNumberOfValues(); i++) {
           maxIntensity = Math.max(trace.getIntensity(i), maxIntensity);
         }
       }

@@ -54,7 +54,6 @@ import io.github.mzmine.modules.io.projectsave.FeatureListSaveTask;
 import io.github.mzmine.parameters.ParameterUtils;
 import io.github.mzmine.taskcontrol.AbstractTask;
 import io.github.mzmine.taskcontrol.TaskStatus;
-import io.github.mzmine.util.GcxGcUtils;
 import io.github.mzmine.util.DataTypeUtils;
 import io.github.mzmine.util.MemoryMapStorage;
 import io.github.mzmine.util.ParsingUtils;
@@ -619,9 +618,8 @@ public class FeatureListLoadTask extends AbstractTask {
             i)).getElementsByTagName(CONST.XML_FLIST_SELECTED_SCANS_ELEMENT).item(0);
         final int[] selectedScanIndices = ParsingUtils.stringToIntArray(
             selectedScansElement.getTextContent());
-        // GCxGC: the 2D RT spectra are indexed after all scans
-        final List<Scan> selectedScans = ParsingUtils.getSublistFromIndices(
-            GcxGcUtils.getScansForIndexing(f.get()), selectedScanIndices);
+        final List<Scan> selectedScans = ParsingUtils.getSublistFromIndices(f.get().getScans(),
+            selectedScanIndices);
         selectedScansMap.put(f.get(), selectedScans);
       }
 

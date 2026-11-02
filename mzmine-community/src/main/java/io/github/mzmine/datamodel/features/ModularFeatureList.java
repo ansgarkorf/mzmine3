@@ -27,6 +27,7 @@ package io.github.mzmine.datamodel.features;
 
 
 import com.google.common.collect.Range;
+import io.github.mzmine.datamodel.Frame;
 import io.github.mzmine.datamodel.MZmineProject;
 import io.github.mzmine.datamodel.RawDataFile;
 import io.github.mzmine.datamodel.Scan;
@@ -956,11 +957,9 @@ public class ModularFeatureList implements FeatureList {
       final RawDataFile file = entry.getKey();
       if (file instanceof CachedIMSRawDataFile cached) {
         final List<? extends Scan> scans = selectedScans.remove(cached);
-        // GCxGC 2D RT spectra are not cached
-        final List<Scan> originalScans = scans.stream().map(
-            scan -> scan instanceof CachedIMSFrame cachedFrame ? cachedFrame.getOriginalFrame()
-                : scan).toList();
-        selectedScans.put(cached.getOriginalFile(), originalScans);
+        final List<Frame> frames = scans.stream()
+            .map(scan -> ((CachedIMSFrame) scan).getOriginalFrame()).toList();
+        selectedScans.put(cached.getOriginalFile(), frames);
       }
     }
   }

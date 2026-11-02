@@ -31,23 +31,11 @@ import io.github.mzmine.datamodel.RawDataFile;
 import io.github.mzmine.datamodel.features.ModularFeature;
 import io.github.mzmine.datamodel.features.ModularFeatureList;
 import io.github.mzmine.gui.chartbasics.simplechart.datasets.DatasetAndRenderer;
-import io.github.mzmine.modules.dataprocessing.featdet_adapchromatogrambuilder.ADAPChromatogramBuilderParameters;
-import io.github.mzmine.modules.dataprocessing.featdet_adapchromatogrambuilder.ModularADAPChromatogramBuilderModule;
-import io.github.mzmine.modules.dataprocessing.featdet_chromatogramdeconvolution.ResolvingDimension;
-import io.github.mzmine.modules.dataprocessing.featdet_chromatogramdeconvolution.minimumsearch.MinimumSearchFeatureResolverModule;
-import io.github.mzmine.modules.dataprocessing.featdet_chromatogramdeconvolution.minimumsearch.MinimumSearchFeatureResolverParameters;
-import io.github.mzmine.modules.dataprocessing.featdet_gcxgc.GcxGc2DFeatureBuilderModule;
-import io.github.mzmine.modules.dataprocessing.featdet_gcxgc.GcxGc2DFeatureBuilderParameters;
-import io.github.mzmine.modules.dataprocessing.featdet_gcxgc.GcxGcSecondDimensionSpectraModule;
-import io.github.mzmine.modules.dataprocessing.featdet_gcxgc.GcxGcSecondDimensionSpectraParameters;
 import io.github.mzmine.modules.dataprocessing.featdet_massdetection.MassDetectionModule;
 import io.github.mzmine.modules.dataprocessing.featdet_massdetection.MassDetectionParameters;
 import io.github.mzmine.modules.dataprocessing.featdet_massdetection.SelectedScanTypes;
-import io.github.mzmine.modules.dataprocessing.filter_groupms2.GroupMS2SubParameters;
 import io.github.mzmine.modules.tools.batchwizard.subparameters.MassDetectorWizardOptions;
 import io.github.mzmine.parameters.ParameterSet;
-import io.github.mzmine.parameters.parametertypes.OriginalFeatureListHandlingParameter.OriginalFeatureListOption;
-import io.github.mzmine.parameters.parametertypes.selectors.FeatureListsSelection;
 import io.github.mzmine.parameters.parametertypes.selectors.RawDataFilesSelection;
 import io.github.mzmine.parameters.parametertypes.selectors.ScanSelection;
 import io.github.mzmine.parameters.parametertypes.tolerances.MZTolerance;
@@ -61,6 +49,8 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestInstance.Lifecycle;
+import org.mockito.Mockito;
+import testutils.GcxGcTestFeatures;
 import testutils.MZmineTestUtil;
 import testutils.TaskResult;
 
@@ -96,30 +86,7 @@ class SecondDimensionDatasetsBuilderTest {
     detection.setParameter(MassDetectionParameters.denormalizeMSnScans, false);
     run(MassDetectionModule.class, detection);
 
-    final ParameterSet spectra = new GcxGcSecondDimensionSpectraParameters().cloneParameterSet();
-    spectra.setParameter(GcxGcSecondDimensionSpectraParameters.RAW_DATA_FILES, files);
-    spectra.setParameter(GcxGcSecondDimensionSpectraParameters.RT_RANGE, false);
-    spectra.setParameter(GcxGcSecondDimensionSpectraParameters.MZ_TOLERANCE, MZ_TOLERANCE);
-    spectra.setParameter(GcxGcSecondDimensionSpectraParameters.MIN_DETECTIONS, 1);
-    run(GcxGcSecondDimensionSpectraModule.class, spectra);
-
-    // chromatograms along the 2D RT, resolved in 2D RT, expanded into the modulations
-    run(ModularADAPChromatogramBuilderModule.class,
-        ADAPChromatogramBuilderParameters.create(files, new ScanSelection(1), 3, MZ_TOLERANCE,
-            "eics", 20, 50, true));
-    run(MinimumSearchFeatureResolverModule.class,
-        MinimumSearchFeatureResolverParameters.create(new FeatureListsSelection(lastList()),
-            "r2d", OriginalFeatureListOption.KEEP, false, new GroupMS2SubParameters(),
-            ResolvingDimension.SECOND_DIMENSION_RT, 0.5, 0.1 / 60, 0d, 50, 1.4,
-            Range.closed(0d, 10d / 60), 3));
-
-    final ParameterSet builder = new GcxGc2DFeatureBuilderParameters().cloneParameterSet();
-    builder.setParameter(GcxGc2DFeatureBuilderParameters.FEATURE_LISTS,
-        new FeatureListsSelection(lastList()));
-    builder.setParameter(GcxGc2DFeatureBuilderParameters.MZ_TOLERANCE, MZ_TOLERANCE);
-    builder.setParameter(GcxGc2DFeatureBuilderParameters.HANDLE_ORIGINAL,
-        OriginalFeatureListOption.KEEP);
-    run(GcxGc2DFeatureBuilderModule.class, builder);
+    GcxGcTestFeatures.create(file, 10, MZ_TOLERANCE);
     features = lastList().getFeatures(file).stream()
         .sorted(Comparator.comparingDouble(ModularFeature::getHeight).reversed()).toList();
     Assertions.assertTrue(features.size() > 2);
@@ -165,10 +132,8 @@ class SecondDimensionDatasetsBuilderTest {
 
   @Test
   void noTracesWithoutSecondDimension() {
-    final ModularFeatureList chromatograms = (ModularFeatureList) ProjectService.getProject()
-        .getCurrentFeatureLists().getFirst();
-    final ModularFeature feature = chromatograms.getFeatures(chromatograms.getRawDataFile(0))
-        .getFirst();
+    // a feature without 2D RT trace
+    final ModularFeature feature = Mockito.mock(ModularFeature.class);
     Assertions.assertTrue(
         SecondDimensionDatasetsBuilder.fromFeatures(feature, List.of(), Color.BLUE).isEmpty());
   }

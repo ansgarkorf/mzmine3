@@ -26,7 +26,6 @@
 package io.github.mzmine.modules.dataprocessing.featdet_adapchromatogrambuilder;
 
 
-import io.github.mzmine.util.GcxGcUtils;
 import static java.util.Objects.requireNonNullElse;
 
 import com.google.common.collect.Range;
@@ -45,11 +44,9 @@ import io.github.mzmine.datamodel.features.ModularFeature;
 import io.github.mzmine.datamodel.features.ModularFeatureList;
 import io.github.mzmine.datamodel.features.ModularFeatureListRow;
 import io.github.mzmine.datamodel.features.SimpleFeatureListAppliedMethod;
-import io.github.mzmine.datamodel.features.types.FeatureShapeSecondDimensionType;
 import io.github.mzmine.datamodel.features.types.FeatureShapeType;
 import io.github.mzmine.gui.DesktopService;
 import io.github.mzmine.modules.MZmineModule;
-import io.github.mzmine.modules.dataprocessing.featdet_gcxgc.GcxGcSecondDimensionSpectraModule;
 import io.github.mzmine.modules.dataprocessing.featdet_imagebuilder.ImageBuilderModule;
 import io.github.mzmine.modules.dataprocessing.featdet_imagebuilder.ImageBuilderParameters;
 import io.github.mzmine.modules.dataprocessing.norm_remove_scanrtcal.RemoveScanRtCorrectionModule;
@@ -68,7 +65,6 @@ import io.github.mzmine.util.SortingProperty;
 import io.github.mzmine.util.exceptions.MissingMassListException;
 import java.time.Instant;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.logging.Logger;
@@ -180,25 +176,7 @@ public class ModularADAPChromatogramBuilderTask extends AbstractTask {
           getModuleCallDate(), "Resetting RT correction during chromatogram builder.");
     }
 
-    // decision: GCxGC chromatograms are built in the second dimension along the 2D RT spectra,
-    // which have many more data points than the modulations
-    final boolean gcxgc = GcxGcUtils.isGcxGc(dataFile);
-    final Scan[] scans;
-    if (gcxgc) {
-      final List<? extends Scan> spectra = GcxGcUtils.getSecondDimensionSpectra(dataFile);
-      if (spectra.isEmpty()) {
-        error("""
-            GCxGC file "%s" has no 2D RT spectra. Run mass detection on all scan types and the \
-            "%s" module before.""".formatted(dataFile.getName(),
-            GcxGcSecondDimensionSpectraModule.NAME));
-        return;
-      }
-      // the retention time filter is in the first dimension and was applied by the 2D RT spectra
-      scans = scanSelection.cloneWithNewRtRange(null).getMatchingScans(spectra)
-          .toArray(Scan[]::new);
-    } else {
-      scans = scanSelection.getMatchingScans(dataFile);
-    }
+    Scan[] scans = scanSelection.getMatchingScans(dataFile);
     int emptyScanNumber = 0;
 
     if (scans.length == 0) {
@@ -283,9 +261,8 @@ public class ModularADAPChromatogramBuilderTask extends AbstractTask {
 
     ExpandedDataPoint[] allMzValues = new ExpandedDataPoint[totalDps];
 
-    ScanDataAccess scanData = gcxgc ? EfficientDataAccess.of(dataFile, ScanDataType.MASS_LIST,
-        Arrays.asList(scans))
-        : EfficientDataAccess.of(dataFile, ScanDataType.MASS_LIST, scanSelection);
+    ScanDataAccess scanData = EfficientDataAccess.of(dataFile, ScanDataType.MASS_LIST,
+        scanSelection);
 
     progress = 0;
     double progressStep = 0.1 / scanData.getNumberOfScans();
@@ -304,10 +281,7 @@ public class ModularADAPChromatogramBuilderTask extends AbstractTask {
         b.append(dataFile.getName());
         b.append(
             " does not have a mass list. Please run \"Raw data methods\" -> \"Mass detection\"");
-        if (gcxgc) {
-          b.append("\nGCxGC files require mass detection and the \"");
-          b.append(GcxGcSecondDimensionSpectraModule.NAME).append("\" module first.");
-        } else if (dataFile instanceof IMSRawDataFile) {
+        if (dataFile instanceof IMSRawDataFile) {
           b.append("\nIMS files require mass detection on the frame level (Scan type = \"Frames ");
           b.append("only\" or \"All scan types\"");
         }
@@ -373,9 +347,6 @@ public class ModularADAPChromatogramBuilderTask extends AbstractTask {
         dataFile);
     // ensure that the default columns are available
     DataTypeUtils.addDefaultChromatographicTypeColumns(newFeatureList);
-    if (gcxgc) {
-      DataTypeUtils.addDefaultSecondDimensionChromatogramColumns(newFeatureList);
-    }
 
     int newFeatureID = 1;
     // add chromatograms that match criteria
@@ -403,9 +374,7 @@ public class ModularADAPChromatogramBuilderTask extends AbstractTask {
             modular);
         newFeatureList.addRow(newRow);
         // activate shape for this row
-        if (gcxgc) {
-          newRow.set(FeatureShapeSecondDimensionType.class, true);
-        } else if (!isImaging) {
+        if (!isImaging) {
           newRow.set(FeatureShapeType.class, true);
         }
         newFeatureID++;

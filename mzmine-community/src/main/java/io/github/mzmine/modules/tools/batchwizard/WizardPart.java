@@ -25,6 +25,7 @@
 
 package io.github.mzmine.modules.tools.batchwizard;
 
+import io.github.mzmine.modules.tools.batchwizard.builders.GcxGcFeatureFinderRegistry;
 import io.github.mzmine.modules.tools.batchwizard.subparameters.WizardStepParameters;
 import io.github.mzmine.modules.tools.batchwizard.subparameters.factories.AnnotationWizardParameterFactory;
 import io.github.mzmine.modules.tools.batchwizard.subparameters.factories.CustomizationWizardParameterFactory;
@@ -94,7 +95,11 @@ public enum WizardPart {
       case FILTER -> FilterWizardParameterFactory.values();
       case ANNOTATION -> AnnotationWizardParameterFactory.values();
       // multiple options
-      case ION_INTERFACE -> IonInterfaceWizardParameterFactory.values();
+      // GCxGC needs the GCxGC 2D feature finder of mzmine (closed source)
+      case ION_INTERFACE -> Arrays.stream(IonInterfaceWizardParameterFactory.values())
+          .filter(preset -> preset != IonInterfaceWizardParameterFactory.GCXGC_EI
+              || GcxGcFeatureFinderRegistry.isAvailable())
+          .toArray(WizardParameterFactory[]::new);
       case IMS -> IonMobilityWizardParameterFactory.values();
       case MS -> MassSpectrometerWizardParameterFactory.values();
       case WORKFLOW -> WorkflowWizardParameterFactory.values();

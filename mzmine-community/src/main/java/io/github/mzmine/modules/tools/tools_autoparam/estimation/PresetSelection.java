@@ -292,6 +292,8 @@ public record PresetSelection(@NotNull List<PresetChange> changes) {
       case OTHER -> IonMobilityWizardParameterFactory.IMS;
       // assumption: FAIMS has no wizard preset, none and mixed do not define a single preset
       case NONE, MIXED, FAIMS -> null;
+      // GCxGC uses the ion mobility data model for the 2D RT, it is not ion mobility data
+      case GCXGC -> null;
     };
   }
 

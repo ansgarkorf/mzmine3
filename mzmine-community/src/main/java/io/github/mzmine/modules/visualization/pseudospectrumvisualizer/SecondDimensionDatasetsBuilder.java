@@ -93,8 +93,7 @@ final class SecondDimensionDatasetsBuilder {
   /**
    * Extracts the retention time and 2D RT traces of all signals of the pseudo spectrum from the
    * single scans of the modulations of the main feature within a 2D RT window around the feature.
-   * The modulations have no spectra of their own, as GCxGC chromatograms are built along the 2D
-   * RT.
+   * The modulations have no spectra of their own.
    *
    * @param main     the feature with the pseudo spectrum
    * @param mzs      the signals of the pseudo spectrum

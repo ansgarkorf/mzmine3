@@ -36,7 +36,8 @@ import java.time.Instant;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-public class SpectralDeconvolutionGCModule extends TaskPerFeatureListModule {
+public class SpectralDeconvolutionGCModule extends TaskPerFeatureListModule implements
+    GcEiDeconvolutionModule {
 
   public static final String NAME = "GC-EI spectral deconvolution";
 

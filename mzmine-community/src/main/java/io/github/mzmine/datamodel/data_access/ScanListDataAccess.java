@@ -25,7 +25,6 @@
 
 package io.github.mzmine.datamodel.data_access;
 
-import io.github.mzmine.datamodel.MassSpectrum;
 import io.github.mzmine.datamodel.RawDataFile;
 import io.github.mzmine.datamodel.Scan;
 import io.github.mzmine.datamodel.data_access.EfficientDataAccess.ScanDataType;
@@ -55,26 +54,9 @@ public class ScanListDataAccess extends ScanDataAccess {
    */
   protected ScanListDataAccess(RawDataFile dataFile, ScanDataType type,
       @NotNull List<? extends Scan> scans) {
-    // decision: size buffers from the scans, they may not be part of the file's scans (e.g., GCxGC
-    // 2D RT spectra) and contain more data points than the file maximum
-    super(dataFile, type, getMaxNumberOfDataPoints(type, scans));
+    super(dataFile, type);
     this.scans = scans;
     totalScans = scans.size();
-  }
-
-  private static int getMaxNumberOfDataPoints(@NotNull final ScanDataType type,
-      @NotNull final List<? extends Scan> scans) {
-    int max = 0;
-    for (final Scan scan : scans) {
-      final MassSpectrum spectrum = switch (type) {
-        case RAW -> scan;
-        case MASS_LIST -> scan.getMassList();
-      };
-      if (spectrum != null) {
-        max = Math.max(max, spectrum.getNumberOfDataPoints());
-      }
-    }
-    return max;
   }
 
   @Override

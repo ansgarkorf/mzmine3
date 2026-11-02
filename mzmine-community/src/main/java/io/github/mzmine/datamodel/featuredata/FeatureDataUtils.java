@@ -397,22 +397,11 @@ public class FeatureDataUtils {
 
     feature.set(AreaType.class, area);
     feature.set(MZRangeType.class, mzRange);
+    feature.set(RTRangeType.class, rtRange);
     feature.set(IntensityRangeType.class, intensityRange);
     feature.setRepresentativeScan(mostIntenseSpectrum);
     feature.setHeight(intensityRange != null ? intensityRange.upperEndpoint() : 0f);
-    final float apexRT =
-        mostIntenseSpectrum != null ? mostIntenseSpectrum.getRetentionTime() : Float.NaN;
-    if (GcxGcUtils.isSecondDimensionChromatogram(featureData)) {
-      // decision: chromatograms along the GCxGC 2D RT spectra have retention times in the second
-      // dimension and no first dimension RT until they are expanded into the modulations
-      feature.set(SecondDimensionRTRangeType.class, rtRange);
-      feature.set(SecondDimensionRTType.class, apexRT);
-      feature.set(RTRangeType.class, null);
-      feature.set(RTType.class, null);
-    } else {
-      feature.set(RTRangeType.class, rtRange);
-      feature.setRT(apexRT);
-    }
+    feature.setRT(mostIntenseSpectrum != null ? mostIntenseSpectrum.getRetentionTime() : Float.NaN);
     feature.setMZ(calculateCenterMz(featureData, mzCenterFunction));
 
     if (featureData instanceof IonMobilogramTimeSeries imts) {

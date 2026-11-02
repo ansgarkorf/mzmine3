@@ -100,13 +100,7 @@ public class QualityParameters {
    */
   public static void calculateAndSetQualityParameters(@NotNull final ModularFeature feature) {
     final PeakQuality quality = calculateQualityParameters(feature);
-    if (GcxGcUtils.isSecondDimensionChromatogram(feature)) {
-      // GCxGC chromatogram along the 2D RT spectra: the width is in the second dimension
-      feature.set(SecondDimensionFwhmType.class, quality.fwhm());
-      feature.set(FwhmType.class, null);
-    } else {
-      feature.set(FwhmType.class, quality.fwhm());
-    }
+    feature.set(FwhmType.class, quality.fwhm());
     feature.set(AsymmetryFactorType.class, quality.asymmetry());
     feature.set(TailingFactorType.class, quality.tailing());
 
@@ -464,10 +458,7 @@ public class QualityParameters {
   private static IonTimeSeries<? extends Scan> requireInitializedTrace(
       @NotNull final Feature feature) {
     final IonTimeSeries<? extends Scan> series = feature.getFeatureData();
-    // GCxGC chromatograms along the 2D RT spectra have no first dimension RT
-    final boolean missingRT =
-        feature.getRT() == null && !GcxGcUtils.isSecondDimensionChromatogram(feature);
-    if (series == null || feature.getHeight() == null || missingRT
+    if (series == null || feature.getHeight() == null || feature.getRT() == null
         || feature.getRawDataFile() == null || feature.getScanNumbers().isEmpty()) {
       throw new IllegalArgumentException("Modular feature values are not initialized.");
     }

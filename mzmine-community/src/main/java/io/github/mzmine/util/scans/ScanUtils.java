@@ -58,7 +58,6 @@ import io.github.mzmine.datamodel.data_access.ScanDataAccess;
 import io.github.mzmine.datamodel.features.Feature;
 import io.github.mzmine.datamodel.features.FeatureList;
 import io.github.mzmine.datamodel.features.FeatureListRow;
-import io.github.mzmine.datamodel.impl.SecondDimensionSpectrum;
 import io.github.mzmine.datamodel.impl.MSnInfoImpl;
 import io.github.mzmine.datamodel.impl.SimpleDataPoint;
 import io.github.mzmine.datamodel.msms.DDAMsMsInfo;
@@ -176,8 +175,7 @@ public class ScanUtils {
 
 
   /**
-   * "Modulation #n @ x min (2D RT a-b min)", "Scan #n @ x min (2D RT y min)" or "2D RT spectrum #n
-   * @ y min"
+   * "Modulation #n @ x min (2D RT a-b min)" or "Scan #n @ x min (2D RT y min)"
    */
   private static void appendGcxGcScanString(@NotNull final StringBuilder buf,
       @NotNull final Scan scan, @NotNull final Format rtFormat) {
@@ -195,11 +193,6 @@ public class ScanUtils {
           .append(rtFormat.format(scan.getRetentionTime())).append("min (")
           .append(GcxGcUtils.SECOND_DIMENSION_RT).append(" ")
           .append(secondDimFormat.format(single.getMobility())).append(" min)");
-    } else if (scan instanceof SecondDimensionSpectrum spectrum) {
-      // signals summed over the modulations, the retention time is the 2D RT
-      buf.append(GcxGcUtils.SECOND_DIMENSION_RT).append(" spectrum #")
-          .append(spectrum.getScanNumber()).append(" @")
-          .append(secondDimFormat.format(spectrum.getSecondDimensionRT())).append(" min");
     }
   }
 

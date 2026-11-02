@@ -32,8 +32,6 @@ import io.github.mzmine.datamodel.features.ModularFeature;
 import io.github.mzmine.datamodel.features.FeatureListRow;
 import io.github.mzmine.datamodel.features.ModularFeatureList;
 import io.github.mzmine.main.ConfigService;
-import io.github.mzmine.modules.dataprocessing.featdet_gcxgc.GcxGc2DFeatureFinderModule;
-import io.github.mzmine.modules.dataprocessing.featdet_gcxgc.GcxGc2DFeatureFinderParameters;
 import io.github.mzmine.modules.dataprocessing.featdet_massdetection.MassDetectionModule;
 import io.github.mzmine.modules.dataprocessing.featdet_massdetection.MassDetectionParameters;
 import io.github.mzmine.modules.dataprocessing.featdet_massdetection.SelectedScanTypes;
@@ -56,6 +54,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestInstance.Lifecycle;
+import testutils.GcxGcTestFeatures;
 import testutils.MZmineTestUtil;
 import testutils.TaskResult;
 
@@ -90,17 +89,8 @@ class EmbeddedIntensityMapTest {
     Assertions.assertInstanceOf(TaskResult.FINISHED.class,
         MZmineTestUtil.callModuleWithTimeout(60, MassDetectionModule.class, detection));
 
-    final ParameterSet finder = new GcxGc2DFeatureFinderParameters().cloneParameterSet();
-    finder.setParameter(GcxGc2DFeatureFinderParameters.RAW_DATA_FILES, files);
-    finder.setParameter(GcxGc2DFeatureFinderParameters.RT_RANGE, false);
-    finder.setParameter(GcxGc2DFeatureFinderParameters.MZ_TOLERANCE, new MZTolerance(0.005, 15));
-    finder.setParameter(GcxGc2DFeatureFinderParameters.MIN_HEIGHT, 100d);
-    finder.setParameter(GcxGc2DFeatureFinderParameters.MIN_MODULATIONS, 2);
-    finder.setParameter(GcxGc2DFeatureFinderParameters.TEMPLATE_DECONVOLUTION, false);
-    Assertions.assertInstanceOf(TaskResult.FINISHED.class,
-        MZmineTestUtil.callModuleWithTimeout(60, GcxGc2DFeatureFinderModule.class, finder));
-    final ModularFeatureList flist = (ModularFeatureList) ProjectService.getProject()
-        .getCurrentFeatureLists().getLast();
+    final ModularFeatureList flist = GcxGcTestFeatures.create(file, 10,
+        new MZTolerance(0.005, 15));
     features = flist.getFeatures(file);
     Assertions.assertFalse(features.isEmpty());
   }

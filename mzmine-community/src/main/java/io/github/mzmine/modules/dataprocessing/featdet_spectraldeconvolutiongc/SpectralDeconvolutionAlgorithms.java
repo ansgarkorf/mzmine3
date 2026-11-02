@@ -27,7 +27,6 @@ package io.github.mzmine.modules.dataprocessing.featdet_spectraldeconvolutiongc;
 
 import io.github.mzmine.modules.dataprocessing.featdet_spectraldeconvolutiongc.dbscan_clustering.DBScanClusteringAlgorithm;
 import io.github.mzmine.modules.dataprocessing.featdet_spectraldeconvolutiongc.rtgroupingandsharecorrelation.RtGroupingAndShapeCorrelationAlgorithm;
-import io.github.mzmine.modules.dataprocessing.featdet_spectraldeconvolutiongc.twodgroupingandshapecorrelation.TwoDimensionalGroupingAndShapeCorrelationAlgorithm;
 import io.github.mzmine.parameters.parametertypes.submodules.ModuleOptionsEnum;
 import io.github.mzmine.parameters.parametertypes.submodules.ValueWithParameters;
 
@@ -35,8 +34,7 @@ public enum SpectralDeconvolutionAlgorithms implements
     ModuleOptionsEnum<SpectralDeconvolutionAlgorithm> {
 
   RT_GROUPING_AND_SHAPE_CORRELATION,//
-  DBSCAN_CLUSTERING, //
-  TWO_D_GROUPING_AND_SHAPE_CORRELATION //
+  DBSCAN_CLUSTERING //
   ; //
 
 
@@ -46,8 +44,6 @@ public enum SpectralDeconvolutionAlgorithms implements
       case RT_GROUPING_AND_SHAPE_CORRELATION ->
           new RtGroupingAndShapeCorrelationAlgorithm(deconParams.parameters());
       case DBSCAN_CLUSTERING -> new DBScanClusteringAlgorithm(deconParams.parameters());
-      case TWO_D_GROUPING_AND_SHAPE_CORRELATION ->
-          new TwoDimensionalGroupingAndShapeCorrelationAlgorithm(deconParams.parameters());
     };
   }
 
@@ -56,8 +52,6 @@ public enum SpectralDeconvolutionAlgorithms implements
     return switch (this) {
       case RT_GROUPING_AND_SHAPE_CORRELATION -> RtGroupingAndShapeCorrelationAlgorithm.class;
       case DBSCAN_CLUSTERING -> DBScanClusteringAlgorithm.class;
-      case TWO_D_GROUPING_AND_SHAPE_CORRELATION ->
-          TwoDimensionalGroupingAndShapeCorrelationAlgorithm.class;
     };
   }
 
@@ -66,7 +60,6 @@ public enum SpectralDeconvolutionAlgorithms implements
     return switch (this) {
       case RT_GROUPING_AND_SHAPE_CORRELATION -> "rt grouping and shape correlation";
       case DBSCAN_CLUSTERING -> "dbscan";
-      case TWO_D_GROUPING_AND_SHAPE_CORRELATION -> "2d rt grouping and shape correlation";
     };
   }
 
@@ -75,7 +68,6 @@ public enum SpectralDeconvolutionAlgorithms implements
     return switch (this) {
       case RT_GROUPING_AND_SHAPE_CORRELATION -> "RT grouping and shape correlation";
       case DBSCAN_CLUSTERING -> "DBSCAN clustering";
-      case TWO_D_GROUPING_AND_SHAPE_CORRELATION -> "GCxGC: 2D RT grouping and shape correlation";
     };
   }
 

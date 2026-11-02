@@ -118,7 +118,10 @@ public class WizardBatchBuilderGcEiDeconvolution extends BaseWizardBatchBuilder 
     } else {
       recalibrateRetentionTime = false;
     }
-    rtSmoothing = getValue(params, IonInterfaceGcElectronImpactWizardParameters.smoothing);
+    // GCxGC presets have no smoothing and no peak width, their 2D feature finder needs neither
+    rtSmoothing = params.flatMap(
+            p -> p.tryGetParameter(IonInterfaceGcElectronImpactWizardParameters.smoothing))
+        .map(smoothing -> smoothing.getValue()).orElse(false);
     cropRtRange = getValue(params, IonInterfaceGcElectronImpactWizardParameters.cropRtRange);
     intraSampleRtTol = getValue(params,
         IonInterfaceGcElectronImpactWizardParameters.intraSampleRTTolerance);
@@ -126,8 +129,9 @@ public class WizardBatchBuilderGcEiDeconvolution extends BaseWizardBatchBuilder 
         IonInterfaceGcElectronImpactWizardParameters.interSampleRTTolerance);
     minRtDataPoints = getValue(params,
         IonInterfaceGcElectronImpactWizardParameters.minNumberOfDataPoints);
-    rtFwhm = getValue(params,
-        IonInterfaceGcElectronImpactWizardParameters.approximateChromatographicFWHM);
+    rtFwhm = params.flatMap(p -> p.tryGetParameter(
+            IonInterfaceGcElectronImpactWizardParameters.approximateChromatographicFWHM))
+        .map(fwhm -> fwhm.getValue()).orElse(null);
 
     // currently the alignment uses only relative values as input.
     // in the future the ADAP alignment should use either absolute or relative as defined by the

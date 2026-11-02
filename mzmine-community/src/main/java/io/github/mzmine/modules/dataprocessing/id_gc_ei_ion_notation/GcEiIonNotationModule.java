@@ -29,9 +29,9 @@ import io.github.mzmine.datamodel.MZmineProject;
 import io.github.mzmine.datamodel.features.FeatureList;
 import io.github.mzmine.modules.MZmineModuleCategory;
 import io.github.mzmine.modules.batchmode.order.ModuleOrderCondition;
+import io.github.mzmine.modules.batchmode.order.GcEiDeconvolutionCondition;
 import io.github.mzmine.modules.batchmode.order.ModuleOrderRecommendation;
 import io.github.mzmine.modules.batchmode.order.ModuleOrderRule;
-import io.github.mzmine.modules.dataprocessing.featdet_spectraldeconvolutiongc.SpectralDeconvolutionGCModule;
 import io.github.mzmine.modules.dataprocessing.id_nist.NistMsSearchModule;
 import io.github.mzmine.modules.dataprocessing.id_spectral_library_match.SpectralLibrarySearchModule;
 import io.github.mzmine.modules.impl.TaskPerFeatureListModule;
@@ -64,7 +64,7 @@ public class GcEiIonNotationModule extends TaskPerFeatureListModule {
   public @NotNull List<@NotNull ModuleOrderRecommendation> getModuleOrderRecommendations() {
     return List.of(ModuleOrderRecommendation.of(
             "GC-EI ion notations require the compounds of the GC-EI spectral deconvolution",
-            ModuleOrderRule.mustRunAfter(SpectralDeconvolutionGCModule.class)),
+            ModuleOrderRule.mustRunAfter(GcEiDeconvolutionCondition.INSTANCE)),
         ModuleOrderRecommendation.of(
             "GC-EI ion notations use the molecular formula of the compound annotation",
             ModuleOrderRule.ifPresentShouldRunAfter(

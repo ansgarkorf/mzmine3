@@ -25,9 +25,6 @@
 
 package io.github.mzmine.modules.batchmode;
 
-import io.github.mzmine.modules.dataprocessing.featdet_gcxgc.GcxGcSecondDimensionSpectraModule;
-import io.github.mzmine.modules.dataprocessing.featdet_gcxgc.GcxGc2DFeatureBuilderModule;
-import io.github.mzmine.modules.dataprocessing.featdet_gcxgc.GcxGc2DFeatureFinderModule;
 import io.github.mzmine.datamodel.identities.fx.GlobalIonLibrariesModule;
 import io.github.mzmine.modules.MZmineProcessingModule;
 import io.github.mzmine.modules.MZmineRunnableModule;
@@ -267,7 +264,6 @@ public class BatchModeModulesList {
           MassDetectionModule.class, //
           MassCalibrationModule.class, //
           MobilityScanMergerModule.class, //
-          GcxGcSecondDimensionSpectraModule.class, //
           RawFileMergeModule.class, //
 
           /*
@@ -308,8 +304,6 @@ public class BatchModeModulesList {
           SpectralDeconvolutionGCModule.class, //
           ADAP3DModule.class, //
           ImsExpanderModule.class, //
-          GcxGc2DFeatureBuilderModule.class, //
-          GcxGc2DFeatureFinderModule.class, //
           MaldiSpotFeatureDetectionModule.class, //
           BaselineCorrectionModule.class, //
 

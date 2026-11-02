@@ -25,10 +25,6 @@
 
 package io.github.mzmine.modules.dataprocessing.featdet_spectraldeconvolutiongc;
 
-import java.util.ArrayList;
-import java.util.concurrent.atomic.AtomicReference;
-import io.github.mzmine.util.GcxGcUtils;
-import io.github.mzmine.parameters.parametertypes.tolerances.RTTolerance;
 import com.google.common.collect.Range;
 import io.github.mzmine.datamodel.features.Feature;
 import io.github.mzmine.datamodel.features.FeatureList;
@@ -37,8 +33,8 @@ import io.github.mzmine.datamodel.features.ModularFeature;
 import io.github.mzmine.datamodel.features.ModularFeatureList;
 import io.github.mzmine.gui.chartbasics.JFreeChartUtils;
 import io.github.mzmine.gui.preferences.NumberFormats;
-import io.github.mzmine.javafx.components.factories.FxLabels.Styles;
 import io.github.mzmine.javafx.components.factories.FxLabels;
+import io.github.mzmine.javafx.components.factories.FxLabels.Styles;
 import io.github.mzmine.javafx.components.util.FxLayout;
 import io.github.mzmine.javafx.concurrent.threading.FxThread;
 import io.github.mzmine.javafx.util.FxColorUtil;
@@ -48,7 +44,6 @@ import io.github.mzmine.modules.visualization.pseudospectrumvisualizer.PseudoSpe
 import io.github.mzmine.parameters.ParameterSet;
 import io.github.mzmine.parameters.dialogs.ParameterSetupDialogWithPreview;
 import io.github.mzmine.parameters.parametertypes.ComboComponent;
-
 import io.github.mzmine.project.ProjectService;
 import io.github.mzmine.taskcontrol.SimpleRunnableTask;
 import io.github.mzmine.taskcontrol.Task;
@@ -58,11 +53,13 @@ import io.github.mzmine.taskcontrol.TaskStatusListener;
 import io.github.mzmine.util.color.SimpleColorPalette;
 import java.awt.Color;
 import java.awt.Shape;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -74,7 +71,6 @@ import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.SplitPane;
-import javafx.scene.control.Tooltip;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Region;
@@ -83,7 +79,6 @@ import javafx.scene.shape.Rectangle;
 import org.jetbrains.annotations.NotNull;
 import org.jfree.chart.axis.NumberAxis;
 import org.jfree.chart.plot.DefaultDrawingSupplier;
-import org.jfree.chart.plot.XYPlot;
 import org.jfree.data.xy.XYSeries;
 
 public class SpectralDeconvolutionGCDialog extends ParameterSetupDialogWithPreview {
@@ -109,8 +104,6 @@ public class SpectralDeconvolutionGCDialog extends ParameterSetupDialogWithPrevi
   private final PseudoSpectrumVisualizerController pseudoSpecController;
   private final @NotNull Region pseudoSpecPane;
   private final ComboBox<FeatureList> featureListCombo;
-  // y-axis of the preview: m/z or the second dimension of GCxGC data
-  private final ComboBox<DeconvolutionPreviewAxis> yAxisCombo;
   private final Label lblParamsChanged;
 
   private SpectralDeconvolutionAlgorithm spectralDeconvolutionAlgorithm;
@@ -138,7 +131,8 @@ public class SpectralDeconvolutionGCDialog extends ParameterSetupDialogWithPrevi
     NumberAxis domainAxis = (NumberAxis) scatterPlot.getChart().getXYPlot().getDomainAxis();
     domainAxis.setNumberFormatOverride(ConfigService.getGuiFormats().rtFormat());
 
-    scatterPlot.setRangeAxis(DeconvolutionPreviewAxis.MZ);
+    NumberAxis rangeAxis = (NumberAxis) scatterPlot.getChart().getXYPlot().getRangeAxis();
+    rangeAxis.setNumberFormatOverride(ConfigService.getGuiFormats().mzFormat());
 
     scatterPlotBorderPane = new BorderPane();
     scatterPlotBorderPane.setCenter(scatterPlot);
@@ -164,15 +158,8 @@ public class SpectralDeconvolutionGCDialog extends ParameterSetupDialogWithPrevi
       featureListCombo.getSelectionModel().select(0);
     }
 
-    yAxisCombo = new ComboBox<>(
-        FXCollections.observableArrayList(DeconvolutionPreviewAxis.values()));
-    yAxisCombo.getSelectionModel().select(
-        DeconvolutionPreviewAxis.forFeatureList(featureListCombo.getValue()));
-    yAxisCombo.setTooltip(new Tooltip("Y-axis of the preview, 2D RT for GCxGC data"));
-
     deconvolutedFeaturesComboBox = new ComboComponent<>(FXCollections.observableArrayList());
-    VBox combos = FxLayout.newVBox(FxLayout.newHBox(featureListCombo, yAxisCombo),
-        deconvolutedFeaturesComboBox);
+    VBox combos = FxLayout.newVBox(featureListCombo, deconvolutedFeaturesComboBox);
 
     numberOfCompoundsLabel = new Label("Number of compounds: ");
     selectedFeatureGroupLabel = new Label("Selected rt group: ");
@@ -198,17 +185,7 @@ public class SpectralDeconvolutionGCDialog extends ParameterSetupDialogWithPrevi
     deconvolutedFeaturesComboBox.getSelectionModel().selectedItemProperty()
         .subscribe((_, _) -> updateSelectedFeature());
 
-    featureListCombo.getSelectionModel().selectedItemProperty().subscribe(flist -> {
-      // GCxGC feature lists are shown in RT x 2D RT by default
-      yAxisCombo.getSelectionModel().select(DeconvolutionPreviewAxis.forFeatureList(flist));
-      updatePreview();
-    });
-    yAxisCombo.getSelectionModel().selectedItemProperty().subscribe((_, _) -> {
-      if (isPlotPopulated) {
-        populateScatterPlot();
-        updateSelectedFeature();
-      }
-    });
+    featureListCombo.getSelectionModel().selectedItemProperty().subscribe(_ -> updatePreview());
     scatterPlot.showRtWidthsProperty().bind(cbShowRtWidths.selectedProperty());
 
     scatterPlot.cursorPositionPropertyProperty().subscribe((_, pos) -> {
@@ -269,16 +246,9 @@ public class SpectralDeconvolutionGCDialog extends ParameterSetupDialogWithPrevi
     }
   }
 
-  private Feature findClosestFeatureGroup(double rtValue, double yValue) {
-    final DeconvolutionPreviewAxis axis = getYAxis();
-    // normalize by the visible ranges as RT and y-axis have different scales (min vs. s or m/z)
-    final XYPlot plot = scatterPlot.getChart().getXYPlot();
-    final double rtScale = Math.max(plot.getDomainAxis().getRange().getLength(), 1E-6);
-    final double yScale = Math.max(plot.getRangeAxis().getRange().getLength(), 1E-6);
-    Feature closestFeature = allFeatures.stream().filter(f -> axis.value(f) != null).min(
-        Comparator.comparingDouble(
-            feature -> calculateEuclideanDistance(feature, rtValue, yValue, axis, rtScale,
-                yScale))).orElse(null);
+  private Feature findClosestFeatureGroup(double rtValue, double mzValue) {
+    Feature closestFeature = allFeatures.stream().min(Comparator.comparingDouble(
+        feature -> calculateEuclideanDistance(feature, rtValue, mzValue))).orElse(null);
 
     if (closestFeature != null) {
       List<Range<Double>> adjustedRanges = SpectralDeconvolutionUtils.getAdjustedRanges(
@@ -294,15 +264,10 @@ public class SpectralDeconvolutionGCDialog extends ParameterSetupDialogWithPrevi
     return null;
   }
 
-  private static double calculateEuclideanDistance(@NotNull Feature feature, double rtValue,
-      double yValue, @NotNull DeconvolutionPreviewAxis axis, double rtScale, double yScale) {
-    final double rtDiff = (feature.getRT() - rtValue) / rtScale;
-    final double yDiff = (Objects.requireNonNull(axis.value(feature)) - yValue) / yScale;
-    return Math.sqrt(rtDiff * rtDiff + yDiff * yDiff);
-  }
-
-  private @NotNull DeconvolutionPreviewAxis getYAxis() {
-    return Objects.requireNonNullElse(yAxisCombo.getValue(), DeconvolutionPreviewAxis.MZ);
+  private double calculateEuclideanDistance(Feature feature, double rtValue, double mzValue) {
+    double rtDiff = feature.getRT() - rtValue;
+    double mzDiff = feature.getMZ() - mzValue;
+    return Math.sqrt(rtDiff * rtDiff + mzDiff * mzDiff);
   }
 
   private void updateSelectedFeature() {
@@ -311,28 +276,13 @@ public class SpectralDeconvolutionGCDialog extends ParameterSetupDialogWithPrevi
     pseudoSpecController.setFeature(selectedFeature);
     pseudoSpecController.setColor(selectedColor);
     if (selectedFeature != null) {
-      scatterPlot.clearMarkers();
+      scatterPlot.getChart().getXYPlot().clearDomainMarkers();
       scatterPlot.addIntervalMarker(selectedFeature.getRawDataPointsRTRange(), DOMAIN_MARKER_COLOR);
       scatterPlot.addIntervalMarker(spectralDeconvolutionAlgorithm.getRtTolerance()
           .getToleranceRange(selectedFeature.getRT()), TOLERANCE_MARKER_COLOR);
-
-      String groupText = "Selected RT group: " + GUI_FORMATS.rt(selectedFeature.getRT()) + " min";
-      final Float secondDim = selectedFeature.getSecondDimensionRT();
-      if (getYAxis() == DeconvolutionPreviewAxis.SECOND_DIMENSION && secondDim != null) {
-        // the 2D feature range and the 2D tolerance of the compound
-        final Range<Float> secondDimRange = selectedFeature.getSecondDimensionRTRange();
-        if (secondDimRange != null) {
-          scatterPlot.addRangeIntervalMarker(secondDimRange, DOMAIN_MARKER_COLOR);
-        }
-        final RTTolerance secondDimTolerance = spectralDeconvolutionAlgorithm.getSecondDimensionTolerance();
-        if (secondDimTolerance != null) {
-          scatterPlot.addRangeIntervalMarker(secondDimTolerance.getToleranceRange(secondDim),
-              TOLERANCE_MARKER_COLOR);
-        }
-        groupText += ", 2D RT " + GcxGcUtils.createSecondDimensionRTFormat().format(secondDim)
-            + " min";
-      }
-      selectedFeatureGroupLabel.setText(groupText);
+      selectedFeatureGroupLabel.setText(
+          "Selected RT group: " + ConfigService.getGuiFormats().rtFormat()
+              .format(selectedFeature.getRT()) + " min");
     }
   }
 
@@ -426,12 +376,10 @@ public class SpectralDeconvolutionGCDialog extends ParameterSetupDialogWithPrevi
 
 
   private void populateScatterPlot() {
-    final DeconvolutionPreviewAxis axis = getYAxis();
     scatterPlot.applyWithNotifyChanges(false, () -> {
       isPlotPopulated = false;
 
       scatterPlot.clearDatasets();
-      scatterPlot.setRangeAxis(axis);
 
       groupedFeatures.sort(Comparator.comparingDouble(group -> group.getFirst().getRT()));
       for (int i = 0; i < groupedFeatures.size(); i++) {
@@ -439,15 +387,12 @@ public class SpectralDeconvolutionGCDialog extends ParameterSetupDialogWithPrevi
         XYSeries series = new XYSeries("Group " + MZmineCore.getConfiguration().getRTFormat()
             .format(group.getFirst().getRT()));
         for (ModularFeature feature : group) {
-          final Double y = axis.value(feature);
-          if (y != null) {
-            series.add((double) feature.getRT(), y.doubleValue());
-          }
+          series.add(feature.getRT(), feature.getMZ());
         }
 
         // Retrieve the color from colorMap to ensure consistency
         ColorAndShape color = colorMap.get(group);
-        scatterPlot.addDataset(group, series, color.color(), color.shape(), axis);
+        scatterPlot.addDataset(group, series, color.color(), color.shape());
 
         // Store the series index associated with this group
         featureGroupSeriesMap.put(group, i);

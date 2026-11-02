@@ -23,18 +23,16 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package io.github.mzmine.modules.dataprocessing.featdet_gcxgc;
+package io.github.mzmine.modules.dataprocessing.featdet_spectraldeconvolutiongc;
 
-import java.util.List;
-import org.jetbrains.annotations.NotNull;
+import io.github.mzmine.modules.MZmineProcessingModule;
 
 /**
- * Result of the model peak search of the template deconvolution in one retention time segment
- *
- * @param components compounds started by model peaks of the segment
- * @param others     features of the segment that are no model peak, fitted later
+ * A module that groups GC-EI features into compounds with pseudo spectra, like the GC-EI spectral
+ * deconvolution, e.g., the GCxGC 2D feature finder of mzmine. Modules that need these compounds
+ * (GC aligner, GC-EI gap filling, duplicate filter, ion notation, library search) may run after any
+ * of them.
  */
-record IonImageSegment(@NotNull List<IonImageComponent> components,
-                       @NotNull List<IonImageFeature> others) {
+public interface GcEiDeconvolutionModule extends MZmineProcessingModule {
 
 }

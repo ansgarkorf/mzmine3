@@ -566,9 +566,7 @@ public interface FeatureList {
             .filter(type -> type instanceof LinkedGraphicalType)
             .forEach(type -> row.set(type, true));
       }
-      // chromatograms along the GCxGC 2D RT spectra have no first dimension RT shape
-      if (hasRowType(RTType.class) && !isImagingFile
-          && !GcxGcUtils.isSecondDimensionChromatogram(newFeature)) {
+      if (hasRowType(RTType.class) && !isImagingFile) {
         // activate shape for this row
         DataTypeUtils.DEFAULT_CHROMATOGRAPHIC_ROW.stream()
             .filter(type -> type instanceof LinkedGraphicalType)

@@ -31,12 +31,10 @@ import io.github.mzmine.datamodel.features.FeatureList;
 import io.github.mzmine.datamodel.features.ModularFeature;
 import io.github.mzmine.datamodel.features.annotationpriority.AnnotationSummarySortConfig;
 import io.github.mzmine.modules.MZmineModule;
-import io.github.mzmine.modules.dataprocessing.featdet_gcxgc.GcxGc2DFeatureBuilderModule;
 import io.github.mzmine.parameters.ParameterSet;
 import io.github.mzmine.parameters.parametertypes.OriginalFeatureListHandlingParameter.OriginalFeatureListOption;
 import io.github.mzmine.taskcontrol.AbstractFeatureListTask;
 import io.github.mzmine.taskcontrol.TaskStatus;
-import io.github.mzmine.util.GcxGcUtils;
 import io.github.mzmine.util.MemoryMapStorage;
 import java.time.Instant;
 import java.util.List;
@@ -82,13 +80,6 @@ public class SpectralDeconvolutionGCTask extends AbstractFeatureListTask {
     LOGGER.info("Starting spectral deconvolution on " + featureList.getName());
     try {
       final List<ModularFeature> features = featureList.getFeatures(featureList.getRawDataFile(0));
-      if (features.stream().anyMatch(GcxGcUtils::isSecondDimensionChromatogram)) {
-        error("""
-            Feature list %s contains GCxGC chromatograms along the 2D RT without a retention time. \
-            Expand them with the "%s" and resolve them in the retention time dimension \
-            first.""".formatted(featureList.getName(), GcxGc2DFeatureBuilderModule.NAME));
-        return;
-      }
       final List<List<ModularFeature>> groupedFeatures = spectralDeconvolutionAlgorithm.groupFeatures(
           features);
       // all grouped rows are kept and grouped as compounds, the representative holds the pseudo spectrum

@@ -25,12 +25,6 @@
 
 package io.github.mzmine.datamodel;
 
-import com.google.common.collect.Range;
-import io.github.mzmine.datamodel.impl.SecondDimensionSpectrum;
-import java.util.List;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-
 /**
  * Comprehensive two-dimensional gas chromatography (GCxGC) data. Each modulation of the first
  * column is a {@link Modulation} with the single scans of the second column. The second column
@@ -45,24 +39,4 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface GCxGCRawDataFile extends IMSRawDataFile {
 
-  /**
-   * @return the 2D RT spectra (signals of each scan index summed over the modulations), sorted by
-   * 2D RT. Empty if the GCxGC 2D RT spectra module did not run. Not part of {@link #getScans()}.
-   */
-  @NotNull List<SecondDimensionSpectrum> getSecondDimensionSpectra();
-
-  /**
-   * @return the retention time range of the modulations summed into the 2D RT spectra or null if
-   * there are no 2D RT spectra
-   */
-  @Nullable Range<Float> getSecondDimensionSpectraRTRange();
-
-  /**
-   * Replaces the 2D RT spectra
-   *
-   * @param spectra the spectra sorted by 2D RT
-   * @param rtRange the retention time range of the summed modulations
-   */
-  void setSecondDimensionSpectra(@NotNull List<SecondDimensionSpectrum> spectra,
-      @Nullable Range<Float> rtRange);
 }

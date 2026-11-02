@@ -25,9 +25,6 @@
 
 package io.github.mzmine.gui.mainwindow.workspace;
 
-import io.github.mzmine.modules.dataprocessing.featdet_gcxgc.GcxGcSecondDimensionSpectraModule;
-import io.github.mzmine.modules.dataprocessing.featdet_gcxgc.GcxGc2DFeatureBuilderModule;
-import io.github.mzmine.modules.dataprocessing.featdet_gcxgc.GcxGc2DFeatureFinderModule;
 import static io.github.mzmine.util.javafx.FxMenuUtil.addMenuItem;
 import static io.github.mzmine.util.javafx.FxMenuUtil.addModuleMenuItem;
 import static io.github.mzmine.util.javafx.FxMenuUtil.addModuleMenuItems;
@@ -114,6 +111,8 @@ import io.github.mzmine.modules.io.projectsave.ProjectSaveModule;
 import io.github.mzmine.modules.io.spectral_library_from_matches.MatchesSubsetLibraryModule;
 import io.github.mzmine.modules.io.spectraldbsubmit.batch.LibraryBatchGenerationModule;
 import io.github.mzmine.modules.tools.batchwizard.BatchWizardModule;
+import io.github.mzmine.modules.tools.batchwizard.builders.GcxGcFeatureFinderRegistry;
+import io.github.mzmine.modules.tools.batchwizard.builders.GcxGcFeatureFinderStepFactory;
 import io.github.mzmine.modules.tools.isotopepatternpreview.IsotopePatternPreviewModule;
 import io.github.mzmine.modules.tools.qualityparameters.QualityParametersModule;
 import io.github.mzmine.modules.tools.timstofmaldiacq.TimsTOFMaldiAcquisitionModule;
@@ -169,6 +168,7 @@ import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCombination;
+import org.jetbrains.annotations.Nullable;
 
 public abstract class AbstractWorkspace implements Workspace {
 
@@ -262,11 +262,13 @@ public abstract class AbstractWorkspace implements Workspace {
         SpectralDeconvolutionGCModule.class*/);
   }
 
-  protected Menu buildDefaultGcxGcMsSubMenu() {
-    return addModuleMenuItems("GCxGC-MS", GcxGc2DFeatureFinderModule.class,
-        GcxGcSecondDimensionSpectraModule.class,
-        ModularADAPChromatogramBuilderModule.class, GcxGc2DFeatureBuilderModule.class,
-        MinimumSearchFeatureResolverModule.class);
+  /**
+   * @return the GCxGC-MS menu or null if the GCxGC 2D feature finder (mzmine, closed source) is
+   * not available
+   */
+  protected @Nullable Menu buildDefaultGcxGcMsSubMenu() {
+    final GcxGcFeatureFinderStepFactory finder = GcxGcFeatureFinderRegistry.get();
+    return finder == null ? null : addModuleMenuItems("GCxGC-MS", finder.getModuleClass());
   }
 
   protected Menu buildDefaultImsMsSubMenu() {

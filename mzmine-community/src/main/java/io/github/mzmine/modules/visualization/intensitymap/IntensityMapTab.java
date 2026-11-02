@@ -42,11 +42,14 @@ import io.github.mzmine.main.ConfigService;
 import io.github.mzmine.modules.visualization.chromatogram.TICDataSet;
 import io.github.mzmine.modules.visualization.chromatogram.TICPlotType;
 import io.github.mzmine.modules.visualization.intensitymap.chromatogram.IntensityMapChromatogramPane;
+import io.github.mzmine.modules.visualization.intensitymap.data.IntensityMapFeatureTrace;
 import io.github.mzmine.modules.visualization.intensitymap.data.IntensityMapGrid;
 import io.github.mzmine.modules.visualization.intensitymap.data.IntensityMapPosition;
 import io.github.mzmine.modules.visualization.intensitymap.data.IntensityMapProjection;
+import io.github.mzmine.modules.visualization.intensitymap.data.IntensityMapRegion;
 import io.github.mzmine.modules.visualization.intensitymap.data.IntensityMapSeries;
 import io.github.mzmine.modules.visualization.intensitymap.plot.IntensityMapPlot;
+import io.github.mzmine.modules.visualization.intensitymap.plot.IntensityMapViewport;
 import io.github.mzmine.modules.visualization.intensitymap.sampling.IntensityMapFrameCache;
 import io.github.mzmine.modules.visualization.intensitymap.sampling.IntensityMapLayer;
 import io.github.mzmine.modules.visualization.intensitymap.sampling.IntensityMapSampler;
@@ -86,6 +89,8 @@ class IntensityMapTab extends MZmineTab {
 
   private final List<RawDataFile> files = new ArrayList<>();
   private final List<IntensityMapLayer> layers = new ArrayList<>();
+  // regions marked in every overlay, e.g. the selected compound of an embedding view
+  private List<IntensityMapRegion> markedRegions = List.of();
   private static final int MAX_SPECTRA = 6;
 
   private final IntensityMapPlot plot;
@@ -648,6 +653,7 @@ class IntensityMapTab extends MZmineTab {
 
   private void publish() {
     updateLabels();
+    updateMarkers();
     final List<IntensityMapSeries> series = new ArrayList<>();
     for (final IntensityMapLayer layer : layers) {
       final IntensityMapGrid data = loader.data(layer.id());
@@ -738,6 +744,48 @@ class IntensityMapTab extends MZmineTab {
     } else {
       setMzRanges(ranges);
     }
+  }
+
+  /**
+   * @param regions data windows to mark in every overlay, e.g. the selected compound; ranges must
+   *                not be null
+   */
+  void setMarkedRegions(@NotNull final List<IntensityMapRegion> regions) {
+    markedRegions = regions.stream().filter(r -> r.x() != null && r.y() != null).toList();
+    updateMarkers();
+  }
+
+  private void updateMarkers() {
+    final List<IntensityMapFeatureTrace> markers = new ArrayList<>();
+    for (final IntensityMapLayer layer : layers) {
+      for (final IntensityMapRegion region : markedRegions) {
+        markers.add(new IntensityMapFeatureTrace(layer.id(), region.x(), region.y(), List.of()));
+      }
+    }
+    plot.setMarkers(markers);
+  }
+
+  /**
+   * @param listener gets the axis ranges and plot area of the 2D view after every change, see
+   *                 {@link IntensityMapPlot#setOnViewportChanged(Consumer)}
+   */
+  void setOnViewportChanged(@Nullable final Consumer<IntensityMapViewport> listener) {
+    plot.setOnViewportChanged(listener);
+  }
+
+  /**
+   * @param shared true if a neighboring chart shows the y axis, see
+   *               {@link IntensityMapPlot#setYAxisShared(boolean)}
+   */
+  void setYAxisShared(final boolean shared) {
+    plot.setYAxisShared(shared);
+  }
+
+  /**
+   * Zooms the 2D view to the data window, see {@link IntensityMapPlot#showRegion}
+   */
+  void showRegion(@NotNull final IntensityMapRegion region) {
+    plot.showRegion(region);
   }
 
   /**

@@ -104,6 +104,7 @@ import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
+import javafx.scene.transform.Scale;
 import javafx.scene.transform.Transform;
 import javafx.stage.FileChooser;
 import javafx.util.Duration;
@@ -123,6 +124,10 @@ public final class IntensityMapPlot extends BorderPane implements AutoCloseable 
   // highlight of markers and selections, also used by the detail panes
   static final String ACCENT_HEX = "#f97316";
   public static final Color ACCENT = Color.web(ACCENT_HEX);
+  // a 2D view with a shared y axis fills its view, charts next to it continue its plot area
+  private static final double SHARED_FIT_SHARE = 0.98;
+  // share of the floor between the two points that give the scale of the viewport
+  private static final double VIEWPORT_STEP = 0.01;
   // initial opacity of overlaid surfaces
   private static final double OVERLAY_OPACITY = 0.8;
   // assumed fraction of the viewport covered by the 2D plot area until the view is fitted
@@ -189,6 +194,13 @@ public final class IntensityMapPlot extends BorderPane implements AutoCloseable 
   private @Nullable IntensityMapLanes lanes;
   private @Nullable IntensityMapScale scale;
   private @Nullable Consumer<IntensityMapDetail> detailListener;
+  // the y axis is shown by a neighboring chart: hidden here, the 2D view fills its plot area
+  private boolean yAxisShared;
+  // stretches the floor along y, so the 2D view fills its plot area with independent axis scales
+  private final Scale floorStretch = new Scale(1, 1, 1);
+  // the 2D view tells neighboring charts its axis ranges and plot area
+  private @Nullable Consumer<IntensityMapViewport> viewportListener;
+  private @Nullable IntensityMapViewport lastViewport;
   private @Nullable Consumer<IntensityMapPosition> selectionListener;
   private @Nullable BiConsumer<String, Color> colorListener;
   private @Nullable IntensityMapPosition selection;
@@ -1107,6 +1119,117 @@ public final class IntensityMapPlot extends BorderPane implements AutoCloseable 
   }
 
   /**
+   * Notifies the viewport listener if the axis ranges or the plot area of the 2D view changed.
+   */
+  private void notifyViewport() {
+    final Consumer<IntensityMapViewport> listener = viewportListener;
+    final IntensityMapViewport viewport = viewport();
+    if (listener == null || closed || viewport == null || viewport.equals(lastViewport)) {
+      return;
+    }
+    lastViewport = viewport;
+    listener.accept(viewport);
+  }
+
+  /**
+   * @return the axis ranges and the plot area of the 2D view, null in 3D, side by side, or without
+   * data
+   */
+  public @Nullable IntensityMapViewport viewport() {
+    final IntensityMapTile tile = plotTile();
+    final IntensityMapBounds current = bounds;
+    if (tile == null || current == null || series.isEmpty()) {
+      return null;
+    }
+    final Rectangle2D area = plotArea.area(tile);
+    if (area == null || model.getScene() == null) {
+      return null;
+    }
+    // decision: floor points next to the center of the plot area are projected to the screen, so
+    // the axis ranges match what is drawn; far points, e.g. the data edges of a zoomed view, can be
+    // outside the clipping range of the camera
+    final Point3D center = IntensityMapPicker.floor(
+        tile.toLocal(camera.ray(area.getMinX() + area.getWidth() / 2,
+            area.getMinY() + area.getHeight() / 2)), true);
+    if (center == null) {
+      return null;
+    }
+    final double stepX = (center.getX() > 0 ? -1 : 1) * IntensityMapMesh.WIDTH * VIEWPORT_STEP;
+    final double stepZ = (center.getZ() > 0 ? -1 : 1) * IntensityMapMesh.DEPTH * VIEWPORT_STEP;
+    final Point3D origin = model.localToScene(tile.toModel(center), true);
+    final Point3D alongX = model.localToScene(tile.toModel(center.add(stepX, 0, 0)), true);
+    final Point3D alongZ = model.localToScene(tile.toModel(center.add(0, 0, stepZ)), true);
+    if (origin == null || alongZ == null || alongX == null
+        || Math.abs(alongX.getX() - origin.getX()) < 1e-9
+        || Math.abs(alongZ.getY() - origin.getY()) < 1e-9) {
+      return null;
+    }
+    final Bounds inScene = scene.localToScene(
+        new BoundingBox(area.getMinX(), area.getMinY(), area.getWidth(), area.getHeight()));
+    final double x0 = IntensityMapPicker.dataX(current, center.getX());
+    final double x1 = IntensityMapPicker.dataX(current, center.getX() + stepX);
+    final double y0 = IntensityMapPicker.dataY(current, center.getZ());
+    final double y1 = IntensityMapPicker.dataY(current, center.getZ() + stepZ);
+    if (!(Math.abs(x1 - x0) > 0) || !(Math.abs(y1 - y0) > 0)) {
+      // e.g. a zoomed view with data of a single modulation has no scale along the retention time
+      return null;
+    }
+    final double left = interpolate(inScene.getMinX(), origin.getX(), alongX.getX(), x0, x1);
+    final double right = interpolate(inScene.getMaxX(), origin.getX(), alongX.getX(), x0, x1);
+    final double top = interpolate(inScene.getMinY(), origin.getY(), alongZ.getY(), y0, y1);
+    final double bottom = interpolate(inScene.getMaxY(), origin.getY(), alongZ.getY(), y0, y1);
+    return new IntensityMapViewport(
+        new IntensityMapRegion(Range.closed(Math.min(left, right), Math.max(left, right)),
+            Range.closed(Math.min(top, bottom), Math.max(top, bottom))), inScene);
+  }
+
+  /**
+   * @return the data value at a screen position, linear between two projected data values
+   */
+  private static double interpolate(final double position, final double position0,
+      final double position1, final double value0, final double value1) {
+    return value0 + (position - position0) / (position1 - position0) * (value1 - value0);
+  }
+
+  /**
+   * The 2D view tells the listener its axis ranges and plot area after every change, e.g. to
+   * synchronize the axes of neighboring charts.
+   */
+  public void setOnViewportChanged(@Nullable final Consumer<IntensityMapViewport> listener) {
+    viewportListener = listener;
+    lastViewport = null;
+    notifyViewport();
+  }
+
+  /**
+   * Zooms the 2D view to show the data window. Both axes keep the same scale, so the view shows at
+   * least the window; the viewport listener gets the axis ranges that are shown.
+   *
+   * @param region data window, null ranges keep the shown range of this axis
+   */
+  public void showRegion(@NotNull final IntensityMapRegion region) {
+    final IntensityMapTile tile = plotTile();
+    final IntensityMapBounds current = bounds;
+    final IntensityMapViewport shown = viewport();
+    if (tile == null || current == null || shown == null) {
+      return;
+    }
+    final Range<Double> x = region.x() != null ? region.x() : shown.region().x();
+    final Range<Double> y = region.y() != null ? region.y() : shown.region().y();
+    if (x == null || y == null || !(x.upperEndpoint() > x.lowerEndpoint())
+        || !(y.upperEndpoint() > y.lowerEndpoint())) {
+      return;
+    }
+    final double x0 = IntensityMapMesh.localX(current, x.lowerEndpoint());
+    final double x1 = IntensityMapMesh.localX(current, x.upperEndpoint());
+    final double z0 = IntensityMapMesh.localZ(current, y.lowerEndpoint());
+    final double z1 = IntensityMapMesh.localZ(current, y.upperEndpoint());
+    final double[] floor = {Math.min(x0, x1), Math.max(x0, x1), Math.min(z0, z1),
+        Math.max(z0, z1)};
+    zoomTo(tile, IntensityMapExtent.corners(tile, floor), false);
+  }
+
+  /**
    * Tells the owner that the view may need other data.
    */
   private void notifyDetail() {
@@ -1360,9 +1483,35 @@ public final class IntensityMapPlot extends BorderPane implements AutoCloseable 
     added.setGridVisible(controls.showGrid().isSelected());
     added.setAxesVisible(controls.showAxes().isSelected());
     added.setScaleBarVisible(controls.showScaleBar().isSelected());
+    added.setYAxisVisible(!yAxisShared);
     if (axesSpec != null) {
       added.rebuild(axesSpec);
     }
+  }
+
+  /**
+   * For a 2D view next to a chart that shows the same y axis, e.g. the 2D RT shapes next to the
+   * GCxGC 2D plot: hides the y axis and stretches the floor along y, so the plot area fills the
+   * view with independent scales of both axes and a small margin.
+   *
+   * @param shared true if a neighboring chart shows the y axis
+   */
+  public void setYAxisShared(final boolean shared) {
+    yAxisShared = shared;
+    camera.setFitShare(shared ? SHARED_FIT_SHARE : IntensityMapCamera.DEFAULT_FIT_SHARE);
+    if (!model.getTransforms().contains(floorStretch)) {
+      // applied first in local coordinates, after the camera transforms in the list
+      model.getTransforms().add(floorStretch);
+    }
+    floorStretch.setZ(1);
+    allAxes().forEach(value -> {
+      value.setYAxisVisible(!shared);
+      if (axesSpec != null) {
+        value.rebuild(axesSpec);
+      }
+    });
+    camera.setAutoFit(true);
+    requestDetail();
   }
 
   private void updateStatus() {
@@ -1697,6 +1846,8 @@ public final class IntensityMapPlot extends BorderPane implements AutoCloseable 
     final List<Bounds> occupied = tileLayout.project(camera.showsIntensity(),
         controls.showLabels().isSelected());
     placeFeatureLabels(occupied);
+    // after every change of the view, unchanged viewports are not sent again
+    notifyViewport();
   }
 
   /**
@@ -1738,7 +1889,16 @@ public final class IntensityMapPlot extends BorderPane implements AutoCloseable 
     // decision: only the 3D view, where the trace follows the peak shape; in 2D trace and outline
     // would cover the signal they belong to
     featureTraces.setTraces(projection.heights() ? traces : List.of());
-    controls.setFeatureTracesAvailable(!featureTraces.isEmpty());
+    controls.setFeatureTracesAvailable(featureTraces.hasTraces());
+    projectAxes();
+  }
+
+  /**
+   * @param markers regions to mark with a solid outline in 2D and 3D, e.g. the selected compound;
+   *                only their ranges are used, empty removes them
+   */
+  public void setMarkers(@NotNull final List<IntensityMapFeatureTrace> markers) {
+    featureTraces.setMarkers(markers);
     projectAxes();
   }
 
@@ -1816,10 +1976,48 @@ public final class IntensityMapPlot extends BorderPane implements AutoCloseable 
     final List<IntensityMapAxes> fittedAxes =
         focusedPoints != null ? List.of(tileLayout.tileAxes(focusedTile)) : allAxes();
     fittedAxes.forEach(value -> value.setIntensityVisible(camera.showsIntensity()));
-    camera.fit(fitCorners(focusedPoints != null ? focusedPoints : fittingPoints, fittedAxes));
+    final List<Point3D> points = focusedPoints != null ? focusedPoints : fittingPoints;
+    if (yAxisShared && projection.fixedPlotArea() && tileLayout.tiles().size() == 1) {
+      stretchFloor(points, fittedAxes);
+    }
+    camera.fit(fitCorners(points, fittedAxes));
     if (projection.fixedPlotArea()) {
       plotArea.update(plotTile());
     }
+  }
+
+  /**
+   * Stretches the floor along y so that the fitted data and axes fill the view in both directions:
+   * the top view shows model x across and model z along the screen height.
+   *
+   * @param modelPoints points of the data in model coordinates
+   */
+  private void stretchFloor(@NotNull final List<Point3D> modelPoints,
+      @NotNull final List<IntensityMapAxes> fittedAxes) {
+    double minX = Double.MAX_VALUE;
+    double maxX = -Double.MAX_VALUE;
+    double minZ = Double.MAX_VALUE;
+    double maxZ = -Double.MAX_VALUE;
+    final List<Point3D> local = new ArrayList<>(modelPoints);
+    if (controls.showLabels().isSelected()) {
+      for (final IntensityMapAxes value : fittedAxes) {
+        for (final Point3D point : value.fittingPoints()) {
+          local.add(value.geometry().localToParent(point));
+        }
+      }
+    }
+    for (final Point3D point : local) {
+      minX = Math.min(minX, point.getX());
+      maxX = Math.max(maxX, point.getX());
+      minZ = Math.min(minZ, point.getZ());
+      maxZ = Math.max(maxZ, point.getZ());
+    }
+    final double width = maxX - minX;
+    final double depth = maxZ - minZ;
+    if (!(width > 0) || !(depth > 0)) {
+      return;
+    }
+    floorStretch.setZ(viewport.getHeight() * width / (viewport.getWidth() * depth));
   }
 
   /**

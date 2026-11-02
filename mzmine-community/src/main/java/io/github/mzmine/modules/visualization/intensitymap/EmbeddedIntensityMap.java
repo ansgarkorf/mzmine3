@@ -38,7 +38,9 @@ import io.github.mzmine.main.ConfigService;
 import io.github.mzmine.modules.MZmineRunnableModule;
 import io.github.mzmine.modules.visualization.intensitymap.data.IntensityMapPerspective;
 import io.github.mzmine.modules.visualization.intensitymap.data.IntensityMapProjection;
+import io.github.mzmine.modules.visualization.intensitymap.data.IntensityMapRegion;
 import io.github.mzmine.modules.visualization.intensitymap.data.IntensityMapTopView;
+import io.github.mzmine.modules.visualization.intensitymap.plot.IntensityMapViewport;
 import io.github.mzmine.modules.visualization.intensitymap.sampling.IntensityMapSampler;
 import io.github.mzmine.parameters.ParameterSet;
 import io.github.mzmine.parameters.parametertypes.combowithinput.MsLevelFilter;
@@ -49,6 +51,7 @@ import io.github.mzmine.util.RangeUtils;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Consumer;
 import javafx.application.ConditionalFeature;
 import javafx.application.Platform;
 import javafx.scene.Node;
@@ -234,6 +237,41 @@ public final class EmbeddedIntensityMap {
   private static @NotNull List<Range<Double>> ionMzRanges(@NotNull final RawDataFile file,
       @Nullable final Range<Double> ionMzRange) {
     return ionMzRange != null && file instanceof IMSRawDataFile ? List.of(ionMzRange) : List.of();
+  }
+
+  /**
+   * @param regions data windows to mark with a solid outline, e.g. the selected compound
+   */
+  public void setMarkedRegions(@NotNull final List<IntensityMapRegion> regions) {
+    map.setMarkedRegions(regions);
+  }
+
+  /**
+   * @param listener gets the axis ranges and plot area of the 2D view after every change, e.g. to
+   *                 synchronize the axes of neighboring charts; null removes it
+   */
+  public void setOnViewportChanged(@Nullable final Consumer<IntensityMapViewport> listener) {
+    map.setOnViewportChanged(listener);
+  }
+
+  /**
+   * For a 2D view next to a chart that shows the same y axis: hides the y axis and lets the plot
+   * area fill the view, with independent scales of both axes
+   *
+   * @param shared true if a neighboring chart shows the y axis
+   */
+  public void setYAxisShared(final boolean shared) {
+    map.setYAxisShared(shared);
+  }
+
+  /**
+   * Zooms the 2D view to the data window. Both axes keep the same scale, so the view may show more
+   * of one axis; the viewport listener gets what is shown.
+   *
+   * @param region data window, a null range keeps the shown range of its axis
+   */
+  public void showRegion(@NotNull final IntensityMapRegion region) {
+    map.showRegion(region);
   }
 
   /**

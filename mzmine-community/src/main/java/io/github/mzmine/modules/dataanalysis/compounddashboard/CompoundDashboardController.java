@@ -71,11 +71,13 @@ import io.github.mzmine.modules.visualization.featurelisttable_modular.FxFeature
 import io.github.mzmine.modules.visualization.featurerow4dplot.FeatureRow4DPlotController;
 import io.github.mzmine.modules.visualization.intensitymap.EmbeddedIntensityMap;
 import io.github.mzmine.modules.visualization.intensitymap.data.IntensityMapProjection;
+import io.github.mzmine.modules.visualization.intensitymap.data.IntensityMapRegion;
 import io.github.mzmine.modules.visualization.network_overview.NetworkOverviewFlavor;
 import io.github.mzmine.modules.visualization.network_overview.NetworkOverviewWindow;
 import io.github.mzmine.modules.visualization.otherdetectors.chromatogramplot.ChromatogramPlotController;
 import io.github.mzmine.modules.visualization.spectra.simplespectrachart.SimpleSpectraChartController;
 import io.github.mzmine.util.GcxGcUtils;
+import io.github.mzmine.util.RangeUtils;
 import io.github.mzmine.util.scans.ScanUtils;
 import java.util.Collections;
 import java.util.IdentityHashMap;
@@ -122,6 +124,11 @@ public class CompoundDashboardController extends FxController<CompoundDashboardM
   private final FeatureRow4DPlotController featurePlot4D = new FeatureRow4DPlotController();
   // 2D or 3D raw data plot of the side pane, null if not shown
   private @Nullable EmbeddedIntensityMap sideMap;
+  // GCxGC: the 2D plot in the center, null if not shown
+  private @Nullable EmbeddedIntensityMap centerMap;
+  // GCxGC: the chromatograms and 2D RT shapes follow the axes of the 2D plot in the center
+  private final CompoundDashboardGcxGcSync gcxgcSync = new CompoundDashboardGcxGcSync(eicPlot,
+      mobilogramPlot);
 
   // Guards both directions of the selectedAdductRow <-> plot-selection bridge (selectedDataset and
   // cursor-position dataset) so we don't bounce events back and forth when one side updates the
@@ -222,12 +229,18 @@ public class CompoundDashboardController extends FxController<CompoundDashboardM
     PropertyUtils.onChangeDelayedSubscription(this::updateSideMap, DEBOUNCE,
         model.sidePlotProperty(), model.selectedCompoundRowProperty(),
         model.currentRawDataFileProperty());
-    // the selected ion changes the m/z and labels of the raw data plot, not its window
+    // GCxGC: the 2D plot in the center shows the current file around the selected compound
+    model.featureListProperty().subscribe(flist -> gcxgcSync.setActive(GcxGcUtils.isGcxGc(flist)));
+    PropertyUtils.onChangeDelayedSubscription(this::updateCenterMap, DEBOUNCE,
+        model.featureListProperty(), model.selectedCompoundRowProperty(),
+        model.currentRawDataFileProperty());
+    // the selected ion changes the m/z and labels of the raw data plots, not their window
     model.selectedAdductRowProperty().subscribe(_ -> {
-      final EmbeddedIntensityMap map = sideMap;
-      if (map != null) {
-        map.setLabelRows(sideMapLabelRows());
-        map.setIonMzRange(sideMapIonMzRange());
+      for (final EmbeddedIntensityMap map : new EmbeddedIntensityMap[]{sideMap, centerMap}) {
+        if (map != null) {
+          map.setLabelRows(sideMapLabelRows());
+          map.setIonMzRange(sideMapIonMzRange());
+        }
       }
     });
     // GCxGC: the second overlay shows the 2D RT traces instead of mobilograms
@@ -241,10 +254,15 @@ public class CompoundDashboardController extends FxController<CompoundDashboardM
 
     // Apply prebuilt datasets to the sub-controllers when the model lists change. The lists are
     // mutated by FxUpdateTask.updateGuiModel which already runs on the FX thread.
-    PropertyUtils.onChangeList(() -> applyDatasets(eicPlot, model.getEicDatasets()),
-        model.getEicDatasets());
-    PropertyUtils.onChangeList(() -> applyDatasets(mobilogramPlot, model.getMobilogramDatasets()),
-        model.getMobilogramDatasets());
+    // GCxGC: new datasets reset the axes, the 2D plot in the center keeps leading
+    PropertyUtils.onChangeList(() -> {
+      applyDatasets(eicPlot, model.getEicDatasets());
+      gcxgcSync.applyViewport();
+    }, model.getEicDatasets());
+    PropertyUtils.onChangeList(() -> {
+      applyDatasets(mobilogramPlot, model.getMobilogramDatasets());
+      gcxgcSync.applyViewport();
+    }, model.getMobilogramDatasets());
     PropertyUtils.onChangeList(() -> applyDatasets(ms1Chart, model.getMs1Datasets()),
         model.getMs1Datasets());
     PropertyUtils.onChangeList(() -> applyDatasets(ms2Chart, model.getMs2Datasets()),
@@ -342,6 +360,81 @@ public class CompoundDashboardController extends FxController<CompoundDashboardM
     tableCtrl.close();
     featurePlot4D.close();
     closeSideMap();
+    closeCenterMap();
+  }
+
+  /**
+   * GCxGC: replaces the 2D plot in the center with one of the current raw data file around the
+   * selected compound, which is marked
+   */
+  private void updateCenterMap() {
+    closeCenterMap();
+    if (!GcxGcUtils.isGcxGc(model.getFeatureList())) {
+      return;
+    }
+    final CompoundRow compound = model.getSelectedCompoundRow();
+    final RawDataFile file = model.getCurrentRawDataFile();
+    if (compound == null || file == null) {
+      model.setCenterMapMessage("Select a compound to show the raw data around it.");
+      return;
+    }
+    if (!EmbeddedIntensityMap.isSupported()) {
+      model.setCenterMapMessage("The platform does not provide 3D support.");
+      return;
+    }
+    centerMap = EmbeddedIntensityMap.forFeatures(file, compoundFeatures(compound, file),
+        IntensityMapProjection.TOP_VIEW, model.getFeatureList(), sideMapLabelRows(),
+        sideMapIonMzRange());
+    if (centerMap == null) {
+      model.setCenterMapMessage("The compound has no features in " + file.getName() + ".");
+      return;
+    }
+    centerMap.setMarkedRegions(compoundRegions(compound, file));
+    // decision (user): the axes are shared, the 2D RT shapes show the 2D RT axis
+    centerMap.setYAxisShared(true);
+    gcxgcSync.setMap(centerMap);
+    model.setCenterMap(centerMap.view());
+  }
+
+  private void closeCenterMap() {
+    gcxgcSync.setMap(null);
+    model.setCenterMap(null);
+    final EmbeddedIntensityMap map = centerMap;
+    centerMap = null;
+    if (map != null) {
+      map.close();
+    }
+  }
+
+  /**
+   * @return the features of all member rows of the compound in the file
+   */
+  private static @NotNull List<Feature> compoundFeatures(@NotNull final CompoundRow compound,
+      @NotNull final RawDataFile file) {
+    return CompoundDashboardColoring.flattenAllMemberRows(compound).stream()
+        .map(row -> row.getFeature(file)).filter(Objects::nonNull).map(Feature.class::cast)
+        .toList();
+  }
+
+  /**
+   * decision (user): the selected compound is marked in the raw data plots by the retention time
+   * and second dimension (2D RT or mobility) range of its representative ion
+   *
+   * @return the marked region of the compound in the file, empty if it has no such feature
+   */
+  private static @NotNull List<IntensityMapRegion> compoundRegions(
+      @NotNull final CompoundRow compound, @NotNull final RawDataFile file) {
+    final Feature feature = compound.getPreferredRow().getFeature(file);
+    if (feature == null || feature.getRawDataPointsRTRange() == null) {
+      return List.of();
+    }
+    final Range<Float> secondDimension = GcxGcUtils.getSecondDimensionRange(feature);
+    if (secondDimension == null) {
+      return List.of();
+    }
+    return List.of(
+        new IntensityMapRegion(RangeUtils.toDoubleRange(feature.getRawDataPointsRTRange()),
+            RangeUtils.toDoubleRange(secondDimension)));
   }
 
   /**
@@ -365,15 +458,13 @@ public class CompoundDashboardController extends FxController<CompoundDashboardM
       model.setSideMapMessage("The platform does not provide 3D support.");
       return;
     }
-    final List<Feature> features = CompoundDashboardColoring.flattenAllMemberRows(compound)
-        .stream().map(row -> row.getFeature(file)).filter(Objects::nonNull)
-        .map(Feature.class::cast).toList();
-    sideMap = EmbeddedIntensityMap.forFeatures(file, features, projection,
-        model.getFeatureList(), sideMapLabelRows(), sideMapIonMzRange());
+    sideMap = EmbeddedIntensityMap.forFeatures(file, compoundFeatures(compound, file),
+        projection, model.getFeatureList(), sideMapLabelRows(), sideMapIonMzRange());
     if (sideMap == null) {
       model.setSideMapMessage("The compound has no features in " + file.getName() + ".");
       return;
     }
+    sideMap.setMarkedRegions(compoundRegions(compound, file));
     model.setSideMap(sideMap.view());
   }
 

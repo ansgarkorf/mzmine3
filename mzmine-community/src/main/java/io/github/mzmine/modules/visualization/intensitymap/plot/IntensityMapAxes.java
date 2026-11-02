@@ -87,6 +87,8 @@ final class IntensityMapAxes {
   private boolean intensityVisible = true;
   // false hides axis lines, ticks, and titles; floor and grid lines stay
   private boolean axesVisible = true;
+  // false hides the y axis, e.g. when a neighboring chart shows it; its grid lines stay
+  private boolean yAxisVisible = true;
   // shown only for axes of physical lengths
   private boolean scaleBarVisible;
   // true: floor and grid lie in the data plane for views without depth test, false: below the data
@@ -147,6 +149,14 @@ final class IntensityMapAxes {
     if (!visible) {
       scaleBar.hide();
     }
+  }
+
+  /**
+   * Hides the y axis line, ticks, and title, e.g. when a neighboring chart shares the axis. Takes
+   * effect with the next {@link #rebuild}.
+   */
+  void setYAxisVisible(final boolean visible) {
+    yAxisVisible = visible;
   }
 
   void setAxesVisible(final boolean visible) {
@@ -252,13 +262,17 @@ final class IntensityMapAxes {
     geometry.getChildren().addAll(gridLines, axisLines);
     axisLines.getChildren().add(intensityAxis);
     line(x1 - x0, 0.8 * t, 0.8 * t, (x0 + x1) / 2, 0, z0, axis);
-    line(0.8 * t, 0.8 * t, z1 - z0, x0, 0, (z0 + z1) / 2, axis);
+    if (yAxisVisible) {
+      line(0.8 * t, 0.8 * t, z1 - z0, x0, 0, (z0 + z1) / 2, axis);
+    }
     // the vertical axis stands in the back corner, clear of the y tick labels and the data
     intensityLine(0.8 * t, HEIGHT, 0.8 * t, x0, -HEIGHT / 2, z1);
 
     // decision: titles first, so the overlap pass keeps them in favor of single ticks
     label(spec.xLabel(), (x0 + x1) / 2, 8 * t, z0 - 44 * t, Axis.X, true);
-    label(spec.yLabel(), x0 - 66 * t, 8 * t, (z0 + z1) / 2, Axis.Y, true);
+    if (yAxisVisible) {
+      label(spec.yLabel(), x0 - 66 * t, 8 * t, (z0 + z1) / 2, Axis.Y, true);
+    }
     label(transform == PaintScaleTransform.LINEAR ? spec.intensityLabel()
             : spec.intensityLabel() + " · " + transform.name().toLowerCase(Locale.ROOT), x0 - 20 * t,
         -HEIGHT - 24, z1, Axis.INTENSITY, true);
@@ -286,9 +300,11 @@ final class IntensityMapAxes {
       for (final double value : IntensityMapTicks.ticks(yMin, yMax, yTicks)) {
         final double z = IntensityMapMesh.localZ(bounds, value);
         line(x1 - x0, 0.45 * t, 0.45 * t, (x0 + x1) / 2, gridY, z, grid);
-        line(5 * t, 0.7 * t, 0.7 * t, x0 - 2.5 * t, 0, z, axis);
-        tick(format.value(value, spec.yKind(), yStep), new Point3D(x0, 0, z),
-            new Point3D(x0 - 22 * t, 4 * t, z), Axis.Y);
+        if (yAxisVisible) {
+          line(5 * t, 0.7 * t, 0.7 * t, x0 - 2.5 * t, 0, z, axis);
+          tick(format.value(value, spec.yKind(), yStep), new Point3D(x0, 0, z),
+              new Point3D(x0 - 22 * t, 4 * t, z), Axis.Y);
+        }
       }
     }
     final double maximum = spec.intensityMaximum();

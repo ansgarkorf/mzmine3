@@ -54,6 +54,8 @@ final class IntensityMapTraceLayer {
   private static final double MIN_OUTLINE_PIXELS = 10;
   private final Pane layer = new Pane();
   private List<IntensityMapFeatureTrace> traces = List.of();
+  // marked regions, e.g. the selected compound, drawn as solid outlines
+  private List<IntensityMapFeatureTrace> markers = List.of();
 
   IntensityMapTraceLayer() {
     layer.setMouseTransparent(true);
@@ -68,23 +70,49 @@ final class IntensityMapTraceLayer {
     this.traces = List.copyOf(traces);
   }
 
+  /**
+   * @param markers regions to mark with a solid outline, only their ranges are used
+   */
+  void setMarkers(@NotNull final List<IntensityMapFeatureTrace> markers) {
+    this.markers = List.copyOf(markers);
+  }
+
   boolean isEmpty() {
-    return traces.isEmpty();
+    return traces.isEmpty() && markers.isEmpty();
+  }
+
+  boolean hasTraces() {
+    return !traces.isEmpty();
   }
 
   /**
    * @param peaks   screen positions in the current view, null removes the drawing
    * @param area    screen area of the plot; the drawing is clipped to it
-   * @param visible false removes the drawing
+   * @param visible false removes the feature traces, the markers stay
    */
   void update(@Nullable final IntensityMapPeakProjector peaks, @NotNull final Bounds area,
       final boolean visible) {
     layer.getChildren().clear();
-    if (!visible || peaks == null || traces.isEmpty()) {
+    if (peaks == null || isEmpty()) {
       return;
     }
     layer.setClip(new Rectangle(area.getMinX(), area.getMinY(), area.getWidth(), area.getHeight()));
     final Color accent = IntensityMapPlot.ACCENT;
+    for (final IntensityMapFeatureTrace marker : markers) {
+      final List<Point2D> outline = peaks.outline(marker.seriesId(), marker.xRange(),
+          marker.yRange());
+      if (outline != null) {
+        final Polygon box = new Polygon();
+        widened(outline).forEach(point -> box.getPoints().addAll(point.getX(), point.getY()));
+        box.setFill(Color.TRANSPARENT);
+        box.setStroke(accent);
+        box.setStrokeWidth(2.5);
+        layer.getChildren().add(box);
+      }
+    }
+    if (!visible) {
+      return;
+    }
     for (final IntensityMapFeatureTrace trace : traces) {
       final List<Point2D> outline = peaks.outline(trace.seriesId(), trace.xRange(), trace.yRange());
       if (outline != null) {

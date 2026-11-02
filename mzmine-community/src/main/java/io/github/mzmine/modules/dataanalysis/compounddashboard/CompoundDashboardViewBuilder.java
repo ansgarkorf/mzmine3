@@ -61,7 +61,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import javafx.beans.binding.Bindings;
-import javafx.beans.binding.BooleanBinding;
 import javafx.collections.ListChangeListener;
 import javafx.geometry.Insets;
 import javafx.geometry.Orientation;
@@ -78,10 +77,13 @@ import javafx.scene.control.ScrollPane.ScrollBarPolicy;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.Tooltip;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.ColumnConstraints;
 import javafx.scene.layout.FlowPane;
+import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
+import javafx.scene.layout.RowConstraints;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
@@ -100,6 +102,12 @@ public class CompoundDashboardViewBuilder extends FxViewBuilder<CompoundDashboar
   private static final int COLLAPSED_LEGEND_ENTRIES = 12;
   /// The expanded member legend scrolls above this height to keep space for charts and table
   private static final double MAX_EXPANDED_LEGEND_HEIGHT = 120;
+  /// GCxGC: share of the width of the 2D RT shapes left of the 2D plot
+  private static final double GCXGC_SHAPES_SHARE = 0.25;
+  /// GCxGC: share of the height of the chromatograms above the 2D plot
+  private static final double GCXGC_CHROMATOGRAMS_SHARE = 0.3;
+  /// GCxGC: share of the width of the charts and 2D plot without side pane, the rest has the spectra
+  private static final double GCXGC_CHARTS_SHARE = 0.6;
 
   private final CompoundDashboardController controller;
   private final ChromatogramPlotController eicPlot;
@@ -164,6 +172,10 @@ public class CompoundDashboardViewBuilder extends FxViewBuilder<CompoundDashboar
           if (alreadyShown) {
             mainVerticalChartsSplit.getItems().remove(sidePane);
           }
+          if (GcxGcUtils.isGcxGc(model.getFeatureList())) {
+            // the GCxGC charts and 2D plot need the space of the side pane
+            mainVerticalChartsSplit.setDividerPositions(GCXGC_CHARTS_SHARE);
+          }
           return;
         }
         case FEATURE_PLOT -> sidePane.getChildren().setAll(plot4DView);
@@ -177,8 +189,18 @@ public class CompoundDashboardViewBuilder extends FxViewBuilder<CompoundDashboar
         mainVerticalChartsSplit.setDividerPositions(0.25, hasMobilogram ? 0.55 : 0.50);
       }
     };
-    PropertyUtils.onChange(updateSidePane, model.sidePlotProperty(), model.sideMapProperty());
+    PropertyUtils.onChange(updateSidePane, model.sidePlotProperty(), model.sideMapProperty(),
+        model.featureListProperty());
     updateSidePane.run();
+    // decision (user): GCxGC has no feature plot, the side pane starts hidden and only offers the
+    // 3D plot; the 2D plot is in the center
+    model.featureListProperty().subscribe(list -> {
+      final CompoundDashboardSidePlot plot = model.getSidePlot();
+      if (GcxGcUtils.isGcxGc(list) && (plot == CompoundDashboardSidePlot.FEATURE_PLOT
+          || plot == CompoundDashboardSidePlot.MAP_2D)) {
+        model.sidePlotProperty().set(CompoundDashboardSidePlot.HIDDEN);
+      }
+    });
 
     // Legend FlowPane sits directly under the charts SplitPane and lists every member row of the
     // currently selected compound. Labels mirror the plot colors and are clickable to focus a row.
@@ -216,20 +238,28 @@ public class CompoundDashboardViewBuilder extends FxViewBuilder<CompoundDashboar
     toggle4D.setPrefSize(buttonSize, buttonSize);
     toggle4D.setMaxSize(buttonSize, buttonSize);
     toggle4D.setPadding(Insets.EMPTY);
-    toggle4D.setOnAction(_ -> model.sidePlotProperty().set(model.getSidePlot().next()));
-    model.sidePlotProperty().subscribe(plot -> {
+    toggle4D.setOnAction(_ -> model.sidePlotProperty().set(nextSidePlot()));
+    final Runnable updateToggle = () -> {
+      final CompoundDashboardSidePlot plot = model.getSidePlot();
+      final boolean gcxgc = GcxGcUtils.isGcxGc(model.getFeatureList());
       toggle4D.setGraphic(switch (plot) {
-        case FEATURE_PLOT, HIDDEN -> icon4D;
+        // GCxGC has no feature plot, its hidden side pane offers the 3D plot
+        case HIDDEN -> gcxgc ? icon3D : icon4D;
+        case FEATURE_PLOT -> icon4D;
         case MAP_2D -> icon2D;
         case MAP_3D -> icon3D;
       });
-      icon4D.setOpacity(plot == CompoundDashboardSidePlot.HIDDEN ? 0.45 : 1.0);
+      final double hiddenOpacity = plot == CompoundDashboardSidePlot.HIDDEN ? 0.45 : 1.0;
+      icon4D.setOpacity(hiddenOpacity);
+      icon3D.setOpacity(hiddenOpacity);
       final String shown = plot == CompoundDashboardSidePlot.HIDDEN ? "Side plot hidden"
           : "Showing the " + plot.label().toLowerCase();
       toggle4D.setTooltip(new Tooltip(
-          shown + ". Click to show the " + plot.next().label().toLowerCase()
+          shown + ". Click to show the " + nextSidePlot().label().toLowerCase()
               + " (2D and 3D plots: raw data of the selected file around the compound)."));
-    });
+    };
+    PropertyUtils.onChange(updateToggle, model.sidePlotProperty(), model.featureListProperty());
+    updateToggle.run();
 
     final ButtonBase prev = FxIconUtil.newIconButton(FxIcons.ARROW_LEFT, "Previous raw data file",
         controller::previousRawDataFile);
@@ -265,27 +295,86 @@ public class CompoundDashboardViewBuilder extends FxViewBuilder<CompoundDashboar
 
     final SplitPane chartsSplit = new SplitPane(eicView);
     chartsSplit.setOrientation(Orientation.VERTICAL);
+    final GridPane gcxgcGrid = buildGcxGcGrid();
+    final Region centerMapPane = buildCenterMapPane();
+    final BorderPane chartsArea = new BorderPane(chartsSplit);
 
-    // GCxGC: the second overlay shows the 2D RT traces of the features, like mobilograms for IMS
-    final BooleanBinding hasMobilograms = Bindings.createBooleanBinding(() -> {
-      final ModularFeatureList flist = model.getFeatureList();
-      return flist != null && (flist.hasRowType(FeatureShapeMobilogramType.class)
-          || flist.hasRowType(FeatureShapeSecondDimensionType.class));
-    }, model.featureListProperty());
+    // GCxGC: no title, the data area of the 2D RT shapes starts at the top of the 2D plot
     model.featureListProperty().subscribe(flist -> mobilogramPlot.setTitle(
-        GcxGcUtils.isGcxGc(flist) ? "2D RT shapes" : "Mobilograms"));
-    hasMobilograms.subscribe(show -> {
-      final boolean alreadyShown = chartsSplit.getItems().contains(mobilogramView);
-      if (Boolean.TRUE.equals(show) && !alreadyShown) {
+        GcxGcUtils.isGcxGc(flist) ? null : "Mobilograms"));
+    // decision (user): GCxGC shows the 2D plot in the center with the chromatograms on top and the
+    // 2D RT shapes on its left, like the 2D raw data visualizer; other data shows the chromatograms
+    // above the mobilograms, if any
+    model.featureListProperty().subscribe(flist -> {
+      if (GcxGcUtils.isGcxGc(flist)) {
+        chartsSplit.getItems().clear();
+        // the chromatograms span both columns, their intensity axis is above the 2D RT shapes
+        GridPane.setConstraints(eicView, 0, 0, 2, 1);
+        GridPane.setConstraints(mobilogramView, 0, 1);
+        GridPane.setConstraints(centerMapPane, 1, 1);
+        gcxgcGrid.getChildren().setAll(eicView, mobilogramView, centerMapPane);
+        chartsArea.setCenter(gcxgcGrid);
+        return;
+      }
+      gcxgcGrid.getChildren().clear();
+      chartsSplit.getItems().setAll(eicView);
+      if (flist != null && flist.hasRowType(FeatureShapeMobilogramType.class)) {
         chartsSplit.getItems().add(mobilogramView);
         chartsSplit.setDividerPositions(0.55);
-      } else if (!Boolean.TRUE.equals(show) && alreadyShown) {
-        chartsSplit.getItems().remove(mobilogramView);
       }
+      chartsArea.setCenter(chartsSplit);
     });
 
-    VBox.setVgrow(chartsSplit, Priority.ALWAYS);
-    return FxLayout.newVBox(Pos.TOP_LEFT, Insets.EMPTY, true, toolbar, chartsSplit);
+    VBox.setVgrow(chartsArea, Priority.ALWAYS);
+    return FxLayout.newVBox(Pos.TOP_LEFT, Insets.EMPTY, true, toolbar, chartsArea);
+  }
+
+  /**
+   * @return the GCxGC grid: chromatograms top right, 2D RT shapes bottom left, 2D plot bottom
+   * right. The charts are placed when the feature list is GCxGC data.
+   */
+  private static @NotNull GridPane buildGcxGcGrid() {
+    final GridPane grid = new GridPane();
+    final ColumnConstraints shapes = new ColumnConstraints();
+    shapes.setPercentWidth(GCXGC_SHAPES_SHARE * 100);
+    final ColumnConstraints plot = new ColumnConstraints();
+    plot.setPercentWidth(100 - GCXGC_SHAPES_SHARE * 100);
+    final RowConstraints chromatograms = new RowConstraints();
+    chromatograms.setPercentHeight(GCXGC_CHROMATOGRAMS_SHARE * 100);
+    final RowConstraints plotRow = new RowConstraints();
+    plotRow.setPercentHeight(100 - GCXGC_CHROMATOGRAMS_SHARE * 100);
+    grid.getColumnConstraints().setAll(shapes, plot);
+    grid.getRowConstraints().setAll(chromatograms, plotRow);
+    return grid;
+  }
+
+  /**
+   * @return the pane of the GCxGC 2D plot, a message if there is none
+   */
+  private @NotNull Region buildCenterMapPane() {
+    final Label message = new Label();
+    message.textProperty().bind(model.centerMapMessageProperty());
+    message.setWrapText(true);
+    final StackPane pane = new StackPane(message);
+    pane.setMinSize(0, 0);
+    model.centerMapProperty()
+        .subscribe(map -> pane.getChildren().setAll(map != null ? map : message));
+    return pane;
+  }
+
+  /**
+   * @return the next side plot of the toolbar button. GCxGC skips the feature plot and the 2D
+   * plot, which is in the center.
+   */
+  private @NotNull CompoundDashboardSidePlot nextSidePlot() {
+    CompoundDashboardSidePlot next = model.getSidePlot().next();
+    if (GcxGcUtils.isGcxGc(model.getFeatureList())) {
+      while (next == CompoundDashboardSidePlot.FEATURE_PLOT
+          || next == CompoundDashboardSidePlot.MAP_2D) {
+        next = next.next();
+      }
+    }
+    return next;
   }
 
   private @NotNull Region buildSpectraColumn() {

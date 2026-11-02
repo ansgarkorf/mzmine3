@@ -138,6 +138,10 @@ public class CompoundDashboardModel {
   private final ObjectProperty<@Nullable Node> sideMap = new SimpleObjectProperty<>();
   // Shown instead of the raw data plot when there is none
   private final StringProperty sideMapMessage = new SimpleStringProperty("Select a compound");
+  // GCxGC: the 2D plot (retention time x 2D RT) of the current file in the center, null if none
+  private final ObjectProperty<@Nullable Node> centerMap = new SimpleObjectProperty<>();
+  // Shown instead of the GCxGC 2D plot when there is none
+  private final StringProperty centerMapMessage = new SimpleStringProperty("Select a compound");
 
   // The member legend below the charts shows only the most intense rows until it is expanded.
   // Stays expanded across compound changes until the user collapses it again.
@@ -368,6 +372,26 @@ public class CompoundDashboardModel {
 
   public StringProperty sideMapMessageProperty() {
     return sideMapMessage;
+  }
+
+  public @Nullable Node getCenterMap() {
+    return centerMap.get();
+  }
+
+  public void setCenterMap(@Nullable final Node map) {
+    centerMap.set(map);
+  }
+
+  public ObjectProperty<@Nullable Node> centerMapProperty() {
+    return centerMap;
+  }
+
+  public void setCenterMapMessage(@NotNull final String message) {
+    centerMapMessage.set(message);
+  }
+
+  public StringProperty centerMapMessageProperty() {
+    return centerMapMessage;
   }
 
   public boolean isLegendExpanded() {

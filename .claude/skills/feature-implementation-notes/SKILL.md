@@ -6,7 +6,9 @@ description: Create or update a concise developer implementation note when imple
 # Feature implementation notes
 
 When implementing a new feature or processing module, record the intent and consequential design
-decisions in `docs/implementation-notes/` before finishing the task.
+decisions in the mzio_mzmine repository, `../mzio_mzmine/docs/implementation-notes/`, before
+finishing the task. Never add these notes to the mzmine repository, also not for features
+implemented in mzmine community.
 
 - Search the folder for an existing note about the feature and update it instead of creating a
   duplicate.

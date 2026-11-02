@@ -58,6 +58,9 @@ import org.jetbrains.annotations.Nullable;
  */
 final class IntensityMapCamera {
 
+  // the default fit leaves a margin around the data and axes
+  static final double DEFAULT_FIT_SHARE = 0.84;
+
   // closest and farthest camera distance to the viewed point: fitted views are ~1250 away, so
   // zooming in magnifies more than 10000 times
   private static final double MIN_DISTANCE = 0.05;
@@ -77,6 +80,9 @@ final class IntensityMapCamera {
   private boolean autoFit = true;
   // running camera move, null if none
   private @Nullable Timeline flight;
+
+  // share of the viewport that fitted content fills
+  private double fitShare = DEFAULT_FIT_SHARE;
 
   IntensityMapCamera(@NotNull final Group model, @NotNull final SubScene scene,
       @NotNull final Region viewport, @NotNull final IntensityMapProjection projection) {
@@ -315,6 +321,13 @@ final class IntensityMapCamera {
    *
    * @param corners points in camera coordinates
    */
+  /**
+   * @param share share of the viewport the fitted content fills, the rest is the margin
+   */
+  void setFitShare(final double share) {
+    fitShare = share;
+  }
+
   void fit(@NotNull final List<Point3D> corners) {
     if (corners.isEmpty()) {
       return;
@@ -331,7 +344,7 @@ final class IntensityMapCamera {
     }
     final double cx = (minX + maxX) / 2;
     final double cy = (minY + maxY) / 2;
-    final double tangent = Math.tan(Math.toRadians(camera.getFieldOfView() / 2)) * 0.84;
+    final double tangent = Math.tan(Math.toRadians(camera.getFieldOfView() / 2)) * fitShare;
     final double aspect = viewport.getWidth() / viewport.getHeight();
     double z = Double.MAX_VALUE;
     for (final Point3D point : corners) {
